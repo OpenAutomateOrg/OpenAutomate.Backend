@@ -1,8 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using OpenAutomate.Domain.Entity;
 
-namespace OpenAutomate.Domain.DbContext
+namespace OpenAutomate.Infrastructure.DbContext
 {
     public class ApplicationDbContext : Microsoft.EntityFrameworkCore.DbContext
     {
@@ -10,14 +9,6 @@ namespace OpenAutomate.Domain.DbContext
         {
           
         }
-
-        // protected override void OnModelCreating(ModelBuilder modelBuilder)
-        // {
-        //     // Thực hiện seeding dữ liệu trong phương thức này
-        //     modelBuilder.Entity<User>().HasData(
-        //         new User { Id = Guid.NewGuid().ToString() , TenSanPham = "Sản phẩm mẫu", Gia = 100 }
-        //     );
-        // }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

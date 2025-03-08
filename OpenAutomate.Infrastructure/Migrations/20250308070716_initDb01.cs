@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace OpenAutomate.Domain.Migrations
+namespace OpenAutomate.Infrastructure.Migrations
 {
     /// <inheritdoc />
     public partial class initDb01 : Migration
