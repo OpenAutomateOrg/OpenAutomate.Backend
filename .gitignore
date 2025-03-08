@@ -500,4 +500,4 @@ $RECYCLE.BIN/
 *.swp
 *.dotsettings.user
 *.resharper.user*
-OpenAutomate.API/appsettings.Development.json
+appsettings.Development.json
