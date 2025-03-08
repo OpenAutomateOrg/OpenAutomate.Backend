@@ -1,23 +1,23 @@
 {
   "format": 1,
   "restore": {
-    "D:\\SEP490\\OpenAutomate.Backend\\OpenAutomate.Domain\\OpenAutomate.Domain.csproj": {}
+    "C:\\Users\\Minh Smoker\\Desktop\\OpenAutomate\\OpenAutomate.Backend\\OpenAutomate.Domain\\OpenAutomate.Domain.csproj": {}
   },
   "projects": {
-    "D:\\SEP490\\OpenAutomate.Backend\\OpenAutomate.Domain\\OpenAutomate.Domain.csproj": {
+    "C:\\Users\\Minh Smoker\\Desktop\\OpenAutomate\\OpenAutomate.Backend\\OpenAutomate.Domain\\OpenAutomate.Domain.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\SEP490\\OpenAutomate.Backend\\OpenAutomate.Domain\\OpenAutomate.Domain.csproj",
+        "projectUniqueName": "C:\\Users\\Minh Smoker\\Desktop\\OpenAutomate\\OpenAutomate.Backend\\OpenAutomate.Domain\\OpenAutomate.Domain.csproj",
         "projectName": "OpenAutomate.Domain",
-        "projectPath": "D:\\SEP490\\OpenAutomate.Backend\\OpenAutomate.Domain\\OpenAutomate.Domain.csproj",
-        "packagesPath": "C:\\Users\\mingo\\.nuget\\packages\\",
-        "outputPath": "D:\\SEP490\\OpenAutomate.Backend\\OpenAutomate.Domain\\obj\\",
+        "projectPath": "C:\\Users\\Minh Smoker\\Desktop\\OpenAutomate\\OpenAutomate.Backend\\OpenAutomate.Domain\\OpenAutomate.Domain.csproj",
+        "packagesPath": "C:\\Users\\Minh Smoker\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\Minh Smoker\\Desktop\\OpenAutomate\\OpenAutomate.Backend\\OpenAutomate.Domain\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\mingo\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\Minh Smoker\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -42,13 +42,23 @@
         "restoreAuditProperties": {
           "enableAudit": "true",
           "auditLevel": "low",
-          "auditMode": "all"
+          "auditMode": "direct"
         },
         "SdkAnalysisLevel": "9.0.200"
       },
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
+          "dependencies": {
+            "Microsoft.EntityFrameworkCore.Design": {
+              "target": "Package",
+              "version": "[9.0.2, )"
+            },
+            "Microsoft.EntityFrameworkCore.SqlServer": {
+              "target": "Package",
+              "version": "[9.0.2, )"
+            }
+          },
           "imports": [
             "net461",
             "net462",
@@ -65,7 +75,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.200-preview.0.24575.35/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.200/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

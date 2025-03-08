@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("OpenAutomate.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b770833f53a6f82bc55ee2ae43bb7c9b3d43e0db")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bfac4d536d58e01bb573e0601fa81172f404f598")]
 [assembly: System.Reflection.AssemblyProductAttribute("OpenAutomate.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("OpenAutomate.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
