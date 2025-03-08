@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using OpenAutomate.Domain.Entity;
+using OpenAutomate.Domain.Entities;
 
 namespace OpenAutomate.Infrastructure.DbContext
 {
@@ -24,7 +24,7 @@ namespace OpenAutomate.Infrastructure.DbContext
         private DbSet<OrganizationUnitUser> OrganizationUnitUsers { set; get; }
         private DbSet<UserAuthority> UserAuthorities { set; get; }
         private DbSet<Authority> Authorities{ set; get; }
-
+        public DbSet<Robot> Robots { get; set; }
 
 
 

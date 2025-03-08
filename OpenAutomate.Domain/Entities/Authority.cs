@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OpenAutomate.Domain.Entity
+namespace OpenAutomate.Domain.Entities
 {
     public class Authority : BaseEntity.BaseEntity
     {

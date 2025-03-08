@@ -1,4 +1,4 @@
-﻿namespace OpenAutomate.Domain.Entity
+﻿namespace OpenAutomate.Domain.Entities
 {
     public class OrganizationUnit : BaseEntity.BaseEntity
     {
