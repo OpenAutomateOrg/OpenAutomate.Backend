@@ -6,4 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\OpenAutomate.Common\Models\Models.csproj" />
+    <ProjectReference Include="..\OpenAutomate.Domain\OpenAutomate.Domain.csproj" />
+  </ItemGroup>
+
 </Project>
