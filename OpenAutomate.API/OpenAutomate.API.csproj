@@ -11,6 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\OpenAutomate.Common\Models\Models.csproj" />
     <ProjectReference Include="..\OpenAutomate.Infrastructure\OpenAutomate.Infrastructure.csproj" />
   </ItemGroup>
 

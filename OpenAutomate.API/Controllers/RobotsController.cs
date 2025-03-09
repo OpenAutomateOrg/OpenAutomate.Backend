@@ -5,10 +5,7 @@ using Microsoft.Extensions.Logging;
 using OpenAutomate.API.Services;
 using OpenAutomate.Common.Models;
 using OpenAutomate.Core.Services;
-using System;
-using System.Net.WebSockets;
-using System.Threading;
-using System.Threading.Tasks;
+
 
 namespace OpenAutomate.API.Controllers
 {
@@ -233,42 +230,44 @@ namespace OpenAutomate.API.Controllers
                 return StatusCode(500, $"Error creating robot: {ex.Message}");
             }
         }
-
-
-        [HttpGet("admin/list")]
-        [Authorize(Roles = "Admin")] // Requires authorization - implement as needed
-        public async Task<IActionResult> ListAllRobots()
+        [HttpPost("disconnect")]
+        public async Task<IActionResult> DisconnectRobot([FromBody] DisconnectRobotModel model)
         {
+            if (model == null || string.IsNullOrEmpty(model.MachineKey))
+            {
+                return BadRequest("Invalid disconnect data");
+            }
+
             try
             {
-                var robots = await _robotService.GetAllRobotsAsync();
+                _logger.LogInformation("Robot disconnect request received for machine key: {MachineKey}", model.MachineKey);
 
-                // Transform to admin view model with all details including machine keys
-                var result = robots.Select(r => new RobotAdminViewModel
+                // Update the robot status in the database to disconnected
+                bool result = await _robotService.UpdateRobotStatusAsync(model.MachineKey, false);
+
+                if (!result)
                 {
-                    Id = r.Id,
-                    MachineName = r.MachineName,
-                    MachineKey = r.MachineKey, // Important: only show to admins
-                    UserName = r.UserName,
-                    IpAddress = r.IpAddress,
-                    IsConnected = r.IsConnected,
-                    LastSeen = r.LastSeen,
-                    AgentVersion = r.AgentVersion,
-                    OsInfo = r.OsInfo,
-                    Tags = r.Tags
-                });
+                    return NotFound("Robot not found");
+                }
 
-                return Ok(result);
+                // Close the WebSocket connection if it exists
+                await _websocketManager.RemoveConnectionAsync(model.MachineKey);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Robot disconnected successfully"
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error listing all robots");
-                return StatusCode(500, "Error listing robots: " + ex.Message);
+                _logger.LogError(ex, "Error disconnecting robot with machine key: {MachineKey}", model.MachineKey);
+                return StatusCode(500, "Error disconnecting robot: " + ex.Message);
             }
         }
 
-        [HttpGet("validate")]
-        public async Task<IActionResult> ValidateMachineKey([FromQuery] string machineKey)
+        [HttpGet("status")]
+        public async Task<IActionResult> GetRobotStatus([FromQuery] string machineKey)
         {
             if (string.IsNullOrEmpty(machineKey))
             {
@@ -277,77 +276,31 @@ namespace OpenAutomate.API.Controllers
 
             try
             {
-                bool exists = await _robotService.ExistsByMachineKeyAsync(machineKey);
-                if (!exists)
+                var robot = await _robotService.GetByMachineKeyAsync(machineKey);
+                if (robot == null)
                 {
-                    return NotFound("Invalid machine key");
+                    return NotFound("Robot not found");
                 }
 
-                return Ok(new { valid = true });
+                return Ok(new
+                {
+                    IsConnected = robot.IsConnected,
+                    LastSeen = robot.LastSeen,
+                    MachineName = robot.MachineName
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error validating machine key: {MachineKey}", machineKey);
-                return StatusCode(500, "Error validating machine key: " + ex.Message);
+                _logger.LogError(ex, "Error checking status for machine key: {MachineKey}", machineKey);
+                return StatusCode(500, "Error checking robot status: " + ex.Message);
             }
         }
 
-        [HttpGet("status/{id}")]
-        public async Task<IActionResult> GetRobotStatus(Guid id)
-        {
-            var robot = await _robotService.GetByIdAsync(id);
-            if (robot == null)
-            {
-                return NotFound("Robot not found");
-            }
 
-            return Ok(new
-            {
-                id = robot.Id,
-                machineName = robot.MachineName,
-                isConnected = robot.IsConnected,
-                lastSeen = robot.LastSeen,
-                ipAddress = robot.IpAddress
-            });
-        }
 
 
 
 
     }
 
-    public class RobotAdminViewModel
-    {
-        public Guid Id { get; set; }
-        public string MachineName { get; set; }
-        public string MachineKey { get; set; } // Machine key is shown to admins
-        public string UserName { get; set; }
-        public string IpAddress { get; set; }
-        public bool IsConnected { get; set; }
-        public DateTime LastSeen { get; set; }
-        public string AgentVersion { get; set; }
-        public string OsInfo { get; set; }
-        public string[] Tags { get; set; }
-    }
-
-
-    public class CreateRobotRequest
-    {
-        public string MachineName { get; set; }
-    }
-
-
-    public class RobotConnectionResponse
-    {
-        public Guid RobotId { get; set; }
-        public bool Success { get; set; }
-        public string Message { get; set; }
-    }
-
-    public class HeartbeatModel
-    {
-        public string MachineKey { get; set; }
-        public string MachineName { get; set; }
-        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
-    }
 }

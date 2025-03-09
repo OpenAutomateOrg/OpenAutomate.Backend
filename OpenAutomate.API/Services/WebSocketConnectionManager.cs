@@ -27,6 +27,10 @@ namespace OpenAutomate.API.Services
             _serviceProvider = serviceProvider;
         }
 
+
+
+
+
         public void AddConnection(string machineKey, WebSocket webSocket)
         {
             _connections.TryAdd(machineKey, webSocket);
