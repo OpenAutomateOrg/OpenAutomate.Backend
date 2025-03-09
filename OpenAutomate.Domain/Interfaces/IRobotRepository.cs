@@ -1,10 +1,8 @@
 ﻿// OpenAutomate.Core/Interfaces/IRobotRepository.cs
-using OpenAutomate.Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
-namespace OpenAutomate.Core.Interfaces
+using OpenAutomate.Domain.Entities;
+
+namespace OpenAutomate.Domain.Interfaces
 {
     public interface IRobotRepository
     {

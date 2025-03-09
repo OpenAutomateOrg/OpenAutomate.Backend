@@ -15,6 +15,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Models", "..\OpenAutomate.C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Contracts", "..\OpenAutomate.Common\Contracts\Contracts.csproj", "{ED46005F-0F05-25B8-570D-10E32B40768C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenAutomate.WorkerService", "..\OpenAutomate.Worker\OpenAutomate.WorkerService\OpenAutomate.WorkerService.csproj", "{A69B2C8E-4812-1FB2-16D8-24CCABF590EA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenAutomate.Agent", "..\OpenAutomate.Worker\OpenAutomate.Agent\OpenAutomate.Agent.csproj", "{1393D51F-BC5D-A7D8-3D08-E09462FB1D29}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -45,6 +49,14 @@ Global
 		{ED46005F-0F05-25B8-570D-10E32B40768C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{ED46005F-0F05-25B8-570D-10E32B40768C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{ED46005F-0F05-25B8-570D-10E32B40768C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A69B2C8E-4812-1FB2-16D8-24CCABF590EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A69B2C8E-4812-1FB2-16D8-24CCABF590EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A69B2C8E-4812-1FB2-16D8-24CCABF590EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A69B2C8E-4812-1FB2-16D8-24CCABF590EA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1393D51F-BC5D-A7D8-3D08-E09462FB1D29}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1393D51F-BC5D-A7D8-3D08-E09462FB1D29}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1393D51F-BC5D-A7D8-3D08-E09462FB1D29}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1393D51F-BC5D-A7D8-3D08-E09462FB1D29}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

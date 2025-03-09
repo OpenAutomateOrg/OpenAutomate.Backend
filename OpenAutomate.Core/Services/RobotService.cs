@@ -1,5 +1,5 @@
 ﻿using OpenAutomate.Common.Models;
-using OpenAutomate.Core.Interfaces;
+using OpenAutomate.Domain.Interfaces;
 using OpenAutomate.Domain.Entities;
 
 
@@ -21,11 +21,9 @@ namespace OpenAutomate.Core.Services
 
             if (robot == null)
             {
-                // Create new robot if not found
-                robot = new Robot(model.MachineName, model.MachineKey);
-                await _robotRepository.AddAsync(robot);
+                throw new ArgumentException("Machine Key invalid", nameof(model.MachineKey));
             }
-
+            
             // Update robot information
             robot.UpdateConnectionStatus(true);
             robot.UpdateInfo(model.UserName, model.IpAddress, model.AgentVersion, model.OsInfo);
@@ -96,6 +94,30 @@ namespace OpenAutomate.Core.Services
                 OsInfo = robot.OsInfo
             };
         }
+
+
+        public async Task<RobotConnectionModel> GetByMachineKeyAsync(string machinekey)
+        {
+            var robot = await _robotRepository.GetByMachineKeyAsync(machinekey);
+            if (robot == null)
+            {
+                return null;
+            }
+
+            return new RobotConnectionModel
+            {
+                Id = robot.Id,
+                MachineName = robot.MachineName,
+                MachineKey = robot.MachineKey,
+                UserName = robot.UserName,
+                IpAddress = robot.IpAddress,
+                IsConnected = robot.IsConnected,
+                LastSeen = robot.LastSeen,
+                AgentVersion = robot.AgentVersion,
+                OsInfo = robot.OsInfo
+            };
+        }
+
 
 
         // In RobotService.cs - add or update this method

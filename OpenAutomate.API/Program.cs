@@ -1,7 +1,7 @@
 // OpenAutomate.API/Program.cs
 using Microsoft.EntityFrameworkCore;
 using OpenAutomate.API.Services;
-using OpenAutomate.Core.Interfaces;
+using OpenAutomate.Domain.Interfaces;
 using OpenAutomate.Core.Services;
 using OpenAutomate.Infrastructure.DbContext;
 using OpenAutomate.Infrastructure.Repositories;

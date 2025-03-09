@@ -1,6 +1,6 @@
 ﻿// OpenAutomate.Infrastructure/Repositories/RobotRepository.cs
 using Microsoft.EntityFrameworkCore;
-using OpenAutomate.Core.Interfaces;
+using OpenAutomate.Domain.Interfaces;
 using OpenAutomate.Domain.Entities;
 using OpenAutomate.Infrastructure.DbContext;
 
