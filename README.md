@@ -33,15 +33,12 @@ OpenAutomate.Backend/
 
 ### Setup Instructions
 
-1. **Clone the repository with submodule:**
+1. **Clone the repository:**
 
 ```bash
-git clone --recursive https://github.com/OpenAutomateOrg/OpenAutomate.Backend.git
+git clone https://github.com/OpenAutomateOrg/OpenAutomate.Backend.git
 cd OpenAutomate.Backend
 
-# If you forgot --recursive, run:
-git submodule init
-git submodule update
 ```
 
 2. **Open the solution:**
@@ -94,17 +91,6 @@ The API provides endpoints for:
 
 ## Development Workflow
 
-### Working with the Common Submodule
-
-The shared contracts and models are in the Common submodule. To update it:
-
-```bash
-cd OpenAutomate.Common
-git pull origin main
-cd ..
-git add OpenAutomate.Common
-git commit -m "Update Common submodule"
-```
 
 ### Database Migrations
 
