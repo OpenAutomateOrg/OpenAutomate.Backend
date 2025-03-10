@@ -1,6 +1,5 @@
 # This workflow will build a .NET project
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
-
 name: .NET
 
 on:
@@ -16,7 +15,7 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: 'recursive'
-        token: ${{ secrets.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 }}
+        token: ${{ secrets.PAT_FOR_SUBMODULES }}
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
