@@ -19,6 +19,9 @@ namespace OpenAutomate.API.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly ConcurrentDictionary<string, WebSocket> _connections = new();
 
+        // We'll access this lazily to avoid the circular dependency
+        private ConnectionMonitorService _connectionMonitor;
+
         public WebSocketConnectionManager(
             ILogger<WebSocketConnectionManager> logger,
             IServiceProvider serviceProvider)
@@ -27,13 +30,24 @@ namespace OpenAutomate.API.Services
             _serviceProvider = serviceProvider;
         }
 
-
-
-
+        // Initialize connection monitor when needed
+        private ConnectionMonitorService ConnectionMonitor
+        {
+            get
+            {
+                if (_connectionMonitor == null)
+                {
+                    _connectionMonitor = _serviceProvider.GetRequiredService<ConnectionMonitorService>();
+                }
+                return _connectionMonitor;
+            }
+        }
 
         public void AddConnection(string machineKey, WebSocket webSocket)
         {
             _connections.TryAdd(machineKey, webSocket);
+            // Register with connection monitor
+            ConnectionMonitor.RegisterRobot(machineKey);
             _logger.LogInformation("Robot connected with machine key: {MachineKey}", machineKey);
         }
 
@@ -62,6 +76,9 @@ namespace OpenAutomate.API.Services
                     var robotService = scope.ServiceProvider.GetRequiredService<RobotService>();
                     await robotService.UpdateRobotStatusAsync(machineKey, false);
                 }
+
+                // Unregister from connection monitor
+                ConnectionMonitor.UnregisterRobot(machineKey);
 
                 _logger.LogInformation("Robot disconnected with machine key: {MachineKey}", machineKey);
             }
@@ -168,7 +185,7 @@ namespace OpenAutomate.API.Services
 
                 _logger.LogDebug("Received message from robot {MachineKey}: {MessageType}",
                     machineKey, message.Type);
-
+                ConnectionMonitor.UpdateHeartbeat(machineKey);
                 // Create a scope to resolve the RobotService
                 using (var scope = _serviceProvider.CreateScope())
                 {
