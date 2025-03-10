@@ -11,13 +11,12 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
       with:
-        submodules: 'recursive'  # Add this to check out submodules
+        submodules: 'recursive'
+        token: ${{ secrets.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 }}
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
