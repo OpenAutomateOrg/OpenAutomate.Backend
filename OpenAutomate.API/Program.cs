@@ -26,7 +26,11 @@ namespace OpenAutomate.API
 
             // Register WebSocket manager as a singleton (shared across all requests)
             builder.Services.AddScoped<WebSocketConnectionManager>();
-
+            // In Program.cs or Startup.cs
+            // Register services
+            builder.Services.AddSingleton<ConnectionMonitorService>();
+            builder.Services.AddSingleton<WebSocketConnectionManager>();
+            builder.Services.AddHostedService<ConnectionMonitorService>();
             builder.Configuration.AddEnvironmentVariables();
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
