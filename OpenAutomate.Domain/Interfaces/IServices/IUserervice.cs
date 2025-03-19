@@ -1,6 +1,6 @@
 ﻿using OpenAutomate.Domain.Dto;
 
-namespace OpenAutomate.Domain.IServices
+namespace OpenAutomate.Domain.Interfaces.IServices
 {
     public interface IUserervice
     {

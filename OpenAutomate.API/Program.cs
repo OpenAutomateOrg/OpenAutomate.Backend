@@ -5,6 +5,8 @@ using OpenAutomate.Domain.Interfaces;
 using OpenAutomate.Core.Services;
 using OpenAutomate.Infrastructure.DbContext;
 using OpenAutomate.Infrastructure.Repositories;
+using OpenAutomate.Domain.IRepository;
+using OpenAutomate.Domain.Interfaces.IRepository;
 
 namespace OpenAutomate.API
 {
@@ -19,6 +21,7 @@ namespace OpenAutomate.API
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
             // Register repositories
+            builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
             builder.Services.AddScoped<IRobotRepository, RobotRepository>();
 
             // Register services

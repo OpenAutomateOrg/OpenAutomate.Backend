@@ -2,8 +2,8 @@
 {
     public class ErrorHandleMiddleware 
     {
-        private readonly RequestDelegate _next;
-        private readonly ILogger _logger;
+        //private readonly RequestDelegate _next;
+        //private readonly ILogger _logger;
 
     }
 }

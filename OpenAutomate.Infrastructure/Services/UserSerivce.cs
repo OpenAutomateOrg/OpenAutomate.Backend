@@ -1,8 +1,8 @@
 ﻿using Microsoft.Identity.Client;
 using OpenAutomate.Domain.Dto;
 using OpenAutomate.Domain.Entities;
-using OpenAutomate.Domain.IRepository;
-using OpenAutomate.Domain.IServices;
+using OpenAutomate.Domain.Interfaces.IRepository;
+using OpenAutomate.Domain.Interfaces.IServices;
 
 namespace OpenAutomate.Infrastructure.Services
 {
@@ -19,12 +19,13 @@ namespace OpenAutomate.Infrastructure.Services
             var account = await _userRepository.GetFirstOrDefaultAsync(x => x.Email == model.Email);
 
             // validation : will check whether user with email is correct or not 
-            if (account == null) 
+            if (account == null || !BCrypt.Net.BCrypt.Verify(model.Password, account.PasswordHash)) 
             {
-                return;
+                // TODO: Should create a new Middleware Exeption for handle exeption of System. 
+                throw new Exception("Email or password is incorrect");
             } 
 
-
+            
 
 
         }

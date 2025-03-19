@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\OpenAutomate.Core\OpenAutomate.Core.csproj" />
     <ProjectReference Include="..\OpenAutomate.Domain\OpenAutomate.Domain.csproj" />
   </ItemGroup>
