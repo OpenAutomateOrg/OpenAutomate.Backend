@@ -7,6 +7,10 @@ using OpenAutomate.Infrastructure.DbContext;
 using OpenAutomate.Infrastructure.Repositories;
 using OpenAutomate.Domain.IRepository;
 using OpenAutomate.Domain.Interfaces.IRepository;
+using OpenAutomate.Domain.Interfaces.IJwtUtils;
+using Microsoft.AspNetCore.Identity;
+using OpenAutomate.Infrastructure.Services;
+using OpenAutomate.Domain.Interfaces.IServices;
 
 namespace OpenAutomate.API
 {
@@ -14,7 +18,7 @@ namespace OpenAutomate.API
     {
         public static void Main(string[] args)
         {
-            var builder = WebApplication.CreateBuilder(args);
+            var builder = WebApplication.CreateBuilder(args); 
 
             // Add services to the container.
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -22,10 +26,13 @@ namespace OpenAutomate.API
 
             // Register repositories
             builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+            builder.Services.AddScoped<IJwtUtils, JwtUtils>();
+            
             builder.Services.AddScoped<IRobotRepository, RobotRepository>();
-
+            
             // Register services
             builder.Services.AddScoped<RobotService>();
+            builder.Services.AddScoped<IUserservice, UserSerivce>();
 
             // Register WebSocket manager as a singleton (shared across all requests)
             builder.Services.AddScoped<WebSocketConnectionManager>();

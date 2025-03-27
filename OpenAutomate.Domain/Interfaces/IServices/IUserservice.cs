@@ -2,7 +2,7 @@
 
 namespace OpenAutomate.Domain.Interfaces.IServices
 {
-    public interface IUserervice
+    public interface IUserservice
     {
         void Authenticate(AuthenticateRequest model);
 

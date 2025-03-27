@@ -19,11 +19,12 @@ namespace OpenAutomate.Infrastructure.DbContext
            .HasKey(ouu => new { ouu.UserId, ouu.AuthorityID });
         }
 
-        private DbSet<User> Users { set; get; }
-        private DbSet<OrganizationUnit> OrganizationUnits { set; get; }
-        private DbSet<OrganizationUnitUser> OrganizationUnitUsers { set; get; }
-        private DbSet<UserAuthority> UserAuthorities { set; get; }
-        private DbSet<Authority> Authorities{ set; get; }
+        public DbSet<User> Users { set; get; }
+        public DbSet<OrganizationUnit> OrganizationUnits { set; get; }
+        public DbSet<OrganizationUnitUser> OrganizationUnitUsers { set; get; }
+        public DbSet<UserAuthority> UserAuthorities { set; get; }
+        public DbSet<Authority> Authorities{ set; get; }
+        public DbSet<RefreshToken> RefreshTokens { set; get; } 
         public DbSet<Robot> Robots { get; set; }
 
 

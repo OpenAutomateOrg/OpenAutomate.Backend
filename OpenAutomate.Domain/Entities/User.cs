@@ -12,5 +12,11 @@ namespace OpenAutomate.Domain.Entities
         public string? FirstName { set; get; }
         public string? LastName { set; get; }
         public string? ImageUrl { set; get; }
+        public List<RefreshToken>? RefreshTokens { get; set; }
+        public bool OwnsToken(string token)
+        {
+            return this.RefreshTokens?.Find(x => x.Token == token) != null;
+        }
+
     }
 }
