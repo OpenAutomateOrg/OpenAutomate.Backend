@@ -1,5 +1,7 @@
-﻿using OpenAutomate.Domain.Constants;
-using OpenAutomate.Domain.Dto;
+﻿using AutoMapper;
+using Azure;
+using OpenAutomate.Domain.Constants;
+using OpenAutomate.Domain.Dto.UserDto;
 using OpenAutomate.Domain.Entities;
 using OpenAutomate.Domain.Interfaces.IJwtUtils;
 using OpenAutomate.Domain.Interfaces.IRepository;
@@ -11,13 +13,17 @@ namespace OpenAutomate.Infrastructure.Services
     {
         private readonly IRepository<User> _userRepository;
         private readonly IJwtUtils _jwtUtils;
-        public UserSerivce(IRepository<User> userRepository, IJwtUtils jwtUtils)
+        private readonly IMapper _mapper;
+
+        public UserSerivce(IRepository<User> userRepository, IJwtUtils jwtUtils, IMapper mapper)
         {
             _userRepository = userRepository;
             _jwtUtils = jwtUtils;
+            _mapper = mapper;
+
         }
 
-        public async void Authenticate(AuthenticateRequest model)
+        public async Task<AuthenticationResponse> AuthenticateAsync(AuthenticateRequest model)
         {
             var account = await _userRepository.GetFirstOrDefaultAsync(x => x.Email == model.Email);
 
@@ -31,11 +37,23 @@ namespace OpenAutomate.Infrastructure.Services
             // tao JWT token 
 
             var jwtToken = _jwtUtils.GenerateJwtToken(account); 
-            var refreshToken = _jwtUtils.GenerateRefreshToken(jwtToken); 
-
+            var refreshToken = _jwtUtils.GenerateRefreshToken("");
+            account.RefreshTokens.Add(refreshToken);
 
             // tao refresh token 
             // xoa token cu 
+            RemoveOldRefreshToken(account); 
+
+            _userRepository.Update(account);
+            await _userRepository.SaveChangesAsync();
+
+            var response = _mapper.Map<AuthenticationResponse>(account);
+
+            response.JwtToken = jwtToken;
+            response.RefreshToken = refreshToken.Token;
+            
+            return response;    
+            
 
 
 

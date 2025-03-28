@@ -1,10 +1,10 @@
-﻿using OpenAutomate.Domain.Dto;
+﻿using OpenAutomate.Domain.Dto.UserDto;
 
 namespace OpenAutomate.Domain.Interfaces.IServices
 {
     public interface IUserservice
     {
-        void Authenticate(AuthenticateRequest model);
+        Task<AuthenticationResponse> AuthenticateAsync(AuthenticateRequest model);
 
     }
 }

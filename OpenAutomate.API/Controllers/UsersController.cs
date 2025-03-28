@@ -1,6 +1,9 @@
-﻿namespace OpenAutomate.API.Controllers
+﻿using System.Security.Cryptography;
+
+namespace OpenAutomate.API.Controllers
 {
-    public class UsersController : 
+    public class UsersController : BaseController
     {
+
     }
 }
