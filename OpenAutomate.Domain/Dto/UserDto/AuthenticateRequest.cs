@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OpenAutomate.Domain.Dto
+namespace OpenAutomate.Domain.Dto.UserDto
 {
     public class AuthenticateRequest
     {
