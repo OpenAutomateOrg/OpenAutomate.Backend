@@ -249,7 +249,7 @@ sequenceDiagram
 - **Frontend:**
   - Next.js
   - React
-  - Material-UI (or similar component library)
+  - shadcn (or similar component library)
   - SWR or React Query (for data fetching)
   - Chart.js (for visualization)
   - Socket.IO client (for WebSocket connections)
