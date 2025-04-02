@@ -52,9 +52,9 @@ erDiagram
         string Username
         string Email
         string PasswordHash
-        string[] Roles
+        string Roles
         DateTime CreatedAt
-        DateTime? LastLogin
+        DateTime LastLogin
     }
     
     BotAgent {
@@ -90,10 +90,10 @@ erDiagram
         Guid Id
         Guid BotAgentId
         Guid PackageId
-        Guid? ScheduleId
+        Guid ScheduleId
         string Status
         DateTime StartTime
-        DateTime? EndTime
+        DateTime EndTime
         string LogOutput
         string ErrorMessage
     }
