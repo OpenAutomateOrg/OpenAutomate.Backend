@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
-namespace OpenAutomate.Domain.BaseEntity
+namespace OpenAutomate.Core.Domain.BaseEntity
 {
     public class BaseEntity
     {

@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OpenAutomate.Domain.Entities
+namespace OpenAutomate.Core.Domain.Entities
 {
     public class RefreshToken
     {

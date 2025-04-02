@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace OpenAutomate.Domain.Entities
+namespace OpenAutomate.Core.Domain.Entities
 {
     public class OrganizationUnitUser
     {

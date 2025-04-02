@@ -2,7 +2,7 @@
 
 namespace OpenAutomate.API.Controllers
 {
-    public class UsersController : BaseController
+    public class UsersController : CustomControllerBase
     {
 
     }

@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using OpenAutomate.Domain.Entities;
+using OpenAutomate.Core.Domain.Entities;
 
 namespace OpenAutomate.Infrastructure.DbContext
 {

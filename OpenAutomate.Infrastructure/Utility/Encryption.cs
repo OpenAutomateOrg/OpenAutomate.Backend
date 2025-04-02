@@ -1,6 +1,7 @@
-﻿using System.Security.Cryptography;
+﻿using OpenAutomate.Core.Domain.Entities;
+using System.Security.Cryptography;
 using System.Text;
-using OpenAutomate.Domain.Entities;
+
 
 namespace OpenAutomate.Infrastructure.Utility
 {

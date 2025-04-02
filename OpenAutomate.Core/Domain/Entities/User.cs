@@ -1,11 +1,11 @@
-﻿using OpenAutomate.Domain.BaseEntity;
+﻿using OpenAutomate.Core.Domain.BaseEntity;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OpenAutomate.Domain.Entities
+namespace OpenAutomate.Core.Domain.Entities
 {
     public class User : BaseUser
     {

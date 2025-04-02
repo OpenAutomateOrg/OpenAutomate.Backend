@@ -1,11 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using OpenAutomate.Domain.Entities;
+using OpenAutomate.Core.Domain.Entities;
 
 namespace OpenAutomate.API.Controllers
 {
 
     [Controller]
-    public abstract class BaseController : ControllerBase
+    public abstract class CustomControllerBase : ControllerBase
     {
         // returns the current authenticated account (null if not logged in)
         public User User => (User)HttpContext.Items["User"];

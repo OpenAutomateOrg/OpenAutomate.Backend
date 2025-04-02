@@ -1,5 +1,4 @@
-﻿
-namespace OpenAutomate.Domain.BaseEntity
+﻿namespace OpenAutomate.Core.Domain.BaseEntity
 {
     public class BaseUser : BaseEntity
     {

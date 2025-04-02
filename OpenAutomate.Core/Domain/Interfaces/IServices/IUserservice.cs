@@ -1,4 +1,5 @@
-﻿using OpenAutomate.Domain.Dto.UserDto;
+﻿using OpenAutomate.Core.Domain.Dto.UserDto;
+using OpenAutomate.Domain.Dto.UserDto;
 
 namespace OpenAutomate.Domain.Interfaces.IServices
 {

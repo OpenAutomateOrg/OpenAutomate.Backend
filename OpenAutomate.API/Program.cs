@@ -1,16 +1,6 @@
 // OpenAutomate.API/Program.cs
 using Microsoft.EntityFrameworkCore;
-using OpenAutomate.API.Services;
-using OpenAutomate.Domain.Interfaces;
-using OpenAutomate.Core.Services;
 using OpenAutomate.Infrastructure.DbContext;
-using OpenAutomate.Infrastructure.Repositories;
-using OpenAutomate.Domain.IRepository;
-using OpenAutomate.Domain.Interfaces.IRepository;
-using OpenAutomate.Domain.Interfaces.IJwtUtils;
-using Microsoft.AspNetCore.Identity;
-using OpenAutomate.Infrastructure.Services;
-using OpenAutomate.Domain.Interfaces.IServices;
 
 namespace OpenAutomate.API
 {
@@ -24,23 +14,7 @@ namespace OpenAutomate.API
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-            // Register repositories
-            builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
-            builder.Services.AddScoped<IJwtUtils, JwtUtils>();
-            
-            builder.Services.AddScoped<IRobotRepository, RobotRepository>();
-            
-            // Register services
-            builder.Services.AddScoped<RobotService>();
-            builder.Services.AddScoped<IUserservice, UserSerivce>();
 
-            // Register WebSocket manager as a singleton (shared across all requests)
-            builder.Services.AddScoped<WebSocketConnectionManager>();
-            // In Program.cs or Startup.cs
-            // Register services
-            builder.Services.AddSingleton<ConnectionMonitorService>();
-            builder.Services.AddSingleton<WebSocketConnectionManager>();
-            builder.Services.AddHostedService<ConnectionMonitorService>();
             builder.Configuration.AddEnvironmentVariables();
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
@@ -65,7 +39,7 @@ namespace OpenAutomate.API
             app.UseWebSockets(new WebSocketOptions
             {
                 KeepAliveInterval = TimeSpan.FromMinutes(2),
-                AllowedOrigins = { "*" } // Or specify your allowed origins
+                AllowedOrigins = { "*" } 
             });
 
             app.UseAuthorization();
