@@ -162,7 +162,7 @@ This document provides a comprehensive breakdown of tasks for implementing the O
 
 - [ ] Create Next.js project structure
 - [ ] Configure TypeScript for type safety
-- [ ] Set up component library (Material-UI or similar)
+- [ ] Set up component library (Shacdn or similar)
 - [ ] Implement authentication context and hooks
 - [ ] Create API client for backend communication
 - [ ] Set up global state management
