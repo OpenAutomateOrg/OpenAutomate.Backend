@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using OpenAutomate.Infrastructure.DbContext;
 
@@ -11,9 +12,11 @@ using OpenAutomate.Infrastructure.DbContext;
 namespace OpenAutomate.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250403114126_InitialAutomationModel")]
+    partial class InitialAutomationModel
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -194,7 +197,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.ToTable("Executions");
                 });
 
-            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.Organization", b =>
+            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.OrganizationUnit", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -220,22 +223,22 @@ namespace OpenAutomate.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Organization");
+                    b.ToTable("OrganizationUnits");
                 });
 
-            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.OrganizationUser", b =>
+            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.OrganizationUnitUser", b =>
                 {
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("OrganizationId")
+                    b.Property<Guid>("OrganizationUnitId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.HasKey("UserId", "OrganizationId");
+                    b.HasKey("UserId", "OrganizationUnitId");
 
-                    b.HasIndex("OrganizationId");
+                    b.HasIndex("OrganizationUnitId");
 
-                    b.ToTable("OrganizationUsers");
+                    b.ToTable("OrganizationUnitUsers");
                 });
 
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.PackageVersion", b =>
@@ -524,11 +527,11 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Navigation("Schedule");
                 });
 
-            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.OrganizationUser", b =>
+            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.OrganizationUnitUser", b =>
                 {
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.Organization", "Organization")
+                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
                         .WithMany()
-                        .HasForeignKey("OrganizationId")
+                        .HasForeignKey("OrganizationUnitId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -538,7 +541,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Organization");
+                    b.Navigation("OrganizationUnit");
 
                     b.Navigation("User");
                 });

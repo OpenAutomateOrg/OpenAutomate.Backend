@@ -1,6 +1,9 @@
 // OpenAutomate.API/Program.cs
 using Microsoft.EntityFrameworkCore;
 using OpenAutomate.Infrastructure.DbContext;
+using OpenAutomate.Core.Domain.Services;
+using OpenAutomate.Infrastructure.Services;
+using OpenAutomate.API.Middleware;
 
 namespace OpenAutomate.API
 {
@@ -14,6 +17,9 @@ namespace OpenAutomate.API
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+            // Register services
+            builder.Services.AddScoped<ITenantContext, TenantContext>();
+            builder.Services.AddHttpContextAccessor();
 
             builder.Configuration.AddEnvironmentVariables();
             builder.Services.AddControllers();
@@ -42,7 +48,11 @@ namespace OpenAutomate.API
                 AllowedOrigins = { "*" } 
             });
 
+            // Add tenant resolution middleware before MVC/API controllers but after authentication
+            app.UseAuthentication();
+            app.UseTenantResolution();
             app.UseAuthorization();
+
             app.MapControllers();
             app.Run();
         }
