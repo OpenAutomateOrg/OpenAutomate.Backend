@@ -85,6 +85,30 @@ Implementation details:
    - Marks the token as revoked with reason
    - Saves changes to database
 
+## EF Core Query Optimization
+
+When working with computed properties in LINQ queries, Entity Framework Core cannot translate these properties to SQL, resulting in query translation errors. To address this, we implement a two-step approach:
+
+```csharp
+// Incorrect approach - will cause EF Core translation error
+var token = _unitOfWork.RefreshTokens.GetFirstOrDefaultAsync(
+    t => t.Token == refreshToken && !t.IsRevoked && !t.IsExpired,
+    t => t.User).GetAwaiter().GetResult();
+
+// Correct approach - separate database query from computed property checks
+var token = _unitOfWork.RefreshTokens.GetFirstOrDefaultAsync(
+    t => t.Token == refreshToken,
+    t => t.User).GetAwaiter().GetResult();
+    
+if (token == null || token.IsRevoked || token.IsExpired)
+    throw new Exception("Invalid token");
+```
+
+This pattern:
+1. Queries the database using only properties that can be translated to SQL
+2. Performs checks with computed properties in memory after retrieving the entity
+3. Prevents "The LINQ expression could not be translated" exceptions
+
 ## API Endpoints
 
 1. **Login Endpoint**:
@@ -94,26 +118,30 @@ Implementation details:
    - Authenticates user credentials
    - Generates access and refresh tokens
    - Returns tokens in response
+   - Sets refresh token in HTTP-only cookie
 
 2. **Refresh Endpoint**:
    ```
-   POST /api/auth/refresh
+   POST /api/auth/refresh-token
    ```
-   - Accepts expired access token and valid refresh token
-   - Returns new access and refresh tokens
+   - Accepts refresh token from HTTP-only cookie
+   - Returns new access token and sets new refresh token cookie
+   - No request body is required as the token is extracted from cookies
 
 3. **Revoke Endpoint**:
    ```
-   POST /api/auth/revoke
+   POST /api/auth/revoke-token
    ```
    - Invalidates a refresh token
+   - Accepts token from request body or cookie
    - Prevents further token refresh
 
 ## Security Considerations
 
 1. **Token Storage**:
-   - Server: Store hashed refresh tokens in database
-   - Client: Store refresh token in HttpOnly cookie or secure storage
+   - Server: Store refresh tokens in database
+   - Client: Store refresh token in HttpOnly cookie
+   - Client: Store access token in memory with sessionStorage fallback
 
 2. **Token Rotation**:
    - Generate new refresh token with each use
@@ -132,99 +160,244 @@ Implementation details:
 
 ## Frontend Implementation
 
-```typescript
-// Authentication context setup
-const AuthContext = createContext<AuthContextType | null>(null);
+The frontend implementation uses a provider architecture with React Context and prioritizes security with in-memory token storage and sessionStorage fallback for better user experience.
 
-export const AuthProvider: React.FC = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+### AuthProvider Component
 
-  const login = async (username: string, password: string) => {
-    const response = await api.post('/api/auth/login', { username, password });
-    const { accessToken, refreshToken } = response.data;
-    
-    // Store tokens
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
-    
-    // Decode and set user
-    setUser(decodeToken(accessToken));
-  };
+```tsx
+'use client';
 
-  const refreshToken = async () => {
-    try {
-      const currentRefreshToken = localStorage.getItem('refreshToken');
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { AUTH_CONFIG } from '@/lib/config';
+import { getAuthToken, setAuthToken } from '@/lib/api/client';
+
+// Create context
+const AuthContext = createContext(null);
+
+// Export hook for easy context usage
+export const useAuthContext = () => useContext(AuthContext);
+
+// Public routes that don't require authentication
+const publicRoutes = ['/login', '/register', '/forgot-password'];
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const router = useRouter();
+  
+  // Check if the current route is public
+  const isPublicRoute = useCallback((path) => {
+    return publicRoutes.some(route => path.startsWith(route));
+  }, []);
+  
+  // Check authentication status on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      // Get token from memory/session storage
+      const token = getAuthToken();
       
-      if (!currentRefreshToken) {
-        return false;
+      if (!token) {
+        setIsAuthenticated(false);
+        setUser(null);
+        setIsLoading(false);
+        return;
       }
       
-      const response = await api.post('/api/auth/refresh', {
-        refreshToken: currentRefreshToken
+      try {
+        // Fetch user data with the token
+        const response = await fetch(`${AUTH_CONFIG.baseUrl}/api/user`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          setUser(userData);
+          setIsAuthenticated(true);
+        } else {
+          // If the token is invalid, try to refresh it
+          const refreshed = await refreshToken();
+          
+          if (!refreshed) {
+            setAuthToken(null);
+            setIsAuthenticated(false);
+            setUser(null);
+          }
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        setAuthToken(null);
+        setIsAuthenticated(false);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkAuth();
+    
+    // Set up event listener for tab focus to refresh token
+    const handleFocus = () => {
+      if (getAuthToken()) {
+        refreshToken();
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+  
+  // Refresh token function
+  const refreshToken = async () => {
+    try {
+      const response = await fetch(`${AUTH_CONFIG.baseUrl}/api/auth/refresh-token`, {
+        method: 'POST',
+        credentials: 'include' // Include cookies
       });
       
-      const { accessToken, refreshToken } = response.data;
+      if (response.ok) {
+        const data = await response.json();
+        setAuthToken(data.token);
+        setUser(data.user);
+        setIsAuthenticated(true);
+        return true;
+      }
       
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      
-      setUser(decodeToken(accessToken));
-      return true;
+      return false;
     } catch (error) {
-      logout();
+      console.error('Token refresh failed:', error);
       return false;
     }
   };
-
-  // Setup axios interceptor for automatic token refresh
-  useEffect(() => {
-    const interceptor = api.interceptors.response.use(
-      (response) => response,
-      async (error) => {
-        const originalRequest = error.config;
-        
-        if (error.response?.status === 401 && !originalRequest._retry) {
-          originalRequest._retry = true;
-          
-          if (await refreshToken()) {
-            // Add new token to request header
-            originalRequest.headers.Authorization = 
-              `Bearer ${localStorage.getItem('accessToken')}`;
-            return api(originalRequest);
-          }
-        }
-        
-        return Promise.reject(error);
-      }
-    );
-    
-    return () => {
-      api.interceptors.response.eject(interceptor);
-    };
-  }, []);
-
-  // Other auth functions...
-
+  
+  // Return the provider with context value
   return (
-    <AuthContext.Provider value={{ user, login, logout, refreshToken, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated,
+        isLoading,
+        refreshToken
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 };
 ```
 
+### Token Storage Strategy
+
+```typescript
+// In client.ts
+// Token storage with fallback strategy:
+// 1. In-memory (primary storage for best security)
+// 2. sessionStorage (fallback for page refreshes)
+
+let inMemoryToken: string | null = null;
+
+// Safe access to sessionStorage
+const getTokenFromSession = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return sessionStorage.getItem(AUTH_CONFIG.tokenKey);
+  } catch (e) {
+    return null;
+  }
+};
+
+// Safe storage to sessionStorage
+const setTokenToSession = (token: string | null): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    if (token) {
+      sessionStorage.setItem(AUTH_CONFIG.tokenKey, token);
+    } else {
+      sessionStorage.removeItem(AUTH_CONFIG.tokenKey);
+    }
+  } catch (e) {
+    // Ignore errors (private browsing mode, etc.)
+  }
+};
+
+// Initialize token from session if available
+if (typeof window !== 'undefined') {
+  inMemoryToken = getTokenFromSession();
+}
+
+// Getter for token - prioritize memory storage but fall back to session
+export const getAuthToken = (): string | null => {
+  if (inMemoryToken) return inMemoryToken;
+  
+  // If no in-memory token, try to retrieve from session
+  const sessionToken = getTokenFromSession();
+  if (sessionToken) {
+    // Restore to memory if found in session
+    inMemoryToken = sessionToken;
+  }
+  
+  return inMemoryToken;
+};
+
+// Setter for token - update both memory and session storage
+export const setAuthToken = (token: string | null): void => {
+  inMemoryToken = token;
+  setTokenToSession(token);
+};
+```
+
+## Server-Side Rendering Considerations
+
+For Next.js applications, special care must be taken to handle authentication with server-side rendering (SSR):
+
+1. Mark authentication components with the `'use client'` directive
+2. Use a mounted state to prevent hydration mismatches
+3. Provide consistent UI during server rendering and client hydration
+
+```tsx
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/hooks/use-auth';
+
+export default function LoginPage() {
+  const { login, isLoading } = useAuth();
+  const [mounted, setMounted] = useState(false);
+  
+  // Set mounted state on client side
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
+  // Only show errors after component has mounted
+  const [error, setError] = useState(null);
+  const displayError = mounted ? error : null;
+  
+  // Show the same loading state on both server and client
+  if (!mounted || isLoading) {
+    return <div>Loading...</div>;
+  }
+  
+  // Rest of component...
+}
+```
+
 ## Implementation Steps
 
 1. Update Entity Framework models to include RefreshToken
 2. Create migration for RefreshToken storage
-3. Implement TokenService in Infrastructure project
-4. Add TokenController endpoints
+3. Implement TokenService in Infrastructure project with optimized EF Core queries
+4. Add AuthController endpoints
 5. Configure JWT options in appsettings.json
 6. Update authentication middleware configuration
-7. Implement frontend authentication context
-8. Test the complete authentication flow
+7. Implement frontend AuthProvider component
+8. Add TenantProvider for tenant context management
+9. Optimize token storage with in-memory first approach
+10. Test the complete authentication flow
 
 ## Conclusion
 
-This refresh token implementation provides a secure, user-friendly authentication system for OpenAutomate. It balances security concerns (short-lived access tokens) with user experience (automatic refresh without requiring re-authentication) while providing robust token management capabilities. 
+This refresh token implementation provides a secure, user-friendly authentication system for OpenAutomate. It balances security concerns (short-lived access tokens) with user experience (automatic refresh without requiring re-authentication) while providing robust token management capabilities. The implementation handles both server-side rendering compatibility and Entity Framework Core query optimization for better performance and reliability. 

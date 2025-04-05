@@ -34,7 +34,7 @@ The backend is structured following clean architecture principles:
 
 - **Framework**: ASP.NET Core
 - **ORM**: Entity Framework Core
-- **Database**: SQL Server / PostgreSQL
+- **Database**: SQL Server
 - **Real-time Communication**: SignalR
 - **Authentication**: JWT with refresh token
 - **Documentation**: Swagger / OpenAPI

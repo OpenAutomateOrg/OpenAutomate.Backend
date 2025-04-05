@@ -53,14 +53,18 @@ namespace OpenAutomate.Infrastructure.DbContext
         
         private static async Task SeedUsersAsync(ApplicationDbContext context)
         {
+            // Generate a random salt for the seed users
+            var salt = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
+            
             var adminUser = new User
             {
                 FirstName = "Admin",
                 LastName = "User",
                 Email = "admin@openautomate.com",
                 Login = "admin",
-                // In real app, hash the password properly
-                PasswordHash = "AQAAAAEAACcQAAAAEIyvWCE4DWSI09DJnDvZZZkx7qIMKpcjfhArb27VKvvFIXSKNXYnfDHZ7OZnmzl+xQ=="
+                // In real app, this would be properly hashed with the salt
+                PasswordHash = "AQAAAAEAACcQAAAAEIyvWCE4DWSI09DJnDvZZZkx7qIMKpcjfhArb27VKvvFIXSKNXYnfDHZ7OZnmzl+xQ==",
+                PasswordSalt = salt
             };
             
             var devUser = new User
@@ -69,8 +73,9 @@ namespace OpenAutomate.Infrastructure.DbContext
                 LastName = "User",
                 Email = "dev@openautomate.com",
                 Login = "developer",
-                // In real app, hash the password properly
-                PasswordHash = "AQAAAAEAACcQAAAAEIyvWCE4DWSI09DJnDvZZZkx7qIMKpcjfhArb27VKvvFIXSKNXYnfDHZ7OZnmzl+xQ=="
+                // In real app, this would be properly hashed with the salt
+                PasswordHash = "AQAAAAEAACcQAAAAEIyvWCE4DWSI09DJnDvZZZkx7qIMKpcjfhArb27VKvvFIXSKNXYnfDHZ7OZnmzl+xQ==",
+                PasswordSalt = salt
             };
             
             await context.Users.AddRangeAsync(adminUser, devUser);

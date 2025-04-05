@@ -1,7 +1,5 @@
 using System;
-using Microsoft.AspNetCore.Http;
-using OpenAutomate.Core.Domain.Entities;
-using OpenAutomate.Core.Domain.Services;
+using OpenAutomate.Core.Domain.Interfaces;
 
 namespace OpenAutomate.Infrastructure.Services
 {
@@ -10,27 +8,30 @@ namespace OpenAutomate.Infrastructure.Services
     /// </summary>
     public class TenantContext : ITenantContext
     {
-        private readonly IHttpContextAccessor _httpContextAccessor;
-        
-        public TenantContext(IHttpContextAccessor httpContextAccessor)
-        {
-            _httpContextAccessor = httpContextAccessor;
+        private Guid? _currentTenantId;
+
+        public Guid CurrentTenantId 
+        { 
+            get 
+            {
+                if (!_currentTenantId.HasValue)
+                {
+                    throw new InvalidOperationException("No tenant has been set for the current context.");
+                }
+                return _currentTenantId.Value;
+            }
         }
-        
-        /// <summary>
-        /// Gets the current tenant (organization) from HttpContext.Items
-        /// </summary>
-        public Organization CurrentTenant => 
-            _httpContextAccessor.HttpContext?.Items["CurrentTenant"] as Organization;
-        
-        /// <summary>
-        /// Gets the ID of the current tenant or Guid.Empty if no tenant
-        /// </summary>
-        public Guid CurrentTenantId => CurrentTenant?.Id ?? Guid.Empty;
-        
-        /// <summary>
-        /// Indicates whether there is a current tenant context
-        /// </summary>
-        public bool HasTenant => CurrentTenant != null;
+
+        public bool HasTenant => _currentTenantId.HasValue;
+
+        public void SetTenant(Guid tenantId)
+        {
+            _currentTenantId = tenantId;
+        }
+
+        public void ClearTenant()
+        {
+            _currentTenantId = null;
+        }
     }
 } 

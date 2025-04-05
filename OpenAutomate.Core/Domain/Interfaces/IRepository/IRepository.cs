@@ -6,6 +6,7 @@ namespace OpenAutomate.Core.Domain.Interfaces.IRepository
     {
         Task<TEntity> GetByIdAsync(int id);
         Task<TEntity> GetByIdAsync(string id);
+        Task<TEntity> GetByIdAsync(Guid id);
 
         Task<TEntity> GetFirstOrDefaultAsync(Expression<Func<TEntity, bool>> filter = null,
             params Expression<Func<TEntity, object>>[] includes);
@@ -13,6 +14,8 @@ namespace OpenAutomate.Core.Domain.Interfaces.IRepository
         Task<IEnumerable<TEntity>> GetAllAsync(Expression<Func<TEntity, bool>> filter = null,
             Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null,
             params Expression<Func<TEntity, object>>[] includes);
+
+        Task<bool> AnyAsync(Expression<Func<TEntity, bool>> filter = null);
 
         Task AddAsync(TEntity entity);
         Task AddRangeAsync(IEnumerable<TEntity> entities);

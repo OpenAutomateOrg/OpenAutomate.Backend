@@ -1,11 +1,15 @@
 ﻿using OpenAutomate.Core.Domain.Dto.UserDto;
-using OpenAutomate.Domain.Dto.UserDto;
+using System;
+using System.Threading.Tasks;
 
-namespace OpenAutomate.Domain.Interfaces.IServices
+namespace OpenAutomate.Core.Domain.Interfaces.IServices
 {
-    public interface IUserservice
+    public interface IUserService
     {
-        Task<AuthenticationResponse> AuthenticateAsync(AuthenticateRequest model);
-
+        Task<AuthenticationResponse> AuthenticateAsync(AuthenticationRequest request, string ipAddress);
+        Task<AuthenticationResponse> RefreshTokenAsync(string refreshToken, string ipAddress);
+        Task<bool> RevokeTokenAsync(string token, string ipAddress, string reason = null);
+        Task<UserResponse> RegisterAsync(RegistrationRequest request, string ipAddress);
+        Task<UserResponse> GetByIdAsync(Guid id);
     }
 }

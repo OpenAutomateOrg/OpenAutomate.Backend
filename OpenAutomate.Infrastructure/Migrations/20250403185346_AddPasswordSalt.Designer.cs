@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using OpenAutomate.Infrastructure.DbContext;
 
@@ -11,9 +12,11 @@ using OpenAutomate.Infrastructure.DbContext;
 namespace OpenAutomate.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250403185346_AddPasswordSalt")]
+    partial class AddPasswordSalt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -28,7 +31,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("CreatedAt")
+                    b.Property<DateTime?>("CreateAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("CreatedBy")
@@ -53,6 +56,9 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CreateAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -98,7 +104,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("CreatedAt")
+                    b.Property<DateTime?>("CreateAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("CreatedBy")
@@ -156,7 +162,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<Guid>("BotAgentId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("CreatedAt")
+                    b.Property<DateTime?>("CreateAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("CreatedBy")
@@ -212,7 +218,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("CreatedAt")
+                    b.Property<DateTime?>("CreateAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("CreatedBy")
@@ -265,6 +271,9 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("CreateAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -304,10 +313,10 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime>("Created")
+                    b.Property<DateTime?>("CreateAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime?>("CreatedAt")
+                    b.Property<DateTime>("Created")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("CreatedBy")
@@ -358,6 +367,9 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("CreateAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -400,7 +412,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("CreatedAt")
+                    b.Property<DateTime?>("CreateAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("CreatedBy")

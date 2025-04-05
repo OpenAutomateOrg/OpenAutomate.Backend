@@ -8,12 +8,12 @@ namespace OpenAutomate.Core.Domain.BaseEntity
         protected BaseEntity()
         {
             Id = Guid.NewGuid();
-            CreateAt = DateTime.Now;
+            CreatedAt = DateTime.Now;
         }
 
         [Key]
         public Guid Id { get; set; }
-        public DateTime? CreateAt { get; set; }
+        public DateTime? CreatedAt { get; set; }
         public string? CreatedBy { get; set; }
         [JsonIgnore]
         public DateTime? LastModifyAt { get; set; }

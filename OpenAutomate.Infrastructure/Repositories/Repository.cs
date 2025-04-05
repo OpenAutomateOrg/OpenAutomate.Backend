@@ -27,6 +27,11 @@ namespace OpenAutomate.Domain.IRepository
             return await _dbSet.FindAsync(id);
         }
 
+        public async Task<TEntity> GetByIdAsync(Guid id)
+        {
+            return await _dbSet.FindAsync(id);
+        }
+
         public async Task<TEntity> GetFirstOrDefaultAsync(Expression<Func<TEntity, bool>> filter = null,
             params Expression<Func<TEntity, object>>[] includes)
         {
@@ -132,6 +137,16 @@ namespace OpenAutomate.Domain.IRepository
         public async Task<int> SaveChangesAsync()
         {
             return await _dbContext.SaveChangesAsync();
+        }
+
+        public async Task<bool> AnyAsync(Expression<Func<TEntity, bool>> filter = null)
+        {
+            IQueryable<TEntity> query = _dbSet;
+            
+            if (filter != null)
+                return await query.AnyAsync(filter);
+            
+            return await query.AnyAsync();
         }
     }
 }
