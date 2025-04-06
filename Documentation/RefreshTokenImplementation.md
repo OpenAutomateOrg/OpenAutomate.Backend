@@ -293,41 +293,59 @@ export const AuthProvider = ({ children }) => {
 
 ```typescript
 // In client.ts
-// Token storage with localStorage for access tokens:
-// Using localStorage for access tokens with HTTP-only cookies for refresh tokens
+// Token storage with fallback strategy:
+// 1. In-memory (primary storage for best security)
+// 2. sessionStorage (fallback for page refreshes)
 
-// Safe access to localStorage
-const getTokenFromStorage = (): string | null => {
+let inMemoryToken: string | null = null;
+
+// Safe access to sessionStorage
+const getTokenFromSession = (): string | null => {
   if (typeof window === 'undefined') return null;
   try {
-    return localStorage.getItem('access_token');
+    return sessionStorage.getItem(AUTH_CONFIG.tokenKey);
   } catch (e) {
     return null;
   }
 };
 
-// Safe storage to localStorage
-const setTokenToStorage = (token: string | null): void => {
+// Safe storage to sessionStorage
+const setTokenToSession = (token: string | null): void => {
   if (typeof window === 'undefined') return;
   try {
     if (token) {
-      localStorage.setItem('access_token', token);
+      sessionStorage.setItem(AUTH_CONFIG.tokenKey, token);
     } else {
-      localStorage.removeItem('access_token');
+      sessionStorage.removeItem(AUTH_CONFIG.tokenKey);
     }
   } catch (e) {
     // Ignore errors (private browsing mode, etc.)
   }
 };
 
-// Getter for token
+// Initialize token from session if available
+if (typeof window !== 'undefined') {
+  inMemoryToken = getTokenFromSession();
+}
+
+// Getter for token - prioritize memory storage but fall back to session
 export const getAuthToken = (): string | null => {
-  return getTokenFromStorage();
+  if (inMemoryToken) return inMemoryToken;
+  
+  // If no in-memory token, try to retrieve from session
+  const sessionToken = getTokenFromSession();
+  if (sessionToken) {
+    // Restore to memory if found in session
+    inMemoryToken = sessionToken;
+  }
+  
+  return inMemoryToken;
 };
 
-// Setter for token
+// Setter for token - update both memory and session storage
 export const setAuthToken = (token: string | null): void => {
-  setTokenToStorage(token);
+  inMemoryToken = token;
+  setTokenToSession(token);
 };
 ```
 
