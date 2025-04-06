@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using OpenAutomate.Core.Domain.Interfaces.IRepository;
+using OpenAutomate.Core.Domain.IRepository;
 
 namespace OpenAutomate.API.Middleware
 {

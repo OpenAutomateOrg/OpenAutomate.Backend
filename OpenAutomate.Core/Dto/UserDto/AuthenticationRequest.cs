@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace OpenAutomate.Core.Domain.Dto.UserDto
+namespace OpenAutomate.Core.Dto.UserDto
 {
     public class AuthenticationRequest
     {
@@ -11,4 +11,4 @@ namespace OpenAutomate.Core.Domain.Dto.UserDto
         [Required]
         public string Password { get; set; }
     }
-} 
+}

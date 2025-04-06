@@ -1,7 +1,7 @@
 using OpenAutomate.Core.Domain.Entities;
-using OpenAutomate.Core.Domain.Interfaces.IRepository;
 using OpenAutomate.Domain.IRepository;
 using OpenAutomate.Infrastructure.DbContext;
+using OpenAutomate.Core.Domain.IRepository;
 
 namespace OpenAutomate.Infrastructure.Repositories
 {

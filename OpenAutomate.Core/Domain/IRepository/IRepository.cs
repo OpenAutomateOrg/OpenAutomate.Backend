@@ -1,6 +1,6 @@
 ﻿using System.Linq.Expressions;
 
-namespace OpenAutomate.Core.Domain.Interfaces.IRepository
+namespace OpenAutomate.Core.Domain.IRepository
 {
     public interface IRepository<TEntity> where TEntity : class
     {

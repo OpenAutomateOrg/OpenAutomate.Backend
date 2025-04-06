@@ -1,8 +1,8 @@
-﻿using OpenAutomate.Core.Domain.Dto.UserDto;
+﻿using OpenAutomate.Core.Dto.UserDto;
 using System;
 using System.Threading.Tasks;
 
-namespace OpenAutomate.Core.Domain.Interfaces.IServices
+namespace OpenAutomate.Core.IServices
 {
     public interface IUserService
     {

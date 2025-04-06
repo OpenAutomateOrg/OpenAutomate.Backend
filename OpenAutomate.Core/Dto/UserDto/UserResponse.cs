@@ -1,6 +1,6 @@
 using System;
 
-namespace OpenAutomate.Core.Domain.Dto.UserDto
+namespace OpenAutomate.Core.Dto.UserDto
 {
     public class UserResponse
     {
@@ -9,4 +9,4 @@ namespace OpenAutomate.Core.Domain.Dto.UserDto
         public string FirstName { get; set; }
         public string LastName { get; set; }
     }
-} 
+}

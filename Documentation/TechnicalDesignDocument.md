@@ -445,25 +445,25 @@ The frontend implements a provider architecture for authentication:
 
 #### 3.6.4. Token Storage Strategy
 
-The frontend implements a memory-first token storage strategy:
+The frontend implements a localStorage-based token storage strategy:
 
-1. Primary storage: In-memory variable (more secure, not accessible to JavaScript)
-2. Fallback storage: sessionStorage (persists across page refreshes)
+1. Access tokens are stored in localStorage for persistence across page refreshes
+2. Refresh tokens are stored in HTTP-only cookies for security
 
 ```typescript
-// Memory-first token storage
-let inMemoryToken: string | null = null;
-
+// localStorage-based token storage
 export const getAuthToken = (): string | null => {
-  if (inMemoryToken) return inMemoryToken;
-  
-  // Fallback to sessionStorage if memory token is not available
-  const sessionToken = getTokenFromSession();
-  if (sessionToken) {
-    inMemoryToken = sessionToken;
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('access_token');
+};
+
+export const setAuthToken = (token: string | null): void => {
+  if (typeof window === 'undefined') return;
+  if (token) {
+    localStorage.setItem('access_token', token);
+  } else {
+    localStorage.removeItem('access_token');
   }
-  
-  return inMemoryToken;
 };
 ```
 

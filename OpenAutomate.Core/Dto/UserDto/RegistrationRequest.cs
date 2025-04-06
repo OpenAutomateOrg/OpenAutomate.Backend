@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace OpenAutomate.Core.Domain.Dto.UserDto
+namespace OpenAutomate.Core.Dto.UserDto
 {
     public class RegistrationRequest
     {
@@ -22,4 +22,4 @@ namespace OpenAutomate.Core.Domain.Dto.UserDto
         [Required]
         public string LastName { get; set; }
     }
-} 
+}
