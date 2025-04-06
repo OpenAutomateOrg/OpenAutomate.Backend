@@ -1,6 +1,6 @@
 using System;
 
-namespace OpenAutomate.Core.Domain.Interfaces
+namespace OpenAutomate.Core.IServices
 {
     public interface ITenantContext
     {
@@ -25,4 +25,4 @@ namespace OpenAutomate.Core.Domain.Interfaces
         /// </summary>
         void ClearTenant();
     }
-} 
+}

@@ -1,7 +1,7 @@
 ﻿using System.Linq.Expressions;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
-using OpenAutomate.Core.Domain.Interfaces.IRepository;
+using OpenAutomate.Core.Domain.IRepository;
 using OpenAutomate.Infrastructure.DbContext;
 
 namespace OpenAutomate.Domain.IRepository

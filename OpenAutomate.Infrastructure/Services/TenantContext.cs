@@ -1,5 +1,5 @@
 using System;
-using OpenAutomate.Core.Domain.Interfaces;
+using OpenAutomate.Core.IServices;
 
 namespace OpenAutomate.Infrastructure.Services
 {

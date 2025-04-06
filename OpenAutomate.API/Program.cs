@@ -6,10 +6,9 @@ using OpenAutomate.API.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using OpenAutomate.Core.Domain.Interfaces.IServices;
 using OpenAutomate.Infrastructure.Repositories;
-using OpenAutomate.Core.Domain.Interfaces.IRepository;
-using OpenAutomate.Core.Domain.Interfaces;
+using OpenAutomate.Core.IServices;
+using OpenAutomate.Core.Domain.IRepository;
 
 namespace OpenAutomate.API
 {
@@ -26,12 +25,11 @@ namespace OpenAutomate.API
             // Add CORS
             builder.Services.AddCors(options =>
             {
-                options.AddPolicy("AllowFrontend", 
-                    policy => policy
-                        .WithOrigins("http://localhost:3000")
-                        .AllowAnyMethod()
-                        .AllowAnyHeader()
-                        .AllowCredentials());
+                options.AddDefaultPolicy(policy => 
+                    policy.WithOrigins("http://localhost:3000")
+                          .AllowAnyMethod()
+                          .AllowAnyHeader()
+                          .AllowCredentials());
             });
 
             // Add JWT Authentication
@@ -85,16 +83,10 @@ namespace OpenAutomate.API
             {
                 app.UseSwagger();
                 app.UseSwaggerUI();
-                
-                // In development, use the same restrictive CORS policy
-                // but with a specific origin (not wildcards) since we're using credentials
-                app.UseCors("AllowFrontend");
             }
-            else
-            {
-                // Use the specific CORS policy in production
-                app.UseCors("AllowFrontend");
-            }
+
+            // Apply CORS policy globally
+            app.UseCors();
 
             app.UseHttpsRedirection();
 
@@ -102,7 +94,7 @@ namespace OpenAutomate.API
             app.UseWebSockets(new WebSocketOptions
             {
                 KeepAliveInterval = TimeSpan.FromMinutes(2),
-                AllowedOrigins = { "*" } 
+                AllowedOrigins = { "http://localhost:3000" } 
             });
 
             // Add tenant resolution middleware before MVC/API controllers but after authentication

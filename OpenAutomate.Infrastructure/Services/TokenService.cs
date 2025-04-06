@@ -2,11 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using OpenAutomate.Core.Domain.Entities;
-using OpenAutomate.Core.Domain.Interfaces.IServices;
-using OpenAutomate.Core.Domain.Interfaces.IRepository;
-using OpenAutomate.Core.Domain.Dto.UserDto;
-using OpenAutomate.Infrastructure.DbContext;
-using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
@@ -14,7 +9,9 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
-using OpenAutomate.Core.Domain.Interfaces;
+using OpenAutomate.Core.Dto.UserDto;
+using OpenAutomate.Core.IServices;
+using OpenAutomate.Core.Domain.IRepository;
 
 namespace OpenAutomate.Infrastructure.Services
 {

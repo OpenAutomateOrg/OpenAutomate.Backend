@@ -1,6 +1,6 @@
 using OpenAutomate.Core.Domain.Entities;
 
-namespace OpenAutomate.Core.Domain.Interfaces.IRepository
+namespace OpenAutomate.Core.Domain.IRepository
 {
     public interface IUnitOfWork : IDisposable
     {
@@ -13,7 +13,7 @@ namespace OpenAutomate.Core.Domain.Interfaces.IRepository
         IRepository<RefreshToken> RefreshTokens { get; }
         IRepository<Organization> Organizations { get; }
         IRepository<OrganizationUser> OrganizationUsers { get; }
-        
+
         Task<int> CompleteAsync();
     }
-} 
+}

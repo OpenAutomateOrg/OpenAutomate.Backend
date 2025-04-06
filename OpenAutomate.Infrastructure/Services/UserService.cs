@@ -1,15 +1,13 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using OpenAutomate.Core.Domain.Entities;
-using OpenAutomate.Core.Domain.Interfaces.IRepository;
-using OpenAutomate.Core.Domain.Interfaces.IServices;
-using OpenAutomate.Core.Domain.Dto.UserDto;
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using OpenAutomate.Core.IServices;
+using OpenAutomate.Core.Domain.IRepository;
+using OpenAutomate.Core.Dto.UserDto;
 
 namespace OpenAutomate.Infrastructure.Services
 {
