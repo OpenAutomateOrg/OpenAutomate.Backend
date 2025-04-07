@@ -6,6 +6,8 @@ using OpenAutomate.API.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using OpenAutomate.API.Config;
+using OpenAutomate.API.Extensions;
 using OpenAutomate.Infrastructure.Repositories;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Domain.IRepository;
@@ -17,11 +19,17 @@ namespace OpenAutomate.API
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args); 
-
+            builder.Configuration.SetBasePath(AppDomain.CurrentDomain.BaseDirectory);
+            builder.Configuration.AddJsonFile("appsettings.json", false, true);
+            builder.Configuration.AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", true, true);
+            builder.Configuration.AddEnvironmentVariables();
+            // Map AppSettings section in appsettings.json file value to AppSetting model
+            builder.Configuration.GetSection("AppSettings").Get<AppSettings>(options => options.BindNonPublicProperties = true);
+            
             // Add services to the container.
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
+                options.UseSqlServer(AppSettings.DefaultConnection));
+            
             // Add CORS
             builder.Services.AddCors(options =>
             {
@@ -99,6 +107,7 @@ namespace OpenAutomate.API
 
             // Add tenant resolution middleware before MVC/API controllers but after authentication
             app.UseAuthentication();
+            app.UseJwtAuthentication();
             app.UseTenantResolution();
             app.UseAuthorization();
             app.MapControllers();
