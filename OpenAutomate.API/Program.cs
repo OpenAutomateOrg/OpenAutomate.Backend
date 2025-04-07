@@ -29,7 +29,8 @@ namespace OpenAutomate.API
                     policy.WithOrigins("http://localhost:3000")
                           .AllowAnyMethod()
                           .AllowAnyHeader()
-                          .AllowCredentials());
+                          .AllowCredentials()
+                          .WithExposedHeaders("Token-Expired"));
             });
 
             // Add JWT Authentication

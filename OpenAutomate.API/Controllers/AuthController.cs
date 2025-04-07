@@ -143,14 +143,14 @@ namespace OpenAutomate.API.Controllers
             {
                 HttpOnly = true,          // Prevents client-side JS from accessing the cookie
                 Expires = expires,
-                SameSite = isDevelopment ? SameSiteMode.None : SameSiteMode.Lax, // None for local dev, Lax for production
-                Secure = !isDevelopment,  // Only require HTTPS in non-development
-                Path = "/api/auth/",      // Limit cookie to auth endpoints
+                SameSite = SameSiteMode.None, // Use None for both development and production with CORS
+                Secure = true,            // Always use secure cookies (required with SameSite=None)
+                Path = "/",               // Make cookie available to all paths
                 MaxAge = TimeSpan.FromDays(7) // Explicit max age as backup to Expires
             };
 
-            _logger.LogDebug("Setting refresh token cookie. SameSite: {SameSite}, Secure: {Secure}, Expires: {Expires}", 
-                cookieOptions.SameSite, cookieOptions.Secure, cookieOptions.Expires);
+            _logger.LogDebug("Setting refresh token cookie. SameSite: {SameSite}, Secure: {Secure}, Expires: {Expires}, Path: {Path}", 
+                cookieOptions.SameSite, cookieOptions.Secure, cookieOptions.Expires, cookieOptions.Path);
                 
             Response.Cookies.Append("refreshToken", token, cookieOptions);
         }
