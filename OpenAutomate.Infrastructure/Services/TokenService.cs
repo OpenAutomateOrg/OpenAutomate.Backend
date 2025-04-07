@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.Domain.Entities;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
@@ -17,16 +19,16 @@ namespace OpenAutomate.Infrastructure.Services
 {
     public class TokenService : ITokenService
     {
-        private readonly IConfiguration _configuration;
+        private readonly JwtSettings _jwtSettings;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ITenantContext _tenantContext;
 
         public TokenService(
-            IConfiguration configuration,
+            IOptions<JwtSettings> jwtSettings,
             IUnitOfWork unitOfWork,
             ITenantContext tenantContext)
         {
-            _configuration = configuration;
+            _jwtSettings = jwtSettings.Value;
             _unitOfWork = unitOfWork;
             _tenantContext = tenantContext;
         }
@@ -153,7 +155,7 @@ namespace OpenAutomate.Infrastructure.Services
                 return false;
 
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Secret"]);
+            var key = Encoding.ASCII.GetBytes(_jwtSettings.Secret);
 
             try
             {
@@ -162,9 +164,9 @@ namespace OpenAutomate.Infrastructure.Services
                     ValidateIssuerSigningKey = true,
                     IssuerSigningKey = new SymmetricSecurityKey(key),
                     ValidateIssuer = true,
-                    ValidIssuer = _configuration["Jwt:Issuer"],
+                    ValidIssuer = _jwtSettings.Issuer,
                     ValidateAudience = true,
-                    ValidAudience = _configuration["Jwt:Audience"],
+                    ValidAudience = _jwtSettings.Audience,
                     ClockSkew = TimeSpan.Zero
                 }, out SecurityToken validatedToken);
 
@@ -179,7 +181,7 @@ namespace OpenAutomate.Infrastructure.Services
         private string GenerateJwtToken(User user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Secret"]);
+            var key = Encoding.ASCII.GetBytes(_jwtSettings.Secret);
             
             // Get the current tenant if available
             Guid? tenantId = _tenantContext.HasTenant ? _tenantContext.CurrentTenantId : null;
@@ -200,9 +202,9 @@ namespace OpenAutomate.Infrastructure.Services
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddMinutes(int.Parse(_configuration["Jwt:AccessTokenExpirationMinutes"])),
-                Issuer = _configuration["Jwt:Issuer"],
-                Audience = _configuration["Jwt:Audience"],
+                Expires = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpirationMinutes),
+                Issuer = _jwtSettings.Issuer,
+                Audience = _jwtSettings.Audience,
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
 
@@ -219,7 +221,7 @@ namespace OpenAutomate.Infrastructure.Services
             return new RefreshToken
             {
                 Token = Convert.ToBase64String(randomBytes),
-                Expires = DateTime.UtcNow.AddDays(int.Parse(_configuration["Jwt:RefreshTokenExpirationDays"])),
+                Expires = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
                 Created = DateTime.UtcNow,
                 CreatedByIp = ipAddress
             };
