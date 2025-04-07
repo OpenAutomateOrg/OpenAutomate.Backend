@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+
 using OpenAutomate.Core.Dto.UserDto;
 using OpenAutomate.Core.IServices;
 

@@ -375,15 +375,43 @@ The organization management feature will implement robust error handling:
 
 ## Frontend Integration
 
-The frontend will implement a user-friendly flow for organization name changes:
+The frontend will implement a user-friendly flow for organization management, aligning with our established UI patterns:
 
-1. When a user attempts to change an organization name, an API call to `CheckNameChangeImpact` is made
-2. If the new name would change the slug, a warning dialog is displayed with:
-   - The current slug and the new slug
-   - A list of potential impacts on connected services
-   - A checkbox for confirming understanding of the changes
-3. Only after explicit confirmation can the user proceed with the name change
-4. After the change, a success message is shown with the new organization URL
+1. **Organization Management UI Design:**
+   - Organization management screens will follow our UiPath-inspired UI pattern with clean, consistent layouts
+   - Card-based design for organization listings with clear visual indicators for active status
+   - Consistent button hierarchy with primary actions using button hover effects (scale and shadow on hover)
+   - Form validation with immediate feedback following the form patterns established in auth workflows
+
+2. **Organization Creation Flow:**
+   - Simple, focused form with clear field validation
+   - Real-time validation of organization name uniqueness
+   - Visual preview of the generated slug as the user types
+   - Confirmation dialog with clear action buttons following our button hierarchy
+
+3. **Organization Name Change Flow:**
+   - When a user attempts to change an organization name, an API call to `CheckNameChangeImpact` is made
+   - If the new name would change the slug, a warning dialog is displayed with:
+     - The current slug and the new slug
+     - A list of potential impacts on connected services
+     - A checkbox for confirming understanding of the changes
+   - Dialog uses consistent button styling with destructive variant for potential data-impacting changes
+   - Only after explicit confirmation can the user proceed with the name change
+   - After the change, a toast notification is shown with the new organization URL
+
+4. **Organization Switching:**
+   - Dropdown menu in the header for quick organization switching
+   - Visual indicator of the current active organization 
+   - Smooth transition between organizations with proper loading states
+   - Breadcrumb navigation showing the current organization context
+
+5. **Organization User Management:**
+   - Table-based view of organization members with clear role indicators
+   - Modal dialogs for adding/removing users with consistent styling
+   - Immediate UI feedback when permissions change
+   - Proper error handling for permission-related issues
+
+All UIs will follow our established design system using Shadcn UI components with consistent spacing, typography, and color usage. The user experience will prioritize clarity and ease of use, with appropriate visual feedback for all actions.
 
 ## Future Enhancements
 

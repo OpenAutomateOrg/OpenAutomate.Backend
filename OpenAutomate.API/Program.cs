@@ -6,7 +6,7 @@ using OpenAutomate.API.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using OpenAutomate.API.Config;
+using OpenAutomate.Core.Configurations;
 using OpenAutomate.API.Extensions;
 using OpenAutomate.Infrastructure.Repositories;
 using OpenAutomate.Core.IServices;
@@ -19,28 +19,40 @@ namespace OpenAutomate.API
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args); 
-            builder.Configuration.SetBasePath(AppDomain.CurrentDomain.BaseDirectory);
-            builder.Configuration.AddJsonFile("appsettings.json", false, true);
-            builder.Configuration.AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", true, true);
+
             builder.Configuration.AddEnvironmentVariables();
-            // Map AppSettings section in appsettings.json file value to AppSetting model
-            builder.Configuration.GetSection("AppSettings").Get<AppSettings>(options => options.BindNonPublicProperties = true);
+            
+            // Register configuration sections with the DI container
+            var appSettingsSection = builder.Configuration.GetSection("AppSettings");
+            builder.Services.Configure<AppSettings>(appSettingsSection);
+            builder.Services.Configure<JwtSettings>(appSettingsSection.GetSection("Jwt"));
+            builder.Services.Configure<DatabaseSettings>(appSettingsSection.GetSection("Database"));
+            builder.Services.Configure<CorsSettings>(appSettingsSection.GetSection("Cors"));
+            
+            // Get configuration for DbContext
+            var dbSettings = appSettingsSection.GetSection("Database").Get<DatabaseSettings>();
             
             // Add services to the container.
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlServer(AppSettings.DefaultConnection));
+                options.UseSqlServer(dbSettings.DefaultConnection));
+            
+            // Get CORS settings
+            var corsSettings = appSettingsSection.GetSection("Cors").Get<CorsSettings>();
             
             // Add CORS
             builder.Services.AddCors(options =>
             {
                 options.AddDefaultPolicy(policy => 
-                    policy.WithOrigins("http://localhost:3000")
+                    policy.WithOrigins(corsSettings.AllowedOrigins)
                           .AllowAnyMethod()
                           .AllowAnyHeader()
                           .AllowCredentials()
                           .WithExposedHeaders("Token-Expired"));
             });
 
+            // Get JWT settings
+            var jwtSettings = appSettingsSection.GetSection("Jwt").Get<JwtSettings>();
+            
             // Add JWT Authentication
             builder.Services.AddAuthentication(options =>
             {
@@ -51,13 +63,13 @@ namespace OpenAutomate.API
             {
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    ValidIssuer = builder.Configuration["Jwt:Issuer"],
-                    ValidAudience = builder.Configuration["Jwt:Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"])),
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret)),
+                    ValidateIssuer = true,
+                    ValidIssuer = jwtSettings.Issuer,
+                    ValidateAudience = true,
+                    ValidAudience = jwtSettings.Audience,
+                    ValidateLifetime = true,
                     ClockSkew = TimeSpan.Zero
                 };
                 
@@ -77,10 +89,9 @@ namespace OpenAutomate.API
             // Register application services
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
             builder.Services.AddScoped<ITokenService, TokenService>();
-            builder.Services.AddScoped<IUserService, OpenAutomate.Infrastructure.Services.UserService>();
+            builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddSingleton<ITenantContext, TenantContext>();
 
-            builder.Configuration.AddEnvironmentVariables();
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
@@ -99,12 +110,19 @@ namespace OpenAutomate.API
 
             app.UseHttpsRedirection();
 
-            // Configure WebSockets 
-            app.UseWebSockets(new WebSocketOptions
+            // Configure WebSockets with allowedOrigins
+            var webSocketOptions = new WebSocketOptions
             {
-                KeepAliveInterval = TimeSpan.FromMinutes(2),
-                AllowedOrigins = { "http://localhost:3000" } 
-            });
+                KeepAliveInterval = TimeSpan.FromMinutes(2)
+            };
+            
+            // Add allowed origins properly
+            foreach (var origin in corsSettings.AllowedOrigins)
+            {
+                webSocketOptions.AllowedOrigins.Add(origin);
+            }
+            
+            app.UseWebSockets(webSocketOptions);
 
             // Add tenant resolution middleware before MVC/API controllers but after authentication
             app.UseAuthentication();
