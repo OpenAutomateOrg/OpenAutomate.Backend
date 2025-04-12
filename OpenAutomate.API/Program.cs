@@ -109,21 +109,6 @@ namespace OpenAutomate.API
             app.UseCors();
 
             app.UseHttpsRedirection();
-
-            // Configure WebSockets with allowedOrigins
-            var webSocketOptions = new WebSocketOptions
-            {
-                KeepAliveInterval = TimeSpan.FromMinutes(2)
-            };
-            
-            // Add allowed origins properly
-            foreach (var origin in corsSettings.AllowedOrigins)
-            {
-                webSocketOptions.AllowedOrigins.Add(origin);
-            }
-            
-            app.UseWebSockets(webSocketOptions);
-
             // Add tenant resolution middleware before MVC/API controllers but after authentication
             app.UseAuthentication();
             app.UseJwtAuthentication();
