@@ -115,6 +115,22 @@ namespace OpenAutomate.API
             app.UseTenantResolution();
             app.UseAuthorization();
             app.MapControllers();
+            
+            // Automatically apply migrations at startup
+            using (var scope = app.Services.CreateScope())
+            {
+                var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                try
+                {
+                    context.Database.Migrate();
+                    Console.WriteLine("Database migrations applied successfully.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"An error occurred applying migrations: {ex.Message}");
+                }
+            }
+            
             app.Run();
         }
     }
