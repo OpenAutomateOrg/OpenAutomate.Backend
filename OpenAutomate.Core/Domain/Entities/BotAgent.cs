@@ -1,10 +1,11 @@
+using OpenAutomate.Core.Domain.Base;
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class BotAgent : BaseEntity.BaseEntity
+    public class BotAgent : BaseEntity
     {
         public string Name { get; set; } = string.Empty;
         public string MachineName { get; set; } = string.Empty;

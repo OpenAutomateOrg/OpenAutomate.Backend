@@ -8,6 +8,6 @@ namespace OpenAutomate.API.Controllers
     public abstract class CustomControllerBase : ControllerBase
     {
         // returns the current authenticated account (null if not logged in)
-        public User User => (User)HttpContext.Items["User"];
+        public User currentUser => (User)HttpContext.Items["User"];
     }
 }

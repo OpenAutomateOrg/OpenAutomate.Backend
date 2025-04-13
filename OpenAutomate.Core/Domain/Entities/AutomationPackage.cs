@@ -1,16 +1,16 @@
+using OpenAutomate.Core.Domain.Base;
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class AutomationPackage : BaseEntity.BaseEntity
+    public class AutomationPackage : BaseEntity
     {
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
-        public DateTime UpdatedAt { get; set; }
-        
+       
         // Foreign key for User (Creator)
         public Guid CreatorId { get; set; }
         [JsonIgnore]

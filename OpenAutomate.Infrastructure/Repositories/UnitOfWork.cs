@@ -15,8 +15,8 @@ namespace OpenAutomate.Infrastructure.Repositories
         private IRepository<Execution> _executionRepository;
         private IRepository<Schedule> _scheduleRepository;
         private IRepository<RefreshToken> _refreshTokenRepository;
-        private IRepository<Organization> _organizationRepository;
-        private IRepository<OrganizationUser> _organizationUserRepository;
+        private IRepository<OrganizationUnit> _organizationUnitRepository;
+        private IRepository<OrganizationUnitUser> _organizationUnitUserRepository;
 
         public UnitOfWork(ApplicationDbContext context)
         {
@@ -40,11 +40,11 @@ namespace OpenAutomate.Infrastructure.Repositories
         public IRepository<RefreshToken> RefreshTokens => 
             _refreshTokenRepository ??= new Repository<RefreshToken>(_context);
             
-        public IRepository<Organization> Organizations => 
-            _organizationRepository ??= new Repository<Organization>(_context);
+        public IRepository<OrganizationUnit> OrganizationUnits => 
+            _organizationUnitRepository ??= new Repository<OrganizationUnit>(_context);
             
-        public IRepository<OrganizationUser> OrganizationUsers => 
-            _organizationUserRepository ??= new Repository<OrganizationUser>(_context);
+        public IRepository<OrganizationUnitUser> OrganizationUnitUsers => 
+            _organizationUnitUserRepository ??= new Repository<OrganizationUnitUser>(_context);
 
         public async Task<int> CompleteAsync()
         {
