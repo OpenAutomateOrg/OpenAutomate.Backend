@@ -37,7 +37,7 @@ namespace OpenAutomate.API.Middleware
                         return;
                     }
                     
-                    var tenant = await unitOfWork.Organizations
+                    var tenant = await unitOfWork.OrganizationUnits
                         .GetFirstOrDefaultAsync(o => o.Slug == potentialTenantSlug && o.IsActive);
                     
                     if (tenant != null)

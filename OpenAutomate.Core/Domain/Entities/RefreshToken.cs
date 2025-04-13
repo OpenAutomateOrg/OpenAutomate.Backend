@@ -1,9 +1,10 @@
+using OpenAutomate.Core.Domain.Base;
 using System;
 using System.Text.Json.Serialization;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class RefreshToken : BaseEntity.BaseEntity
+    public class RefreshToken : BaseEntity
     {
         public string Token { get; set; } = string.Empty;
         public DateTime Expires { get; set; }

@@ -2,14 +2,14 @@
 
 ## Overview
 
-This document outlines the multi-tenant architecture design for the OpenAutomate platform. In this design, each organization represents a tenant, and all data is isolated between tenants while using a shared database infrastructure.
+This document outlines the multi-tenant architecture design for the OpenAutomate platform. In this design, each organization unit represents a tenant, and all data is isolated between tenants while using a shared database infrastructure.
 
 ## Architecture Approach
 
 OpenAutomate implements multi-tenancy using the **shared database with tenant filtering** approach:
 
 - A single database instance hosts data for all tenants
-- Each tenant-specific entity includes a reference to its tenant (Organization)
+- Each tenant-specific entity includes a reference to its tenant (OrganizationUnit)
 - Queries are automatically filtered by the current tenant
 - Special system-wide entities remain accessible across tenants
 
@@ -19,10 +19,10 @@ This approach provides a good balance between resource efficiency and data isola
 
 ### 1. Tenant Entity
 
-The Organization entity serves as the tenant identifier:
+The OrganizationUnit entity serves as the tenant identifier:
 
 ```csharp
-public class Organization : BaseEntity
+public class OrganizationUnit : BaseEntity
 {
     public string Name { get; set; }
     public string Description { get; set; }
@@ -30,9 +30,11 @@ public class Organization : BaseEntity
     public bool IsActive { get; set; } = true;
     
     // Navigation properties
-    public virtual ICollection<User> Users { get; set; }
+    public virtual ICollection<OrganizationUnitUser> OrganizationUnitUsers { get; set; }
     public virtual ICollection<BotAgent> BotAgents { get; set; }
     public virtual ICollection<AutomationPackage> AutomationPackages { get; set; }
+    public virtual ICollection<Execution> Executions { get; set; }
+    public virtual ICollection<Schedule> Schedules { get; set; }
 }
 ```
 
@@ -61,7 +63,7 @@ public class TenantResolutionMiddleware
             if (segments.Length > 0)
             {
                 var potentialTenantSlug = segments[0];
-                var tenant = await unitOfWork.Organizations
+                var tenant = await unitOfWork.OrganizationUnits
                     .GetFirstOrDefaultAsync(o => o.Slug == potentialTenantSlug && o.IsActive);
                 
                 if (tenant != null)
@@ -88,7 +90,7 @@ Service that provides access to the current tenant throughout the application:
 ```csharp
 public interface ITenantContext
 {
-    Organization CurrentTenant { get; }
+    OrganizationUnit CurrentTenant { get; }
     Guid CurrentTenantId { get; }
     bool HasTenant { get; }
 }
@@ -102,8 +104,8 @@ public class TenantContext : ITenantContext
         _httpContextAccessor = httpContextAccessor;
     }
     
-    public Organization CurrentTenant => 
-        _httpContextAccessor.HttpContext?.Items["CurrentTenant"] as Organization;
+    public OrganizationUnit CurrentTenant => 
+        _httpContextAccessor.HttpContext?.Items["CurrentTenant"] as OrganizationUnit;
     
     public Guid CurrentTenantId => CurrentTenant?.Id ?? Guid.Empty;
     
@@ -133,16 +135,16 @@ public class ApplicationDbContext : DbContext
         
         // Apply global query filters for tenant isolation
         modelBuilder.Entity<BotAgent>()
-            .HasQueryFilter(b => b.OrganizationId == _tenantContext.CurrentTenantId);
+            .HasQueryFilter(b => b.OrganizationUnitId == _tenantContext.CurrentTenantId);
             
         modelBuilder.Entity<AutomationPackage>()
-            .HasQueryFilter(a => a.OrganizationId == _tenantContext.CurrentTenantId);
+            .HasQueryFilter(a => a.OrganizationUnitId == _tenantContext.CurrentTenantId);
             
         modelBuilder.Entity<Execution>()
-            .HasQueryFilter(e => e.OrganizationId == _tenantContext.CurrentTenantId);
+            .HasQueryFilter(e => e.OrganizationUnitId == _tenantContext.CurrentTenantId);
             
         modelBuilder.Entity<Schedule>()
-            .HasQueryFilter(s => s.OrganizationId == _tenantContext.CurrentTenantId);
+            .HasQueryFilter(s => s.OrganizationUnitId == _tenantContext.CurrentTenantId);
             
         // Configure relationships
         // ...
@@ -160,7 +162,7 @@ public class ApplicationDbContext : DbContext
                 if (entry.Entity is ITenantEntity tenantEntity &&
                     entry.State == EntityState.Added)
                 {
-                    tenantEntity.OrganizationId = _tenantContext.CurrentTenantId;
+                    tenantEntity.OrganizationUnitId = _tenantContext.CurrentTenantId;
                 }
             }
         }
@@ -177,7 +179,7 @@ Interface to mark entities that belong to a tenant:
 ```csharp
 public interface ITenantEntity
 {
-    Guid OrganizationId { get; set; }
+    Guid OrganizationUnitId { get; set; }
 }
 ```
 
@@ -196,7 +198,7 @@ public class Repository<TEntity> : IRepository<TEntity> where TEntity : class
         // If entity implements ITenantEntity, set the tenant ID
         if (entity is ITenantEntity tenantEntity && _tenantContext.HasTenant)
         {
-            tenantEntity.OrganizationId = _tenantContext.CurrentTenantId;
+            tenantEntity.OrganizationUnitId = _tenantContext.CurrentTenantId;
         }
         
         await _dbSet.AddAsync(entity);
@@ -212,18 +214,18 @@ public class Repository<TEntity> : IRepository<TEntity> where TEntity : class
 
 ## User to Tenant Mapping
 
-Users can belong to multiple organizations (tenants) through the OrganizationUser join entity:
+Users can belong to multiple organization units (tenants) through the OrganizationUnitUser join entity:
 
 ```csharp
-public class OrganizationUser
+public class OrganizationUnitUser
 {
     public Guid UserId { get; set; }
     public virtual User User { get; set; }
     
-    public Guid OrganizationId { get; set; }
-    public virtual Organization Organization { get; set; }
+    public Guid OrganizationUnitId { get; set; }
+    public virtual OrganizationUnit OrganizationUnit { get; set; }
     
-    public string Role { get; set; } // Role within this organization
+    public string Role { get; set; } // Role within this organization unit
 }
 ```
 
@@ -241,9 +243,9 @@ public class OrganizationUser
 
 ## Implementation Steps
 
-1. Enhance the `Organization` entity with tenant-specific fields.
+1. Enhance the `OrganizationUnit` entity with tenant-specific fields.
 
-2. Modify all tenant-specific entities to include `OrganizationId`.
+2. Modify all tenant-specific entities to include `OrganizationUnitId`.
 
 3. Implement the TenantResolutionMiddleware.
 
@@ -259,7 +261,7 @@ public class OrganizationUser
 
 ## Performance Considerations
 
-- **Indexing**: Ensure all OrganizationId columns are indexed.
+- **Indexing**: Ensure all OrganizationUnitId columns are indexed.
 
 - **Query Optimization**: Monitor the performance impact of global query filters.
 

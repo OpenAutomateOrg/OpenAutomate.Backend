@@ -1,10 +1,11 @@
+using OpenAutomate.Core.Domain.Base;
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class Schedule : BaseEntity.BaseEntity
+    public class Schedule : BaseEntity
     {
         public string CronExpression { get; set; } = string.Empty;
         public bool IsActive { get; set; }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.Domain.Entities;
 
 namespace OpenAutomate.Infrastructure.DbContext
@@ -12,72 +13,27 @@ namespace OpenAutomate.Infrastructure.DbContext
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<OrganizationUser>()
-               .HasKey(ouu => new { ouu.UserId, ouu.OrganizationId });
-
-            modelBuilder.Entity<UserAuthority>()
-               .HasKey(ouu => new { ouu.UserId, ouu.AuthorityID });
-               
-            modelBuilder.Entity<User>()
-                .HasMany(u => u.RefreshTokens)
-                .WithOne(rt => rt.User)
-                .HasForeignKey(rt => rt.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-            
-            modelBuilder.Entity<User>()
-                .HasMany<BotAgent>()
-                .WithOne(ba => ba.Owner)
-                .HasForeignKey(ba => ba.OwnerId)
-                .OnDelete(DeleteBehavior.Restrict);
-                
-            modelBuilder.Entity<User>()
-                .HasMany<AutomationPackage>()
-                .WithOne(ap => ap.Creator)
-                .HasForeignKey(ap => ap.CreatorId)
-                .OnDelete(DeleteBehavior.Restrict);
-                
-            modelBuilder.Entity<User>()
-                .HasMany<Schedule>()
-                .WithOne(s => s.CreatedBy)
-                .HasForeignKey(s => s.CreatedById)
-                .OnDelete(DeleteBehavior.Restrict);
-                
-            modelBuilder.Entity<AutomationPackage>()
-                .HasMany(ap => ap.Versions)
-                .WithOne(pv => pv.Package)
-                .HasForeignKey(pv => pv.PackageId)
-                .OnDelete(DeleteBehavior.Cascade);
-                
-            modelBuilder.Entity<AutomationPackage>()
-                .HasMany(ap => ap.Schedules)
-                .WithOne(s => s.Package)
-                .HasForeignKey(s => s.PackageId)
-                .OnDelete(DeleteBehavior.Cascade);
-                
-            modelBuilder.Entity<BotAgent>()
-                .HasMany(ba => ba.Executions)
-                .WithOne(e => e.BotAgent)
-                .HasForeignKey(e => e.BotAgentId)
-                .OnDelete(DeleteBehavior.Restrict);
-                
-            modelBuilder.Entity<AutomationPackage>()
-                .HasMany(ap => ap.Executions)
-                .WithOne(e => e.Package)
-                .HasForeignKey(e => e.PackageId)
-                .OnDelete(DeleteBehavior.Restrict);
-                
-            modelBuilder.Entity<Schedule>()
-                .HasMany(s => s.Executions)
-                .WithOne(e => e.Schedule)
-                .HasForeignKey(e => e.ScheduleId)
-                .OnDelete(DeleteBehavior.SetNull);
+            // Apply all entity configurations
+            modelBuilder.ApplyConfiguration(new UserConfiguration());
+            modelBuilder.ApplyConfiguration(new OrganizationUnitConfiguration());
+            modelBuilder.ApplyConfiguration(new OrganizationUnitUserConfiguration());
+            modelBuilder.ApplyConfiguration(new AuthorityConfiguration());
+            modelBuilder.ApplyConfiguration(new UserAuthorityConfiguration());
+            modelBuilder.ApplyConfiguration(new AuthorityResourceConfiguration());
+            modelBuilder.ApplyConfiguration(new RefreshTokenConfiguration());
+            modelBuilder.ApplyConfiguration(new BotAgentConfiguration());
+            modelBuilder.ApplyConfiguration(new AutomationPackageConfiguration());
+            modelBuilder.ApplyConfiguration(new PackageVersionConfiguration());
+            modelBuilder.ApplyConfiguration(new ScheduleConfiguration());
+            modelBuilder.ApplyConfiguration(new ExecutionConfiguration());
         }
 
         public DbSet<User> Users { set; get; }
-        public DbSet<Organization> Organization { set; get; }
-        public DbSet<OrganizationUser> OrganizationUsers { set; get; }
+        public DbSet<OrganizationUnit> OrganizationUnits { set; get; }
+        public DbSet<OrganizationUnitUser> OrganizationUnitUsers { set; get; }
         public DbSet<UserAuthority> UserAuthorities { set; get; }
         public DbSet<Authority> Authorities{ set; get; }
+        public DbSet<AuthorityResource> AuthorityResources { set; get; }
         public DbSet<RefreshToken> RefreshTokens { set; get; } 
         
         public DbSet<BotAgent> BotAgents { get; set; }

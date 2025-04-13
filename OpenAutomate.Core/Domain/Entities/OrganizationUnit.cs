@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using OpenAutomate.Core.Domain.BaseEntity;
+using OpenAutomate.Core.Domain.Base;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class Organization : BaseEntity.BaseEntity
+    public class OrganizationUnit : BaseEntity
     {
         public string Name { get; set; }
         public string Description { get; set; }
@@ -12,7 +12,7 @@ namespace OpenAutomate.Core.Domain.Entities
         public bool IsActive { get; set; } = true;
         
         // Navigation properties
-        public virtual ICollection<OrganizationUser> OrganizationUsers { get; set; }
+        public virtual ICollection<OrganizationUnitUser> OrganizationUnitUsers { get; set; }
         public virtual ICollection<BotAgent> BotAgents { get; set; }
         public virtual ICollection<AutomationPackage> AutomationPackages { get; set; }
         public virtual ICollection<Execution> Executions { get; set; }

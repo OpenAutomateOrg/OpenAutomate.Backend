@@ -4,7 +4,7 @@
 
 OpenAutomate is an open-source business process automation management platform designed to provide a cost-effective alternative to commercial automation solutions. It leverages Python for automation execution, ASP.NET Core for backend services, and Next.js for the frontend interface. The platform enables organizations to create, deploy, monitor, and manage automation processes without vendor lock-in or expensive licensing costs.
 
-The platform is built with a multi-tenant architecture, allowing multiple organizations to use the system while ensuring data isolation and security between tenants.
+The platform is built with a multi-tenant architecture, allowing multiple organization units to use the system while ensuring data isolation and security between tenants.
 
 ## 2. Requirements
 
@@ -12,7 +12,7 @@ The platform is built with a multi-tenant architecture, allowing multiple organi
 
 * Users must be able to register and authenticate with the system using credentials or JWT tokens
 * Administrators must be able to manage users and assign role-based permissions
-* Users must be able to register and manage bot agents across an organization
+* Users must be able to register and manage bot agents across an organization unit
 * Users must be able to create, edit, and deploy automation packages to bot agents
 * System must provide real-time monitoring of bot agent status and activities
 * System must log all automation executions with detailed information
@@ -20,7 +20,7 @@ The platform is built with a multi-tenant architecture, allowing multiple organi
 * System must provide notifications for automation success, failures, and performance issues
 * Users must be able to view performance analytics and metrics for automation processes
 * System must support multi-environment configurations (development, testing, production)
-* System must support multi-tenancy with complete data isolation between organizations
+* System must support multi-tenancy with complete data isolation between organization units
 
 ### 2.2 Non-Functional Requirements
 
@@ -43,14 +43,14 @@ The platform is built with a multi-tenant architecture, allowing multiple organi
 OpenAutomate implements multi-tenancy using the shared database with tenant filtering approach:
 
 - A single database instance hosts data for all tenants
-- Each tenant-specific entity includes a reference to its tenant (Organization)
+- Each tenant-specific entity includes a reference to its tenant (OrganizationUnit)
 - Queries are automatically filtered by the current tenant using Entity Framework Core global query filters
 - URL format follows the pattern: `domain.com/{tenant-slug}/api/resource`
 - Tenant resolution is handled through middleware that extracts tenant information from the URL path
 
 #### 3.1.1 Key Components
 
-- **Tenant Entity**: Organization entity serves as the tenant identifier
+- **Tenant Entity**: OrganizationUnit entity serves as the tenant identifier
 - **Tenant Resolution Middleware**: Extracts tenant information from the URL path
 - **Tenant Context Service**: Provides access to the current tenant throughout the application
 - **Global Query Filters**: Ensures data isolation between tenants at the database level
@@ -85,11 +85,11 @@ The database schema includes the following core entities:
 
 ```mermaid
 erDiagram
-    Organization ||--o{ User : contains
-    Organization ||--o{ BotAgent : owns
-    Organization ||--o{ AutomationPackage : owns
-    Organization ||--o{ Execution : tracks
-    Organization ||--o{ Schedule : manages
+    OrganizationUnit ||--o{ User : contains
+    OrganizationUnit ||--o{ BotAgent : owns
+    OrganizationUnit ||--o{ AutomationPackage : owns
+    OrganizationUnit ||--o{ Execution : tracks
+    OrganizationUnit ||--o{ Schedule : manages
     User ||--o{ BotAgent : manages
     User ||--o{ AutomationPackage : creates
     User ||--o{ Schedule : creates
@@ -98,7 +98,7 @@ erDiagram
     AutomationPackage ||--o{ Execution : used_in
     Schedule ||--o{ Execution : triggers
     
-    Organization {
+    OrganizationUnit {
         Guid Id
         string Name
         string Description
@@ -124,7 +124,7 @@ erDiagram
         string IpAddress
         string Status
         Guid OwnerId
-        Guid OrganizationId
+        Guid OrganizationUnitId
         DateTime RegisteredAt
         DateTime LastHeartbeat
     }
@@ -134,7 +134,7 @@ erDiagram
         string Name
         string Description
         Guid CreatorId
-        Guid OrganizationId
+        Guid OrganizationUnitId
         DateTime CreatedAt
         DateTime UpdatedAt
     }
@@ -145,7 +145,7 @@ erDiagram
         string VersionNumber
         string FilePath
         boolean IsActive
-        Guid OrganizationId
+        Guid OrganizationUnitId
         DateTime CreatedAt
     }
     
@@ -154,7 +154,7 @@ erDiagram
         Guid BotAgentId
         Guid PackageId
         Guid ScheduleId
-        Guid OrganizationId
+        Guid OrganizationUnitId
         string Status
         DateTime StartTime
         DateTime EndTime
@@ -165,7 +165,7 @@ erDiagram
     Schedule {
         Guid Id
         Guid PackageId
-        Guid OrganizationId
+        Guid OrganizationUnitId
         string CronExpression
         boolean IsActive
         Guid CreatedById
@@ -184,11 +184,11 @@ The API will follow a RESTful design with tenant-specific routing:
 - `/api/resource`
 
 **Tenant Management:**
-- `POST /api/organizations` - Create a new organization (tenant)
-- `GET /api/organizations` - List all organizations (admin only)
-- `GET /api/organizations/{id}` - Get organization details
-- `PUT /api/organizations/{id}` - Update organization details
-- `DELETE /api/organizations/{id}` - Delete an organization (admin only)
+- `POST /api/organizationunits` - Create a new organization unit (tenant)
+- `GET /api/organizationunits` - List all organization units (admin only)
+- `GET /api/organizationunits/{id}` - Get organization unit details
+- `PUT /api/organizationunits/{id}` - Update organization unit details
+- `DELETE /api/organizationunits/{id}` - Delete an organization unit (admin only)
 
 **Authentication:**
 - `POST /{tenant-slug}/api/auth/register` - Register a new user in a tenant
@@ -247,7 +247,7 @@ Example Request/Response:
   "ipAddress": "192.168.1.100",
   "status": "Active",
   "ownerId": "7a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d",
-  "organizationId": "8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e",
+  "organizationUnitId": "8b9c0d1e-2f3a-4b5c-6d7e-8f9a0b1c2d3e",
   "registeredAt": "2023-04-02T12:00:00Z",
   "lastHeartbeat": "2023-04-02T12:00:00Z"
 }
@@ -257,7 +257,7 @@ Example Request/Response:
 
 The frontend will be developed using Next.js with tenant-specific routing and the following key screens:
 
-- **Tenant Selection**: For users with access to multiple organizations
+- **Tenant Selection**: For users with access to multiple organization units
 - **Dashboard**: Overview of system status, recent executions, and key metrics
 - **Bot Agents**: List and management of registered bot agents
 - **Automation Packages**: Repository of automation packages with version management
@@ -508,7 +508,7 @@ export default function LoginPage() {
 
 1. **Role-based access control**:
    - System-level roles: Admin, User
-   - Organization-level roles: Tenant Admin, Manager, User
+   - Organization unit-level roles: Tenant Admin, Manager, User
 
 2. **Permission checks**:
    - Resource-based permissions

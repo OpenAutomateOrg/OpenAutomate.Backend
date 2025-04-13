@@ -140,19 +140,27 @@ namespace OpenAutomate.Infrastructure.Services
                     return null;
                 }
 
-                return new UserResponse
-                {
-                    Id = user.Id,
-                    Email = user.Email,
-                    FirstName = user.FirstName,
-                    LastName = user.LastName
-                };
+                return MapToResponse(user);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving user with ID {UserId}", id);
                 throw;
             }
+        }
+
+        public UserResponse MapToResponse(User user)
+        {
+            if (user == null)
+                return null;
+                
+            return new UserResponse
+            {
+                Id = user.Id,
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName
+            };
         }
 
         #region Private Helper Methods
