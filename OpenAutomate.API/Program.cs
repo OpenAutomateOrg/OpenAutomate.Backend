@@ -53,20 +53,7 @@ namespace OpenAutomate.API
             // Get JWT settings
             var jwtSettings = appSettingsSection.GetSection("Jwt").Get<JwtSettings>();
             
-            //// Add JWT Authentication
-            //builder.Services.AddAuthentication(options =>
-            //{
-            //    options.DefaultAuthenticateScheme = "Bearer";
-            //    options.DefaultChallengeScheme = "Bearer";
-            //})
-            //.AddJwtBearer(options =>
-            //{
-            //    options.TokenValidationParameters = new TokenValidationParameters
-            //    {
-            //        ValidateIssuerSigningKey = true,
-            //        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret)),
-            //        ValidateIssuer = true,
-            //        ValidIssuer = jwtSettings.Issuer,
+            
             //        ValidateAudience = true,
             //        ValidAudience = jwtSettings.Audience,
             //        ValidateLifetime = true,
