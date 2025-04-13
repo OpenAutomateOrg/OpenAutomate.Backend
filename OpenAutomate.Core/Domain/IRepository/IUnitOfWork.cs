@@ -11,8 +11,8 @@ namespace OpenAutomate.Core.Domain.IRepository
         IRepository<Execution> Executions { get; }
         IRepository<Schedule> Schedules { get; }
         IRepository<RefreshToken> RefreshTokens { get; }
-        IRepository<Organization> Organizations { get; }
-        IRepository<OrganizationUser> OrganizationUsers { get; }
+        IRepository<OrganizationUnit> OrganizationUnits { get; }
+        IRepository<OrganizationUnitUser> OrganizationUnitUsers { get; }
 
         Task<int> CompleteAsync();
     }

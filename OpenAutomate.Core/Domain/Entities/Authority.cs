@@ -1,13 +1,16 @@
-﻿using System;
+﻿using OpenAutomate.Core.Domain.Base;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class Authority : BaseEntity.BaseEntity
+    public class Authority : BaseEntity
     {
-        public string? Name { set; get; }
+        [Required]
+        public string Name { set; get; }
+        
+        // Navigation properties
+        public ICollection<AuthorityResource> AuthorityResources { get; set; }
+        public ICollection<UserAuthority> UserAuthorities { get; set; }
     }
 }

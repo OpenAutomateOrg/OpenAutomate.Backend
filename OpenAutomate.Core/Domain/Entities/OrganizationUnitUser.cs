@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class OrganizationUser
+    public class OrganizationUnitUser
     {
         [Required]
         public Guid UserId { set; get; }
@@ -11,9 +11,9 @@ namespace OpenAutomate.Core.Domain.Entities
         public User User { get; set; }
 
         [Required]
-        public Guid OrganizationId { set; get; }
-        [ForeignKey("OrganizationId")]
-        public Organization Organization { get; set; }
+        public Guid OrganizationUnitId { set; get; }
+        [ForeignKey("OrganizationUnitId")]
+        public OrganizationUnit OrganizationUnit { get; set; }
 
 
     }

@@ -1,19 +1,19 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
+using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Dto.UserDto;
 using OpenAutomate.Core.IServices;
 
 namespace OpenAutomate.API.Controllers
 {
-    [Route("api/auth")]
+    [Route("api/authen")]
     [ApiController]
-    public class AuthController : ControllerBase
+    public class AuthenController : ControllerBase
     {
         private readonly IUserService _userService;
-        private readonly ILogger<AuthController> _logger;
+        private readonly ILogger<AuthenController> _logger;
 
-        public AuthController(IUserService userService, ILogger<AuthController> logger)
+        public AuthenController(IUserService userService, ILogger<AuthenController> logger)
         {
             _userService = userService;
             _logger = logger;
@@ -125,6 +125,32 @@ namespace OpenAutomate.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during token revocation");
+                return StatusCode(500, new { message = "An error occurred while processing your request." });
+            }
+        }
+
+        [Authorize]
+        [HttpGet("user")]
+        public async Task<IActionResult> GetCurrentUser()
+        {
+            try
+            {
+                var user = HttpContext.Items["User"] as User;
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found in HttpContext");
+                    return Unauthorized(new { message = "User not authenticated" });
+                }
+
+                // Convert the user entity to a DTO directly without making another DB call
+                var userResponse = _userService.MapToResponse(user);
+
+                _logger.LogInformation("Retrieved user information for user ID: {UserId}", user.Id);
+                return Ok(userResponse);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving user information");
                 return StatusCode(500, new { message = "An error occurred while processing your request." });
             }
         }

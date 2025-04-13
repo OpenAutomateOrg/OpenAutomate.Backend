@@ -1,9 +1,10 @@
+using OpenAutomate.Core.Domain.Base;
 using System;
 using System.Text.Json.Serialization;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class PackageVersion : BaseEntity.BaseEntity
+    public class PackageVersion : BaseEntity
     {
         public string VersionNumber { get; set; } = string.Empty;
         public string FilePath { get; set; } = string.Empty;
