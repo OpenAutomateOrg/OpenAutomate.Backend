@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using OpenAutomate.Infrastructure.DbContext;
 
@@ -11,9 +12,11 @@ using OpenAutomate.Infrastructure.DbContext;
 namespace OpenAutomate.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250413172148_RBACSystem")]
+    partial class RBACSystem
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -52,26 +55,26 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.HasData(
                         new
                         {
-                            Id = new Guid("1a89f6f4-3c29-4fe1-9483-5de6676cc3f7"),
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = new Guid("60577220-01c4-4e4e-9ddf-9da1dc8e70f8"),
+                            CreatedAt = new DateTime(2025, 4, 13, 17, 21, 47, 87, DateTimeKind.Utc).AddTicks(7780),
                             Name = "ADMIN"
                         },
                         new
                         {
-                            Id = new Guid("7e4ea7df-5f1c-4234-8c7a-83d0c9ca2018"),
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = new Guid("d70e21d9-ba7e-4238-8c2c-601000afe166"),
+                            CreatedAt = new DateTime(2025, 4, 13, 17, 21, 47, 87, DateTimeKind.Utc).AddTicks(7808),
                             Name = "USER"
                         },
                         new
                         {
-                            Id = new Guid("e87a7aee-848a-46d4-b9f5-1e28c2571b3a"),
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = new Guid("c55809b6-1c75-4a41-be9e-94e0fea45797"),
+                            CreatedAt = new DateTime(2025, 4, 13, 17, 21, 47, 87, DateTimeKind.Utc).AddTicks(7811),
                             Name = "OPERATOR"
                         },
                         new
                         {
-                            Id = new Guid("cfe55508-5a24-4f84-b436-36b1b4395436"),
-                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Id = new Guid("374379f0-c9c8-4c1d-8de2-84486736ba95"),
+                            CreatedAt = new DateTime(2025, 4, 13, 17, 21, 47, 87, DateTimeKind.Utc).AddTicks(7814),
                             Name = "DEVELOPER"
                         });
                 });
