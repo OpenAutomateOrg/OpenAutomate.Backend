@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 namespace OpenAutomate.API.Controllers
 {
     [ApiController]
-    [Route("{tenant}/api/author")]
+    [Route("{ou}/api/author")]
     [Authorize]
     public class AuthorController : CustomControllerBase
     {

@@ -19,6 +19,11 @@ namespace OpenAutomate.Core.Configurations
                 .HasForeignKey(ap => ap.CreatorId)
                 .OnDelete(DeleteBehavior.Restrict);
                 
+            builder.HasOne(ap => ap.OrganizationUnit)
+                .WithMany(ou => ou.AutomationPackages)
+                .HasForeignKey(ap => ap.OrganizationUnitId)
+                .OnDelete(DeleteBehavior.Restrict);
+                
             builder.HasMany(ap => ap.Versions)
                 .WithOne(pv => pv.Package)
                 .HasForeignKey(pv => pv.PackageId)
@@ -36,6 +41,7 @@ namespace OpenAutomate.Core.Configurations
                 
             // Create indexes for faster lookups
             builder.HasIndex(ap => ap.Name);
+            builder.HasIndex(ap => ap.OrganizationUnitId);
         }
     }
 } 

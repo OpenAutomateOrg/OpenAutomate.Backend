@@ -29,9 +29,15 @@ namespace OpenAutomate.Core.Configurations
                 .HasForeignKey(e => e.ScheduleId)
                 .OnDelete(DeleteBehavior.SetNull);
                 
+            builder.HasOne(e => e.OrganizationUnit)
+                .WithMany(ou => ou.Executions)
+                .HasForeignKey(e => e.OrganizationUnitId)
+                .OnDelete(DeleteBehavior.Restrict);
+                
             // Create indexes for faster lookups
             builder.HasIndex(e => e.Status);
             builder.HasIndex(e => e.StartTime);
+            builder.HasIndex(e => e.OrganizationUnitId);
         }
     }
 } 

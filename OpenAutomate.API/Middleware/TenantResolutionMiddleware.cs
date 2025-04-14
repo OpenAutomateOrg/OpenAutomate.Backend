@@ -2,7 +2,9 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Domain.IRepository;
+using OpenAutomate.Core.IServices;
 
 namespace OpenAutomate.API.Middleware
 {
@@ -18,10 +20,13 @@ namespace OpenAutomate.API.Middleware
             _next = next;
         }
 
-        public async Task InvokeAsync(HttpContext context, IUnitOfWork unitOfWork)
+        public async Task InvokeAsync(HttpContext context, IUnitOfWork unitOfWork, ITenantContext tenantContext)
         {
             // URL format: https://domain.com/{tenantSlug}/api/...
             var path = context.Request.Path.Value;
+            
+            // Clear any previous tenant context
+            tenantContext.ClearTenant();
             
             if (path != null && path.Length > 1)
             {
@@ -42,8 +47,11 @@ namespace OpenAutomate.API.Middleware
                     
                     if (tenant != null)
                     {
-                        // Store the tenant in HttpContext.Items for later use
+                        // Store the tenant in HttpContext.Items for direct access
                         context.Items["CurrentTenant"] = tenant;
+                        
+                        // Set the tenant in the tenant context service for query filters
+                        tenantContext.SetTenant(tenant.Id);
                         
                         // Rewrite path to remove tenant segment
                         var newPath = "/" + string.Join('/', segments.Skip(1));
@@ -51,7 +59,7 @@ namespace OpenAutomate.API.Middleware
                     }
                     else
                     {
-                        // Optional: Handle invalid tenant
+                        // Handle invalid tenant if needed
                         // context.Response.StatusCode = StatusCodes.Status404NotFound;
                         // await context.Response.WriteAsync("Tenant not found");
                         // return;

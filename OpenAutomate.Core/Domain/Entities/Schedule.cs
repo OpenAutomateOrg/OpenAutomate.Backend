@@ -14,6 +14,7 @@ namespace OpenAutomate.Core.Domain.Entities
         // Foreign keys
         public Guid PackageId { get; set; }
         public Guid CreatedById { get; set; }
+        public Guid OrganizationUnitId { get; set; }
         
         // Navigation properties
         [JsonIgnore]
@@ -21,6 +22,9 @@ namespace OpenAutomate.Core.Domain.Entities
         
         [JsonIgnore]
         public virtual User? CreatedBy { get; set; }
+        
+        [JsonIgnore]
+        public virtual OrganizationUnit? OrganizationUnit { get; set; }
         
         [JsonIgnore]
         public virtual ICollection<Execution>? Executions { get; set; }

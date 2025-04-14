@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using OpenAutomate.Infrastructure.DbContext;
 
@@ -11,9 +12,11 @@ using OpenAutomate.Infrastructure.DbContext;
 namespace OpenAutomate.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250414065143_AddTenantQueryFilter")]
+    partial class AddTenantQueryFilter
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -251,7 +254,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<string>("LogOutput")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid>("OrganizationUnitId")
+                    b.Property<Guid?>("OrganizationUnitId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("PackageId")
@@ -466,7 +469,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<string>("LastModifyBy")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid>("OrganizationUnitId")
+                    b.Property<Guid?>("OrganizationUnitId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("PackageId")
@@ -597,7 +600,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
                         .WithMany("AutomationPackages")
                         .HasForeignKey("OrganizationUnitId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Creator");
@@ -610,7 +613,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
                         .WithMany("BotAgents")
                         .HasForeignKey("OrganizationUnitId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("OpenAutomate.Core.Domain.Entities.User", "Owner")
@@ -632,11 +635,9 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
+                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", null)
                         .WithMany("Executions")
-                        .HasForeignKey("OrganizationUnitId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .HasForeignKey("OrganizationUnitId");
 
                     b.HasOne("OpenAutomate.Core.Domain.Entities.AutomationPackage", "Package")
                         .WithMany("Executions")
@@ -650,8 +651,6 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("BotAgent");
-
-                    b.Navigation("OrganizationUnit");
 
                     b.Navigation("Package");
 
@@ -702,16 +701,14 @@ namespace OpenAutomate.Infrastructure.Migrations
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.Schedule", b =>
                 {
                     b.HasOne("OpenAutomate.Core.Domain.Entities.User", "CreatedBy")
-                        .WithMany("CreatedSchedules")
+                        .WithMany()
                         .HasForeignKey("CreatedById")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
+                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", null)
                         .WithMany("Schedules")
-                        .HasForeignKey("OrganizationUnitId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .HasForeignKey("OrganizationUnitId");
 
                     b.HasOne("OpenAutomate.Core.Domain.Entities.AutomationPackage", "Package")
                         .WithMany("Schedules")
@@ -720,8 +717,6 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("CreatedBy");
-
-                    b.Navigation("OrganizationUnit");
 
                     b.Navigation("Package");
                 });
@@ -794,8 +789,6 @@ namespace OpenAutomate.Infrastructure.Migrations
 
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.User", b =>
                 {
-                    b.Navigation("CreatedSchedules");
-
                     b.Navigation("OrganizationUnitUsers");
 
                     b.Navigation("RefreshTokens");

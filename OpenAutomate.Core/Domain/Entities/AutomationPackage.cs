@@ -16,6 +16,11 @@ namespace OpenAutomate.Core.Domain.Entities
         [JsonIgnore]
         public virtual User? Creator { get; set; }
         
+        // Foreign key for OrganizationUnit
+        public Guid OrganizationUnitId { get; set; }
+        [JsonIgnore]
+        public virtual OrganizationUnit? OrganizationUnit { get; set; }
+        
         // Navigation properties
         [JsonIgnore]
         public virtual ICollection<PackageVersion>? Versions { get; set; }

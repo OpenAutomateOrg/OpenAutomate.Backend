@@ -14,6 +14,7 @@ namespace OpenAutomate.Core.Domain.Entities
         public string? ImageUrl { set; get; }
         public List<RefreshToken>? RefreshTokens { get; set; }
         public List<OrganizationUnitUser>? OrganizationUnitUsers { get; set; }
+        public virtual ICollection<Schedule>? CreatedSchedules { get; set; }
         
         public bool OwnsToken(string token)
         {

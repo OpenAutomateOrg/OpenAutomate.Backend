@@ -91,6 +91,7 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
             builder.Services.AddScoped<ITokenService, TokenService>();
             builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IOrganizationUnitService, OrganizationUnitService>();
             builder.Services.AddSingleton<ITenantContext, TenantContext>();
             
             // Register RBAC services

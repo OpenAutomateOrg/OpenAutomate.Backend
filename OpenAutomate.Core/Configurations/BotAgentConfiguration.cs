@@ -20,6 +20,11 @@ namespace OpenAutomate.Core.Configurations
                 .HasForeignKey(ba => ba.OwnerId)
                 .OnDelete(DeleteBehavior.Restrict);
                 
+            builder.HasOne(ba => ba.OrganizationUnit)
+                .WithMany(ou => ou.BotAgents)
+                .HasForeignKey(ba => ba.OrganizationUnitId)
+                .OnDelete(DeleteBehavior.Restrict);
+                
             builder.HasMany(ba => ba.Executions)
                 .WithOne(e => e.BotAgent)
                 .HasForeignKey(e => e.BotAgentId)
@@ -28,6 +33,7 @@ namespace OpenAutomate.Core.Configurations
             // Create indexes for faster lookups
             builder.HasIndex(ba => ba.Name);
             builder.HasIndex(ba => ba.Status);
+            builder.HasIndex(ba => ba.OrganizationUnitId);
         }
     }
 } 

@@ -9,6 +9,7 @@ namespace OpenAutomate.Core.Domain.Entities
         public Guid BotAgentId { get; set; }
         public Guid PackageId { get; set; }
         public Guid? ScheduleId { get; set; }
+        public Guid OrganizationUnitId { get; set; }
         public string Status { get; set; } = string.Empty;
         public DateTime StartTime { get; set; }
         public DateTime? EndTime { get; set; }
@@ -24,5 +25,8 @@ namespace OpenAutomate.Core.Domain.Entities
         
         [JsonIgnore]
         public virtual Schedule? Schedule { get; set; }
+        
+        [JsonIgnore]
+        public virtual OrganizationUnit? OrganizationUnit { get; set; }
     }
 } 
