@@ -1,6 +1,6 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpenAutomate.Core.Domain.Entities;
+using OpenAutomate.API.Attributes;
 using OpenAutomate.Core.Dto.UserDto;
 using OpenAutomate.Core.IServices;
 
@@ -8,6 +8,7 @@ namespace OpenAutomate.API.Controllers
 {
     [Route("api/authen")]
     [ApiController]
+    [Authentication]
     public class AuthenController : ControllerBase
     {
         private readonly IUserService _userService;
@@ -19,6 +20,7 @@ namespace OpenAutomate.API.Controllers
             _logger = logger;
         }
 
+        [AllowAnonymous]
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegistrationRequest request)
         {
@@ -40,6 +42,7 @@ namespace OpenAutomate.API.Controllers
             }
         }
 
+        [AllowAnonymous]
         [HttpPost("login")]
         public async Task<IActionResult> Login(AuthenticationRequest request)
         {
@@ -67,6 +70,7 @@ namespace OpenAutomate.API.Controllers
             }
         }
 
+        [AllowAnonymous]
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshToken()
         {
@@ -97,8 +101,7 @@ namespace OpenAutomate.API.Controllers
                 return StatusCode(500, new { message = "An error occurred while processing your request." });
             }
         }
-
-        [Authorize]
+        
         [HttpPost("revoke-token")]
         public async Task<IActionResult> RevokeToken([FromBody] RevokeTokenRequest request)
         {
@@ -113,7 +116,7 @@ namespace OpenAutomate.API.Controllers
                 }
 
                 var ipAddress = GetIpAddress();
-                var success = await _userService.RevokeTokenAsync(token, ipAddress, request.Reason);
+                var success = await _userService.RevokeTokenAsync(token, ipAddress, "Revoke Token");
                 
                 if (!success)
                 {

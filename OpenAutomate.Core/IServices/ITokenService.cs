@@ -22,7 +22,7 @@ namespace OpenAutomate.Core.IServices
         /// <param name="refreshToken">The refresh token</param>
         /// <param name="ipAddress">IP address of the client</param>
         /// <returns>Authentication response with new tokens</returns>
-        AuthenticationResponse RefreshToken(string refreshToken, string ipAddress);
+        Task<AuthenticationResponse> RefreshToken(string refreshToken, string ipAddress);
 
         /// <summary>
         /// Revokes a refresh token

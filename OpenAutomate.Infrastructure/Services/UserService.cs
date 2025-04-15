@@ -60,7 +60,7 @@ namespace OpenAutomate.Infrastructure.Services
         {
             try
             {
-                return _tokenService.RefreshToken(refreshToken, ipAddress);
+                return await _tokenService.RefreshToken(refreshToken, ipAddress);
             }
             catch (Exception ex)
             {
