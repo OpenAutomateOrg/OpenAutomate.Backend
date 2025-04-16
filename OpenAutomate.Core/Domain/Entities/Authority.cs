@@ -1,6 +1,7 @@
 ﻿using OpenAutomate.Core.Domain.Base;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
@@ -8,6 +9,12 @@ namespace OpenAutomate.Core.Domain.Entities
     {
         [Required]
         public string Name { set; get; }
+        
+        [Required]
+        public Guid OrganizationUnitId { get; set; }
+        
+        [ForeignKey("OrganizationUnitId")]
+        public OrganizationUnit OrganizationUnit { get; set; }
         
         // Navigation properties
         public ICollection<AuthorityResource> AuthorityResources { get; set; }

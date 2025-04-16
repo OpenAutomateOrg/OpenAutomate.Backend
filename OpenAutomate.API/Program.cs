@@ -93,10 +93,7 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddSingleton<ITenantContext, TenantContext>();
             
-            // Register RBAC services
-            builder.Services.AddScoped<IAuthorityRepository, AuthorityRepository>();
-            builder.Services.AddScoped<IAuthorityResourceRepository, AuthorityResourceRepository>();
-            builder.Services.AddScoped<IUserAuthorityRepository, UserAuthorityRepository>();
+
             builder.Services.AddScoped<IAuthorizationManager, AuthorizationManager>();
 
             builder.Services.AddControllers();
