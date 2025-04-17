@@ -114,7 +114,7 @@ namespace OpenAutomate.API
 
             app.UseHttpsRedirection();
             // Add tenant resolution middleware before MVC/API controllers but after authentication
-            app.UseAuthentication();
+            //app.UseAuthentication();
             app.UseJwtAuthentication();
             app.UseTenantResolution();
             app.UseAuthorization();

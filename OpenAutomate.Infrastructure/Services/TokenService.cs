@@ -65,40 +65,43 @@ namespace OpenAutomate.Infrastructure.Services
             }
         }
 
-        public AuthenticationResponse RefreshToken(string refreshToken, string ipAddress)
+        public async Task<AuthenticationResponse> RefreshToken(string refreshToken, string ipAddress)
         {
             try
             {
                 // First find the token in the database without the computed properties
-                var oldToken = _unitOfWork.RefreshTokens.GetFirstOrDefaultAsync(
-                    t => t.Token == refreshToken,
-                    t => t.User).GetAwaiter().GetResult();
+                var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(
+                    t => t.RefreshTokens.Any(x => x.Token == refreshToken), 
+                    u => u.RefreshTokens);
                     
-                if (oldToken == null)
-                    throw new Exception("Invalid token");
-                    
-                // Then check the computed properties in memory
-                if (oldToken.IsRevoked || oldToken.IsExpired)
-                    throw new Exception("Token is revoked or expired");
-                    
-                var user = oldToken.User;
+                var oldToken = user.RefreshTokens.FirstOrDefault(x => x.Token == refreshToken);
+                
                 if (user == null)
                     throw new Exception("User not found");
                     
-                // Mark the old token as revoked
-                oldToken.Revoked = DateTime.UtcNow;
-                oldToken.RevokedByIp = ipAddress;
+                if (oldToken == null)
+                    throw new Exception("Invalid token");
+
+                if (oldToken.IsRevoked)
+                {
+                    await RevokeDecendantRefreshToken(oldToken, user, ipAddress, $"Attempt reuse of revoked ancestor token: {oldToken}");
+                    _unitOfWork.RefreshTokens.Update(oldToken);
+                }
                 
-                // Generate a new refresh token
-                var newRefreshToken = GenerateRefreshToken(ipAddress);
+                // Then check the computed properties in memory
+                if (oldToken.IsExpired)
+                    throw new Exception("Token is expired");
+ 
+                var newRefreshToken = await RotateRefreshToken(oldToken, ipAddress);
+                
+                // Set the user ID for the new refresh token
                 newRefreshToken.UserId = user.Id;
-                oldToken.ReplacedByToken = newRefreshToken.Token;
                 
-                // Add the new token directly to the database
-                _unitOfWork.RefreshTokens.AddAsync(newRefreshToken).GetAwaiter().GetResult();
+                // Add the new refresh token directly
+                await _unitOfWork.RefreshTokens.AddAsync(newRefreshToken);
                 
-                // Save the changes
-                _unitOfWork.CompleteAsync().GetAwaiter().GetResult();
+                // Save changes
+                await _unitOfWork.CompleteAsync();
                 
                 // Generate a new JWT token
                 var token = GenerateJwtToken(user);
@@ -121,6 +124,24 @@ namespace OpenAutomate.Infrastructure.Services
             }
         }
 
+        public async Task<RefreshToken> RotateRefreshToken(RefreshToken refreshToken, string ipAddress)
+        {
+            var newRefreshToken = GenerateRefreshToken(ipAddress);
+            RevokeRefreshToken(refreshToken, ipAddress, "Request replace a new refresh token", newRefreshToken.Token).GetAwaiter().GetResult();
+            return newRefreshToken; 
+        }
+
+        public async Task RevokeRefreshToken(RefreshToken refreshToken, string ipAddress, string reason = null,
+            string replacedByToken = null)
+        {
+            refreshToken.Revoked = DateTime.UtcNow;
+            refreshToken.RevokedByIp = ipAddress;
+            refreshToken.ReplacedByToken = replacedByToken;
+            refreshToken.ReasonRevoked = reason;
+        }
+        
+        
+        // TODO: add RevokeRefreshToken and remove unnecessary code 
         public bool RevokeToken(string token, string ipAddress, string reason = null)
         {
             try
@@ -129,13 +150,11 @@ namespace OpenAutomate.Infrastructure.Services
                 var refreshToken = _unitOfWork.RefreshTokens.GetFirstOrDefaultAsync(
                     t => t.Token == token).GetAwaiter().GetResult();
                     
-                if (refreshToken == null || refreshToken.IsRevoked)
-                    return false;
+                if (refreshToken == null || refreshToken.IsRevoked || !refreshToken.IsActive)
+                    throw new Exception("Invalid token");
                     
                 // Revoke the token
-                refreshToken.Revoked = DateTime.UtcNow;
-                refreshToken.RevokedByIp = ipAddress;
-                refreshToken.ReasonRevoked = reason;
+                RevokeRefreshToken(refreshToken, ipAddress, reason).GetAwaiter().GetResult();   
                 
                 // Save the changes
                 _unitOfWork.CompleteAsync().GetAwaiter().GetResult();
@@ -237,6 +256,24 @@ namespace OpenAutomate.Infrastructure.Services
             
             // Save changes
             await _unitOfWork.CompleteAsync();
+        }
+
+        
+        public async Task RevokeDecendantRefreshToken(RefreshToken refreshToken, User user, string ipAddress, string reason = null)
+        {
+            if (!string.IsNullOrEmpty(refreshToken.ReplacedByToken))
+            {
+                var childToken = user.RefreshTokens.SingleOrDefault(x => x.Token == refreshToken.ReplacedByToken);
+
+                if (childToken.IsActive)
+                {
+                    RevokeToken(childToken.ReplacedByToken, ipAddress, reason);
+                }
+                else
+                {
+                    RevokeDecendantRefreshToken(childToken, user, ipAddress, reason);
+                }
+            }
         }
     }
 } 
