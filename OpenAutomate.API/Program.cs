@@ -92,6 +92,7 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<ITokenService, TokenService>();
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddSingleton<ITenantContext, TenantContext>();
+            builder.Services.AddScoped<IOrganizationUnitService, OrganizationUnitService>();
             
 
             builder.Services.AddScoped<IAuthorizationManager, AuthorizationManager>();

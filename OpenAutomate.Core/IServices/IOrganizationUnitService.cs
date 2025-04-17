@@ -1,0 +1,45 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using OpenAutomate.Core.Dto.OrganizationUnit;
+
+namespace OpenAutomate.Core.IServices
+{
+    public interface IOrganizationUnitService
+    {
+        /// <summary>
+        /// Creates a new organization unit with default authorities
+        /// </summary>
+        Task<OrganizationUnitResponseDto> CreateOrganizationUnitAsync(CreateOrganizationUnitDto dto);
+        
+        /// <summary>
+        /// Gets an organization unit by its ID
+        /// </summary>
+        Task<OrganizationUnitResponseDto> GetOrganizationUnitByIdAsync(Guid id);
+        
+        /// <summary>
+        /// Gets an organization unit by its slug
+        /// </summary>
+        Task<OrganizationUnitResponseDto> GetOrganizationUnitBySlugAsync(string slug);
+        
+        /// <summary>
+        /// Gets all organization units
+        /// </summary>
+        Task<IEnumerable<OrganizationUnitResponseDto>> GetAllOrganizationUnitsAsync();
+        
+        /// <summary>
+        /// Updates an organization unit
+        /// </summary>
+        Task<OrganizationUnitResponseDto> UpdateOrganizationUnitAsync(Guid id, CreateOrganizationUnitDto dto);
+        
+        /// <summary>
+        /// Checks the impact of changing an organization unit's name
+        /// </summary>
+        Task<SlugChangeWarningDto> CheckNameChangeImpactAsync(Guid id, string newName);
+        
+        /// <summary>
+        /// Generates a slug from the organization unit name
+        /// </summary>
+        string GenerateSlugFromName(string name);
+    }
+} 
