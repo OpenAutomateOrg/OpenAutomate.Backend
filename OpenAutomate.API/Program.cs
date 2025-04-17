@@ -32,9 +32,16 @@ namespace OpenAutomate.API
             // Get configuration for DbContext
             var dbSettings = appSettingsSection.GetSection("Database").Get<DatabaseSettings>();
             
+            // Register TenantContext before ApplicationDbContext
+            builder.Services.AddSingleton<ITenantContext, TenantContext>();
+            
             // Add services to the container.
-            builder.Services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlServer(dbSettings.DefaultConnection));
+            builder.Services.AddDbContext<ApplicationDbContext>((provider, options) =>
+            {
+                options.UseSqlServer(dbSettings.DefaultConnection);
+                // Get ITenantContext from service provider
+                var tenantContext = provider.GetRequiredService<ITenantContext>();
+            });
             
             // Get CORS settings
             var corsSettings = appSettingsSection.GetSection("Cors").Get<CorsSettings>();
@@ -91,10 +98,8 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
             builder.Services.AddScoped<ITokenService, TokenService>();
             builder.Services.AddScoped<IUserService, UserService>();
-            builder.Services.AddSingleton<ITenantContext, TenantContext>();
             builder.Services.AddScoped<IOrganizationUnitService, OrganizationUnitService>();
             
-
             builder.Services.AddScoped<IAuthorizationManager, AuthorizationManager>();
 
             builder.Services.AddControllers();

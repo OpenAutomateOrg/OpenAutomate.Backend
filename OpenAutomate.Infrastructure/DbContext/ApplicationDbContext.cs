@@ -2,14 +2,22 @@
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.Domain.Entities;
+using OpenAutomate.Core.IServices;
+using OpenAutomate.Infrastructure.Services;
 
 namespace OpenAutomate.Infrastructure.DbContext
 {
     public class ApplicationDbContext : Microsoft.EntityFrameworkCore.DbContext
     {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
+        private readonly ITenantContext _tenantContext;
+        private readonly TenantQueryFilterService _tenantQueryFilterService;
+
+        public ApplicationDbContext(
+            DbContextOptions<ApplicationDbContext> options,
+            ITenantContext tenantContext) : base(options)
         {
-          
+            _tenantContext = tenantContext;
+            _tenantQueryFilterService = new TenantQueryFilterService(tenantContext);
         }
         
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -35,6 +43,9 @@ namespace OpenAutomate.Infrastructure.DbContext
             modelBuilder.ApplyConfiguration(new PackageVersionConfiguration());
             modelBuilder.ApplyConfiguration(new ScheduleConfiguration());
             modelBuilder.ApplyConfiguration(new ExecutionConfiguration());
+            
+            // Apply tenant query filters to all tenant-aware entities
+            _tenantQueryFilterService.ApplyTenantFilters(modelBuilder);
         }
 
         public DbSet<User> Users { set; get; }
