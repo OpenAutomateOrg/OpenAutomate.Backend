@@ -134,9 +134,9 @@ namespace OpenAutomate.Infrastructure.Services
                     var authorityResource = new AuthorityResource
                     {
                         AuthorityId = authority.Id,
+                        OrganizationUnitId = authority.OrganizationUnitId,
                         ResourceName = resourceName,
-                        Permission = permission,
-                        OrganizationUnitId = authority.OrganizationUnitId
+                        Permission = permission
                     };
                     
                     await _unitOfWork.AuthorityResources.AddAsync(authorityResource);
