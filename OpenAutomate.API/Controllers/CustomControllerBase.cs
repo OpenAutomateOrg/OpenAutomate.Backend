@@ -4,11 +4,16 @@ using System;
 
 namespace OpenAutomate.API.Controllers
 {
-
+    /// <summary>
+    /// Base controller that provides common functionality for all API controllers
+    /// </summary>
     [Controller]
     public abstract class CustomControllerBase : ControllerBase
     {
-        // returns the current authenticated account (null if not logged in)
+        /// <summary>
+        /// Gets the current authenticated user from the HttpContext
+        /// </summary>
+        /// <remarks>Returns null if no user is authenticated</remarks>
         public User currentUser => (User)HttpContext.Items["User"];
         
         /// <summary>

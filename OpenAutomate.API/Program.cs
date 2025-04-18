@@ -11,6 +11,8 @@ using OpenAutomate.API.Extensions;
 using OpenAutomate.Infrastructure.Repositories;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Domain.IRepository;
+using System.Reflection;
+using System.IO;
 
 namespace OpenAutomate.API
 {
@@ -39,8 +41,6 @@ namespace OpenAutomate.API
             builder.Services.AddDbContext<ApplicationDbContext>((provider, options) =>
             {
                 options.UseSqlServer(dbSettings.DefaultConnection);
-                // Get ITenantContext from service provider
-                var tenantContext = provider.GetRequiredService<ITenantContext>();
             });
             
             // Get CORS settings
@@ -104,7 +104,38 @@ namespace OpenAutomate.API
 
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            builder.Services.AddSwaggerGen(options => 
+            {
+                // Set up XML comments for Swagger
+                var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+                options.IncludeXmlComments(xmlPath);
+                
+                // Add security definition for JWT
+                options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                {
+                    Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+                    Name = "Authorization",
+                    In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+                    Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+                    Scheme = "Bearer"
+                });
+                
+                options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+                {
+                    {
+                        new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                        {
+                            Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                            {
+                                Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
+                });
+            });
 
             var app = builder.Build();
 

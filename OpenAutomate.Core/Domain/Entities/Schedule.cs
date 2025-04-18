@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class Schedule : BaseEntity
+    public class Schedule : TenantEntity
     {
         public string CronExpression { get; set; } = string.Empty;
         public bool IsActive { get; set; }

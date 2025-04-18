@@ -4,6 +4,9 @@ using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Infrastructure.Services;
+using System;
+using System.Linq;
+using System.Reflection;
 
 namespace OpenAutomate.Infrastructure.DbContext
 {
@@ -43,6 +46,21 @@ namespace OpenAutomate.Infrastructure.DbContext
             modelBuilder.ApplyConfiguration(new PackageVersionConfiguration());
             modelBuilder.ApplyConfiguration(new ScheduleConfiguration());
             modelBuilder.ApplyConfiguration(new ExecutionConfiguration());
+            
+            // Configure all tenant entities to use NoAction for OrganizationUnit to prevent cascade cycles
+            // This is important because each tenant entity inherits OrganizationUnitId from TenantEntity
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                // Find all foreign keys in this entity that point to OrganizationUnit via the OrganizationUnitId property
+                foreach (var foreignKey in entityType.GetForeignKeys()
+                    .Where(fk => fk.PrincipalEntityType.ClrType == typeof(OrganizationUnit) && 
+                                 fk.Properties.Count == 1 && 
+                                 fk.Properties.First().Name == "OrganizationUnitId"))
+                {
+                    // Set the delete behavior to NoAction to prevent multiple cascade paths
+                    foreignKey.DeleteBehavior = DeleteBehavior.NoAction;
+                }
+            }
             
             // Apply tenant query filters to all tenant-aware entities
             _tenantQueryFilterService.ApplyTenantFilters(modelBuilder);

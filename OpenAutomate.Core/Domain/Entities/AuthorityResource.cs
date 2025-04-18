@@ -5,11 +5,8 @@ using OpenAutomate.Core.Domain.Base;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class AuthorityResource : ITenantEntity
+    public class AuthorityResource : TenantEntity
     {
-        [Required]
-        public Guid Id { get; set; }
-        
         [Required]
         public Guid AuthorityId { get; set; }
         
@@ -21,11 +18,5 @@ namespace OpenAutomate.Core.Domain.Entities
         
         [Required]
         public int Permission { get; set; }
-        
-        [Required]
-        public Guid OrganizationUnitId { get; set; }
-        
-        [ForeignKey("OrganizationUnitId")]
-        public OrganizationUnit OrganizationUnit { get; set; }
     }
 } 
