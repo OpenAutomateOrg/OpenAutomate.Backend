@@ -23,7 +23,7 @@ namespace OpenAutomate.Infrastructure.Services
             _logger = logger;
         }
 
-        public async Task<OrganizationUnitResponseDto> CreateOrganizationUnitAsync(CreateOrganizationUnitDto dto)
+        public async Task<OrganizationUnitResponseDto> CreateOrganizationUnitAsync(CreateOrganizationUnitDto dto, Guid userId)
         {
             try
             {
@@ -49,6 +49,9 @@ namespace OpenAutomate.Infrastructure.Services
 
                 // Create default authorities for the organization unit
                 await CreateDefaultAuthoritiesAsync(organizationUnit.Id);
+                
+                // Assign the OWNER authority to the user who created the organization unit
+                await AssignOwnerAuthorityToUserAsync(organizationUnit.Id, userId);
 
                 // Return response
                 return new OrganizationUnitResponseDto
@@ -292,6 +295,42 @@ namespace OpenAutomate.Infrastructure.Services
 
             await _unitOfWork.CompleteAsync();
             _logger.LogInformation("Created default authorities for organization unit {OrganizationUnitId}", organizationUnitId);
+        }
+
+        private async Task AssignOwnerAuthorityToUserAsync(Guid organizationUnitId, Guid userId)
+        {
+            try
+            {
+                // Find the OWNER authority for this organization unit
+                var ownerAuthority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(
+                    a => a.OrganizationUnitId == organizationUnitId && a.Name == "OWNER");
+                
+                if (ownerAuthority == null)
+                {
+                    _logger.LogError("OWNER authority not found for organization unit {OrganizationUnitId}", organizationUnitId);
+                    throw new InvalidOperationException($"OWNER authority not found for organization unit {organizationUnitId}");
+                }
+                
+                // Create the user-authority association
+                var userAuthority = new UserAuthority
+                {
+                    UserId = userId,
+                    AuthorityId = ownerAuthority.Id,
+                    OrganizationUnitId = organizationUnitId
+                };
+                
+                await _unitOfWork.UserAuthorities.AddAsync(userAuthority);
+                await _unitOfWork.CompleteAsync();
+                
+                _logger.LogInformation("User {UserId} assigned as OWNER of organization unit {OrganizationUnitId}", 
+                    userId, organizationUnitId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error assigning OWNER authority to user {UserId} for organization unit {OrganizationUnitId}", 
+                    userId, organizationUnitId);
+                throw;
+            }
         }
     }
 } 

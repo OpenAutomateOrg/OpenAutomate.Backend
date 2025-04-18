@@ -8,9 +8,9 @@ namespace OpenAutomate.Core.IServices
     public interface IOrganizationUnitService
     {
         /// <summary>
-        /// Creates a new organization unit with default authorities
+        /// Creates a new organization unit with default authorities and assigns the creator as OWNER
         /// </summary>
-        Task<OrganizationUnitResponseDto> CreateOrganizationUnitAsync(CreateOrganizationUnitDto dto);
+        Task<OrganizationUnitResponseDto> CreateOrganizationUnitAsync(CreateOrganizationUnitDto dto, Guid userId);
         
         /// <summary>
         /// Gets an organization unit by its ID

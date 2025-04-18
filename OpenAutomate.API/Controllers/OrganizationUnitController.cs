@@ -23,8 +23,7 @@ namespace OpenAutomate.API.Controllers
         /// <summary>
         /// Creates a new organization unit with default authorities (OWNER, MANAGER, DEVELOPER, USER)
         /// </summary>
-        [HttpPost]
-        [RequirePermission(Resources.AdminResource, Permissions.Create)]
+        [HttpPost("create")]
         public async Task<ActionResult<OrganizationUnitResponseDto>> Create([FromBody] CreateOrganizationUnitDto dto)
         {
             if (!ModelState.IsValid)
@@ -32,7 +31,10 @@ namespace OpenAutomate.API.Controllers
 
             try
             {
-                var result = await _organizationUnitService.CreateOrganizationUnitAsync(dto);
+                // Get the current user ID from the claims
+                var userId = GetCurrentUserId();
+                
+                var result = await _organizationUnitService.CreateOrganizationUnitAsync(dto, userId);
                 return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
             }
             catch (Exception ex)
