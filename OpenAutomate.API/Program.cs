@@ -11,6 +11,8 @@ using OpenAutomate.API.Extensions;
 using OpenAutomate.Infrastructure.Repositories;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Domain.IRepository;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
 
 namespace OpenAutomate.API
 {
@@ -87,6 +89,26 @@ namespace OpenAutomate.API
                 };
             });
 
+            // Add Cookie + Google authentication
+            builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+            })
+            .AddCookie(options =>
+            {
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+                options.Cookie.SameSite = SameSiteMode.Lax;
+            })
+            .AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
+            {
+                options.ClientId = builder.Configuration["GoogleKeys:ClientId"];
+                options.ClientSecret = builder.Configuration["GoogleKeys:ClientSecret"];
+                options.CallbackPath = "/signin-google";
+            });
+
+
             // Register application services
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
             builder.Services.AddScoped<ITokenService, TokenService>();
@@ -119,7 +141,8 @@ namespace OpenAutomate.API
             app.UseTenantResolution();
             app.UseAuthorization();
             app.MapControllers();
-            
+            app.UseAuthentication();
+
             // Automatically apply migrations at startup
             using (var scope = app.Services.CreateScope())
             {
