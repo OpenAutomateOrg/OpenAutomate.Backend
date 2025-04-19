@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using OpenAutomate.Core.Domain.Entities;
+using OpenAutomate.Core.Domain.Base;
 using OpenAutomate.Core.IServices;
 using System;
 using System.Collections.Generic;

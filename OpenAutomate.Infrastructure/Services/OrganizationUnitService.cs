@@ -218,8 +218,7 @@ namespace OpenAutomate.Infrastructure.Services
                 {
                     "OWNER", new Dictionary<string, int>
                     {
-                        { Resources.AdminResource, Permissions.Delete },
-                        { Resources.EnvironmentResource, Permissions.Delete },
+                        { Resources.AssetResource, Permissions.Delete },
                         { Resources.AgentResource, Permissions.Delete },
                         { Resources.PackageResource, Permissions.Delete },
                         { Resources.ScheduleResource, Permissions.Delete },
@@ -229,9 +228,9 @@ namespace OpenAutomate.Infrastructure.Services
                     }
                 },
                 {
-                    "MANAGER", new Dictionary<string, int>
+                    "OPERATOR", new Dictionary<string, int>
                     {
-                        { Resources.EnvironmentResource, Permissions.Delete },
+                        { Resources.AssetResource, Permissions.Delete },
                         { Resources.AgentResource, Permissions.Delete },
                         { Resources.PackageResource, Permissions.Delete },
                         { Resources.ScheduleResource, Permissions.Delete },
@@ -243,7 +242,7 @@ namespace OpenAutomate.Infrastructure.Services
                 {
                     "DEVELOPER", new Dictionary<string, int>
                     {
-                        { Resources.EnvironmentResource, Permissions.Update },
+                        { Resources.AssetResource, Permissions.Update },
                         { Resources.AgentResource, Permissions.Update },
                         { Resources.PackageResource, Permissions.Update },
                         { Resources.ScheduleResource, Permissions.Update },
@@ -255,7 +254,7 @@ namespace OpenAutomate.Infrastructure.Services
                 {
                     "USER", new Dictionary<string, int>
                     {
-                        { Resources.EnvironmentResource, Permissions.View },
+                        { Resources.AssetResource, Permissions.View },
                         { Resources.AgentResource, Permissions.View },
                         { Resources.PackageResource, Permissions.View },
                         { Resources.ScheduleResource, Permissions.View },

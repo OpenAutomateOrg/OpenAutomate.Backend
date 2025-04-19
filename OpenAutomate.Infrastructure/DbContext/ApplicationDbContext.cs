@@ -46,6 +46,8 @@ namespace OpenAutomate.Infrastructure.DbContext
             modelBuilder.ApplyConfiguration(new PackageVersionConfiguration());
             modelBuilder.ApplyConfiguration(new ScheduleConfiguration());
             modelBuilder.ApplyConfiguration(new ExecutionConfiguration());
+            modelBuilder.ApplyConfiguration(new AssetConfiguration());
+            modelBuilder.ApplyConfiguration(new AssetBotAgentConfiguration());
             
             // Configure all tenant entities to use NoAction for OrganizationUnit to prevent cascade cycles
             // This is important because each tenant entity inherits OrganizationUnitId from TenantEntity
@@ -79,5 +81,7 @@ namespace OpenAutomate.Infrastructure.DbContext
         public DbSet<PackageVersion> PackageVersions { get; set; }
         public DbSet<Execution> Executions { get; set; }
         public DbSet<Schedule> Schedules { get; set; }
+        public DbSet<Asset> Assets { get; set; }
+        public DbSet<AssetBotAgent> AssetBotAgents { get; set; }
     }
 }

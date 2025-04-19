@@ -3,21 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenAutomate.API", "OpenAutomate.API\OpenAutomate.API.csproj", "{7C80AAAC-DFA9-4DB4-8404-B1FEE7742067}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenAutomate.API", "D:\CapstoneProject\OpenAutomate.Backend\OpenAutomate.API\OpenAutomate.API.csproj", "{7C80AAAC-DFA9-4DB4-8404-B1FEE7742067}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenAutomate.Core", "OpenAutomate.Core\OpenAutomate.Core.csproj", "{D1B02A75-A815-45CD-BED2-22349B1889DA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenAutomate.Core", "D:\CapstoneProject\OpenAutomate.Backend\OpenAutomate.Core\OpenAutomate.Core.csproj", "{D1B02A75-A815-45CD-BED2-22349B1889DA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenAutomate.Infrastructure", "OpenAutomate.Infrastructure\OpenAutomate.Infrastructure.csproj", "{0AB8D80C-BB3D-48F8-997C-7F2727D29BB5}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "OpenAutomate.Tests", "OpenAutomate.Tests", "{5B040531-07B0-457A-BFCD-942B03F9B98E}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenAutomate.Tests.API", "OpenAutomate.Tests\OpenAutomate.Tests.API\OpenAutomate.Tests.API.csproj", "{B1FF3B09-699E-45C1-B080-10F3D6D7B37E}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenAutomate.Tests.Core", "OpenAutomate.Tests\OpenAutomate.Tests.Core\OpenAutomate.Tests.Core.csproj", "{6F0331A0-4DBA-4C97-A017-7AE416B8ABAD}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenAutomate.Tests.Infrastructure", "OpenAutomate.Tests\OpenAutomate.Tests.Infrastructure\OpenAutomate.Tests.Infrastructure.csproj", "{40E9D0C6-5107-4E06-9429-4ADAC548060D}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenAutomate.Tests.Common", "OpenAutomate.Tests\OpenAutomate.Tests.Common\OpenAutomate.Tests.Common.csproj", "{AD815459-F57F-44CE-994B-41EE970BBAD1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenAutomate.Infrastructure", "D:\CapstoneProject\OpenAutomate.Backend\OpenAutomate.Infrastructure\OpenAutomate.Infrastructure.csproj", "{0AB8D80C-BB3D-48F8-997C-7F2727D29BB5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -37,33 +27,11 @@ Global
 		{0AB8D80C-BB3D-48F8-997C-7F2727D29BB5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0AB8D80C-BB3D-48F8-997C-7F2727D29BB5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0AB8D80C-BB3D-48F8-997C-7F2727D29BB5}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B1FF3B09-699E-45C1-B080-10F3D6D7B37E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B1FF3B09-699E-45C1-B080-10F3D6D7B37E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B1FF3B09-699E-45C1-B080-10F3D6D7B37E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B1FF3B09-699E-45C1-B080-10F3D6D7B37E}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6F0331A0-4DBA-4C97-A017-7AE416B8ABAD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6F0331A0-4DBA-4C97-A017-7AE416B8ABAD}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6F0331A0-4DBA-4C97-A017-7AE416B8ABAD}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6F0331A0-4DBA-4C97-A017-7AE416B8ABAD}.Release|Any CPU.Build.0 = Release|Any CPU
-		{40E9D0C6-5107-4E06-9429-4ADAC548060D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{40E9D0C6-5107-4E06-9429-4ADAC548060D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{40E9D0C6-5107-4E06-9429-4ADAC548060D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{40E9D0C6-5107-4E06-9429-4ADAC548060D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{AD815459-F57F-44CE-994B-41EE970BBAD1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{AD815459-F57F-44CE-994B-41EE970BBAD1}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{AD815459-F57F-44CE-994B-41EE970BBAD1}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{AD815459-F57F-44CE-994B-41EE970BBAD1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {26F7D492-25B7-4EAF-8191-2F0A76BC324F}
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{B1FF3B09-699E-45C1-B080-10F3D6D7B37E} = {5B040531-07B0-457A-BFCD-942B03F9B98E}
-		{6F0331A0-4DBA-4C97-A017-7AE416B8ABAD} = {5B040531-07B0-457A-BFCD-942B03F9B98E}
-		{40E9D0C6-5107-4E06-9429-4ADAC548060D} = {5B040531-07B0-457A-BFCD-942B03F9B98E}
-		{AD815459-F57F-44CE-994B-41EE970BBAD1} = {5B040531-07B0-457A-BFCD-942B03F9B98E}
 	EndGlobalSection
 EndGlobal
