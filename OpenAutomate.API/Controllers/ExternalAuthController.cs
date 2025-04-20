@@ -44,9 +44,14 @@ namespace OpenAutomate.API.Controllers
                 .FirstOrDefault()?.Claims
                 .ToDictionary(c => c.Type, c => c.Value);
 
-            var email = claims["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"];
-            var firstName = claims["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname"];
-            var lastName = claims["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname"];
+            if (claims == null ||
+                !claims.TryGetValue("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress", out var email) ||
+                !claims.TryGetValue("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname", out var firstName) ||
+                !claims.TryGetValue("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname", out var lastName))
+            {
+                _logger.LogWarning("Required claims are missing in the authentication response.");
+                return BadRequest("Missing required claims in the authentication response.");
+            }
 
             // Xử lý token hoặc đăng ký người dùng
             var user = await _userService.GetByEmailAsync(email);
