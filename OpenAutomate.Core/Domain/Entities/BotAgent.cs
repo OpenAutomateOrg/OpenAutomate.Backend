@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class BotAgent : BaseEntity
+    public class BotAgent : TenantEntity
     {
         public string MachineKey { get; set; } = string.Empty;
         public string MachineName { get; set; } = string.Empty;
