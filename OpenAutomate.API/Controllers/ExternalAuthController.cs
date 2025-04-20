@@ -50,6 +50,7 @@ namespace OpenAutomate.API.Controllers
 
             // Xử lý token hoặc đăng ký người dùng
             var user = await _userService.GetByEmailAsync(email);
+            var ipAddress = GetIpAddress();
             if (user == null)
             {
                 var registrationRequest = new RegistrationRequest
@@ -60,16 +61,27 @@ namespace OpenAutomate.API.Controllers
                     Password = Guid.NewGuid().ToString(),
                     ConfirmPassword = Guid.NewGuid().ToString()
                 };
-                var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+                
                 user = await _userService.RegisterAsync(registrationRequest, ipAddress);
             }
 
             // Tạo token cho người dùng
-            var ipAddressForLogin = HttpContext.Connection.RemoteIpAddress?.ToString();
             var authenticationResponse = await _userService.AuthenticateAsync(
-                new AuthenticationRequest { Email = user.Email, Password = null }, ipAddressForLogin);
+                new AuthenticationRequest { Email = user.Email, Password = null }, ipAddress);
 
             return Ok(authenticationResponse);
+        }
+
+        private string GetIpAddress()
+        {
+            if (Request.Headers.ContainsKey("X-Forwarded-For"))
+            {
+                return Request.Headers["X-Forwarded-For"];
+            }
+            else
+            {
+                return HttpContext.Connection.RemoteIpAddress?.MapToIPv4().ToString() ?? "unknown";
+            }
         }
     }
 }
