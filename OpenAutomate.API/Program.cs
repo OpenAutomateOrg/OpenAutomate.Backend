@@ -121,6 +121,7 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<ITokenService, TokenService>();
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IOrganizationUnitService, OrganizationUnitService>();
+            builder.Services.AddScoped<IBotAgentService, BotAgentService>();
             
             builder.Services.AddScoped<IAuthorizationManager, AuthorizationManager>();
 
@@ -172,11 +173,16 @@ namespace OpenAutomate.API
             app.UseCors();
 
             app.UseHttpsRedirection();
-            // Add tenant resolution middleware before MVC/API controllers but after authentication
+            
+            // IMPORTANT: Tenant resolution MUST come before authentication
+            // because the authentication process may need to know which tenant's users to authenticate against
+            app.UseTenantResolution();
+            
+            // Authentication and authorization middleware
             app.UseAuthentication();
             app.UseJwtAuthentication();
-            app.UseTenantResolution();
             app.UseAuthorization();
+            
             app.MapControllers();
 
             // Automatically apply migrations at startup

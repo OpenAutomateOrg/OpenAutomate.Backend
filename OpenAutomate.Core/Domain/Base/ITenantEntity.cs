@@ -1,6 +1,6 @@
 using System;
 
-namespace OpenAutomate.Core.Domain.Entities
+namespace OpenAutomate.Core.Domain.Base
 {
     /// <summary>
     /// Interface for entities that belong to a specific organization unit (tenant)
@@ -12,4 +12,4 @@ namespace OpenAutomate.Core.Domain.Entities
         /// </summary>
         Guid OrganizationUnitId { get; set; }
     }
-} 
+}

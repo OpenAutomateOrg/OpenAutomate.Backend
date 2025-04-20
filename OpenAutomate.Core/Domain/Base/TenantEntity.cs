@@ -1,7 +1,7 @@
-using OpenAutomate.Core.Domain.Base;
+using OpenAutomate.Core.Domain.Entities;
 using System;
 
-namespace OpenAutomate.Core.Domain.Entities
+namespace OpenAutomate.Core.Domain.Base
 {
     /// <summary>
     /// Base class for entities that belong to a specific organization unit (tenant)
@@ -12,10 +12,10 @@ namespace OpenAutomate.Core.Domain.Entities
         /// Gets or sets the organization unit ID (tenant ID) this entity belongs to
         /// </summary>
         public Guid OrganizationUnitId { get; set; }
-        
+
         /// <summary>
         /// Navigation property for the organization unit
         /// </summary>
         public virtual OrganizationUnit OrganizationUnit { get; set; }
     }
-} 
+}
