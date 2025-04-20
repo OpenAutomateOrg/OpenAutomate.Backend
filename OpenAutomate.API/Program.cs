@@ -62,14 +62,15 @@ namespace OpenAutomate.API
             // Get JWT settings
             var jwtSettings = appSettingsSection.GetSection("Jwt").Get<JwtSettings>();
             
-            // Add JWT Authentication
+            // Configure Authentication - properly separate Cookie/Google auth and JWT auth
             builder.Services.AddAuthentication(options =>
             {
-                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                // Default scheme used for cookie authentication (Google auth)
+                options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                // Default scheme for API authentication challenges
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
             })
-            .AddJwtBearer(options =>
+            .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
             {
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -94,27 +95,24 @@ namespace OpenAutomate.API
                         return Task.CompletedTask;
                     }
                 };
-            });
-
-            // Add Cookie + Google authentication
-            builder.Services.AddAuthentication(options =>
-            {
-                options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
             })
-            .AddCookie(options =>
+            .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
             {
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
                 options.Cookie.SameSite = SameSiteMode.Lax;
+                options.LoginPath = "/api/ExternalAuth/google-login"; // Set login path for cookie auth
             })
             .AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
             {
-                options.ClientId = builder.Configuration["GoogleKeys:ClientId"];
-                options.ClientSecret = builder.Configuration["GoogleKeys:ClientSecret"];
+                var googleKeys = builder.Configuration.GetSection("AppSettings:GoogleAuth");
+                options.ClientId = googleKeys["ClientId"];
+                options.ClientSecret = googleKeys["ClientSecret"];
                 options.CallbackPath = "/signin-google";
+                options.SaveTokens = true;
+                // Set which authentication scheme to use after Google authentication
+                options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
             });
-
 
             // Register application services
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -174,13 +172,13 @@ namespace OpenAutomate.API
 
             app.UseHttpsRedirection();
             
-            // IMPORTANT: Tenant resolution MUST come before authentication
-            // because the authentication process may need to know which tenant's users to authenticate against
+
+            app.UseAuthentication();
+            app.UseJwtAuthentication();
             app.UseTenantResolution();
             
             // Authentication and authorization middleware
-            app.UseAuthentication();
-            app.UseJwtAuthentication();
+
             app.UseAuthorization();
             
             app.MapControllers();
