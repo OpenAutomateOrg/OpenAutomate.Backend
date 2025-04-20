@@ -1,0 +1,92 @@
+﻿using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using OpenAutomate.Core.Dto.UserDto;
+using OpenAutomate.Core.IServices;
+
+namespace OpenAutomate.API.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class ExternalAuthController : ControllerBase
+    {
+        private readonly IUserService _userService;
+        private readonly ILogger<ExternalAuthController> _logger;
+
+
+        public ExternalAuthController(IUserService userService, ILogger<ExternalAuthController> logger)
+        {
+            _userService = userService;
+            _logger = logger;
+        }
+
+        [HttpGet("google-login")]
+        public IActionResult GoogleLogin()
+        {
+            var properties = new AuthenticationProperties
+            {
+                RedirectUri = "/api/ExternalAuth/google-response"
+            };
+            return Challenge(properties, GoogleDefaults.AuthenticationScheme);
+        }
+
+        [HttpGet("google-response")]
+        public async Task<IActionResult> GoogleResponse()
+        {
+            var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            if (!result.Succeeded)
+                return Unauthorized();
+
+            // Lấy thông tin người dùng từ Google
+            var claims = result.Principal?.Identities
+                .FirstOrDefault()?.Claims
+                .ToDictionary(c => c.Type, c => c.Value);
+
+            if (claims == null ||
+                !claims.TryGetValue("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress", out var email) ||
+                !claims.TryGetValue("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname", out var firstName) ||
+                !claims.TryGetValue("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname", out var lastName))
+            {
+                _logger.LogWarning("Required claims are missing in the authentication response.");
+                return BadRequest("Missing required claims in the authentication response.");
+            }
+
+            // Xử lý token hoặc đăng ký người dùng
+            var user = await _userService.GetByEmailAsync(email);
+            var ipAddress = GetIpAddress();
+            if (user == null)
+            {
+                var registrationRequest = new RegistrationRequest
+                {
+                    Email = email,
+                    FirstName = firstName,
+                    LastName = lastName,
+                    Password = Guid.NewGuid().ToString(),
+                    ConfirmPassword = Guid.NewGuid().ToString()
+                };
+                
+                user = await _userService.RegisterAsync(registrationRequest, ipAddress);
+            }
+
+            // Tạo token cho người dùng
+            var authenticationResponse = await _userService.AuthenticateAsync(
+                new AuthenticationRequest { Email = user.Email, Password = null }, ipAddress);
+
+            return Ok(authenticationResponse);
+        }
+
+        private string GetIpAddress()
+        {
+            if (Request.Headers.ContainsKey("X-Forwarded-For"))
+            {
+                return Request.Headers["X-Forwarded-For"];
+            }
+            else
+            {
+                return HttpContext.Connection.RemoteIpAddress?.MapToIPv4().ToString() ?? "unknown";
+            }
+        }
+    }
+}

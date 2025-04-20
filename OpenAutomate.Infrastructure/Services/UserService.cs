@@ -40,10 +40,14 @@ namespace OpenAutomate.Infrastructure.Services
                     throw new ApplicationException("Invalid credentials");
                 }
 
-                if (!VerifyPasswordHash(request.Password, user.PasswordHash, user.PasswordSalt))
+                // Skip password verification for external logins (e.g., Google)
+                if (!string.IsNullOrEmpty(request.Password))
                 {
-                    _logger.LogWarning("Authentication failed: Invalid password for user {Email}", request.Email);
-                    throw new ApplicationException("Invalid credentials");
+                    if (!VerifyPasswordHash(request.Password, user.PasswordHash, user.PasswordSalt))
+                    {
+                        _logger.LogWarning("Authentication failed: Invalid password for user {Email}", request.Email);
+                        throw new ApplicationException("Invalid credentials");
+                    }
                 }
 
                 _logger.LogInformation("User {Email} authenticated successfully", user.Email);
@@ -197,5 +201,11 @@ namespace OpenAutomate.Infrastructure.Services
         }
 
         #endregion
+
+        public async Task<UserResponse> GetByEmailAsync(string email)
+        {
+            var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+            return user != null ? MapToResponse(user) : null;
+        }
     }
 } 
