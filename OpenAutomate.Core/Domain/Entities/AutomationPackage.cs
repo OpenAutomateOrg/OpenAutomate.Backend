@@ -5,10 +5,11 @@ using System.Text.Json.Serialization;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class AutomationPackage : BaseEntity
+    public class AutomationPackage : TenantEntity
     {
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
+        public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; }
        
 

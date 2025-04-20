@@ -13,6 +13,8 @@ using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Domain.IRepository;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
+using System.Reflection;
+using System.IO;
 
 namespace OpenAutomate.API
 {
@@ -34,9 +36,14 @@ namespace OpenAutomate.API
             // Get configuration for DbContext
             var dbSettings = appSettingsSection.GetSection("Database").Get<DatabaseSettings>();
             
+            // Register TenantContext before ApplicationDbContext
+            builder.Services.AddSingleton<ITenantContext, TenantContext>();
+            
             // Add services to the container.
-            builder.Services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlServer(dbSettings.DefaultConnection));
+            builder.Services.AddDbContext<ApplicationDbContext>((provider, options) =>
+            {
+                options.UseSqlServer(dbSettings.DefaultConnection);
+            });
             
             // Get CORS settings
             var corsSettings = appSettingsSection.GetSection("Cors").Get<CorsSettings>();
@@ -113,14 +120,44 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
             builder.Services.AddScoped<ITokenService, TokenService>();
             builder.Services.AddScoped<IUserService, UserService>();
-            builder.Services.AddSingleton<ITenantContext, TenantContext>();
+            builder.Services.AddScoped<IOrganizationUnitService, OrganizationUnitService>();
             
-
             builder.Services.AddScoped<IAuthorizationManager, AuthorizationManager>();
 
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            builder.Services.AddSwaggerGen(options => 
+            {
+                // Set up XML comments for Swagger
+                var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+                options.IncludeXmlComments(xmlPath);
+                
+                // Add security definition for JWT
+                options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                {
+                    Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+                    Name = "Authorization",
+                    In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+                    Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+                    Scheme = "Bearer"
+                });
+                
+                options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+                {
+                    {
+                        new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                        {
+                            Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                            {
+                                Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
+                });
+            });
 
             var app = builder.Build();
 

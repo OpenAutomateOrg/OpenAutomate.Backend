@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class PackageVersion : BaseEntity
+    public class PackageVersion : TenantEntity
     {
         public string VersionNumber { get; set; } = string.Empty;
         public string FilePath { get; set; } = string.Empty;
