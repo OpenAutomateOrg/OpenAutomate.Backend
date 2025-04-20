@@ -178,7 +178,6 @@ namespace OpenAutomate.API
             app.UseTenantResolution();
             app.UseAuthorization();
             app.MapControllers();
-            app.UseAuthentication();
 
             // Automatically apply migrations at startup
             using (var scope = app.Services.CreateScope())
