@@ -6,6 +6,12 @@ using OpenAutomate.Core.IServices;
 
 namespace OpenAutomate.API.Controllers
 {
+    /// <summary>
+    /// Controller for handling user authentication and account management
+    /// </summary>
+    /// <remarks>
+    /// Provides endpoints for user registration, login, token refresh, and token revocation.
+    /// </remarks>
     [Route("api/authen")]
     [ApiController]
     public class AuthenController : ControllerBase
@@ -13,13 +19,29 @@ namespace OpenAutomate.API.Controllers
         private readonly IUserService _userService;
         private readonly ILogger<AuthenController> _logger;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AuthenController"/> class
+        /// </summary>
+        /// <param name="userService">The user service for authentication operations</param>
+        /// <param name="logger">The logger for recording authentication events</param>
         public AuthenController(IUserService userService, ILogger<AuthenController> logger)
         {
             _userService = userService;
             _logger = logger;
         }
 
+        /// <summary>
+        /// Registers a new user in the system
+        /// </summary>
+        /// <param name="request">The registration information containing email, password, and other user details</param>
+        /// <returns>User registration confirmation with authentication tokens</returns>
+        /// <response code="200">Registration successful</response>
+        /// <response code="400">Invalid registration data or email already exists</response>
+        /// <response code="500">Server error during registration process</response>
         [HttpPost("register")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Register(RegistrationRequest request)
         {
             try
@@ -40,7 +62,18 @@ namespace OpenAutomate.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Authenticates a user and provides access tokens
+        /// </summary>
+        /// <param name="request">The authentication request containing email and password</param>
+        /// <returns>Authentication response with access token and refresh token</returns>
+        /// <response code="200">Authentication successful</response>
+        /// <response code="400">Invalid credentials or account disabled</response>
+        /// <response code="500">Server error during authentication process</response>
         [HttpPost("login")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Login(AuthenticationRequest request)
         {
             try
@@ -67,7 +100,20 @@ namespace OpenAutomate.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Generates a new access token using a valid refresh token
+        /// </summary>
+        /// <returns>Authentication response with new access token and refresh token</returns>
+        /// <remarks>
+        /// The refresh token is extracted from the HTTP-only cookie set during login
+        /// </remarks>
+        /// <response code="200">Token refresh successful</response>
+        /// <response code="400">Refresh token missing or invalid</response>
+        /// <response code="500">Server error during token refresh process</response>
         [HttpPost("refresh-token")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> RefreshToken()
         {
             try
@@ -98,8 +144,25 @@ namespace OpenAutomate.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Revokes an active refresh token to prevent future use
+        /// </summary>
+        /// <param name="request">Optional revocation request containing token and reason</param>
+        /// <returns>Confirmation of token revocation</returns>
+        /// <remarks>
+        /// The refresh token can either be provided in request body or extracted from the cookie.
+        /// This endpoint requires authentication.
+        /// </remarks>
+        /// <response code="200">Token successfully revoked</response>
+        /// <response code="400">Token is missing</response>
+        /// <response code="404">Token not found or already revoked</response>
+        /// <response code="500">Server error during revocation process</response>
         [Authorize]
         [HttpPost("revoke-token")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> RevokeToken([FromBody] RevokeTokenRequest request)
         {
             try
@@ -129,8 +192,21 @@ namespace OpenAutomate.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Gets the profile information for the currently authenticated user
+        /// </summary>
+        /// <returns>User profile details of the current user</returns>
+        /// <remarks>
+        /// This endpoint requires authentication.
+        /// </remarks>
+        /// <response code="200">User information retrieved successfully</response>
+        /// <response code="401">User is not authenticated</response>
+        /// <response code="500">Server error while retrieving user information</response>
         [Authorize]
         [HttpGet("user")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetCurrentUser()
         {
             try
@@ -157,6 +233,11 @@ namespace OpenAutomate.API.Controllers
 
         #region Helper Methods
 
+        /// <summary>
+        /// Sets the refresh token in an HTTP-only cookie
+        /// </summary>
+        /// <param name="token">The refresh token value</param>
+        /// <param name="expires">The expiration date for the token</param>
         private void SetRefreshTokenCookie(string token, DateTime expires)
         {
             // Get the current environment
@@ -179,6 +260,10 @@ namespace OpenAutomate.API.Controllers
             Response.Cookies.Append("refreshToken", token, cookieOptions);
         }
 
+        /// <summary>
+        /// Gets the client's IP address from request headers or connection information
+        /// </summary>
+        /// <returns>The client's IP address or "unknown" if not available</returns>
         private string GetIpAddress()
         {
             if (Request.Headers.ContainsKey("X-Forwarded-For"))

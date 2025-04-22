@@ -13,6 +13,11 @@ namespace OpenAutomate.Core.Domain.IRepository
         IRepository<RefreshToken> RefreshTokens { get; }
         IRepository<OrganizationUnit> OrganizationUnits { get; }
         IRepository<OrganizationUnitUser> OrganizationUnitUsers { get; }
+        IRepository<Authority> Authorities { get; }
+        IRepository<UserAuthority> UserAuthorities { get; }
+        IRepository<AuthorityResource> AuthorityResources { get; }
+        IRepository<Asset> Assets { get; }
+        IRepository<AssetBotAgent> AssetBotAgents { get; }
 
         Task<int> CompleteAsync();
     }

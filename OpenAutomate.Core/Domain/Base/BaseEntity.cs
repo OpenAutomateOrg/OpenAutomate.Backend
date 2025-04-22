@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace OpenAutomate.Core.Domain.Base
@@ -14,11 +15,11 @@ namespace OpenAutomate.Core.Domain.Base
         [Key]
         public Guid Id { get; set; }
         public DateTime? CreatedAt { get; set; }
-        public string? CreatedBy { get; set; }
+        public Guid? CreatedBy { get; set; }
         [JsonIgnore]
         public DateTime? LastModifyAt { get; set; }
         [JsonIgnore]
-        public string? LastModifyBy { get; set; }
+        public Guid? LastModifyBy { get; set; }
 
         //public bool IsDeleted { get; set; }
         //[JsonIgnore]

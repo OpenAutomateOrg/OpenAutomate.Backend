@@ -2,14 +2,25 @@
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.Domain.Entities;
+using OpenAutomate.Core.IServices;
+using OpenAutomate.Infrastructure.Services;
+using System;
+using System.Linq;
+using System.Reflection;
 
 namespace OpenAutomate.Infrastructure.DbContext
 {
     public class ApplicationDbContext : Microsoft.EntityFrameworkCore.DbContext
     {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
+        private readonly ITenantContext _tenantContext;
+        private readonly TenantQueryFilterService _tenantQueryFilterService;
+
+        public ApplicationDbContext(
+            DbContextOptions<ApplicationDbContext> options,
+            ITenantContext tenantContext) : base(options)
         {
-          
+            _tenantContext = tenantContext;
+            _tenantQueryFilterService = new TenantQueryFilterService(tenantContext);
         }
         
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -35,6 +46,26 @@ namespace OpenAutomate.Infrastructure.DbContext
             modelBuilder.ApplyConfiguration(new PackageVersionConfiguration());
             modelBuilder.ApplyConfiguration(new ScheduleConfiguration());
             modelBuilder.ApplyConfiguration(new ExecutionConfiguration());
+            modelBuilder.ApplyConfiguration(new AssetConfiguration());
+            modelBuilder.ApplyConfiguration(new AssetBotAgentConfiguration());
+            
+            // Configure all tenant entities to use NoAction for OrganizationUnit to prevent cascade cycles
+            // This is important because each tenant entity inherits OrganizationUnitId from TenantEntity
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                // Find all foreign keys in this entity that point to OrganizationUnit via the OrganizationUnitId property
+                foreach (var foreignKey in entityType.GetForeignKeys()
+                    .Where(fk => fk.PrincipalEntityType.ClrType == typeof(OrganizationUnit) && 
+                                 fk.Properties.Count == 1 && 
+                                 fk.Properties.First().Name == "OrganizationUnitId"))
+                {
+                    // Set the delete behavior to NoAction to prevent multiple cascade paths
+                    foreignKey.DeleteBehavior = DeleteBehavior.NoAction;
+                }
+            }
+            
+            // Apply tenant query filters to all tenant-aware entities
+            _tenantQueryFilterService.ApplyTenantFilters(modelBuilder);
         }
 
         public DbSet<User> Users { set; get; }
@@ -50,5 +81,7 @@ namespace OpenAutomate.Infrastructure.DbContext
         public DbSet<PackageVersion> PackageVersions { get; set; }
         public DbSet<Execution> Executions { get; set; }
         public DbSet<Schedule> Schedules { get; set; }
+        public DbSet<Asset> Assets { get; set; }
+        public DbSet<AssetBotAgent> AssetBotAgents { get; set; }
     }
 }

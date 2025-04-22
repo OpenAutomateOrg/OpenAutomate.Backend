@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class Execution : BaseEntity
+    public class Execution : TenantEntity
     {
         public Guid BotAgentId { get; set; }
         public Guid PackageId { get; set; }
