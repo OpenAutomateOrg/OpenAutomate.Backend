@@ -1,0 +1,6 @@
+@OpenAutomate.API_HostAddress = http://localhost:5252
+
+GET {{OpenAutomate.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

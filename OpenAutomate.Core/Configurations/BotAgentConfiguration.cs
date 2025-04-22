@@ -11,13 +11,13 @@ namespace OpenAutomate.Core.Configurations
             builder.ToTable("BotAgents");
             builder.HasKey(ba => ba.Id);
             
-            builder.Property(ba => ba.MachineName).IsRequired().HasMaxLength(100);
+            builder.Property(ba => ba.Name).IsRequired().HasMaxLength(100);
             builder.Property(ba => ba.Status).IsRequired();
             
             // Setup relationships
             builder.HasOne(ba => ba.Owner)
                 .WithMany()
-                .HasForeignKey(ba => ba.CreatedBy)
+                .HasForeignKey(ba => ba.OwnerId)
                 .OnDelete(DeleteBehavior.Restrict);
                 
             builder.HasMany(ba => ba.Executions)
@@ -26,7 +26,7 @@ namespace OpenAutomate.Core.Configurations
                 .OnDelete(DeleteBehavior.Restrict);
                 
             // Create indexes for faster lookups
-            builder.HasIndex(ba => ba.MachineName);
+            builder.HasIndex(ba => ba.Name);
             builder.HasIndex(ba => ba.Status);
         }
     }
