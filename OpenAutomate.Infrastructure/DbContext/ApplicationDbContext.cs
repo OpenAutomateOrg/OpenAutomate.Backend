@@ -1,12 +1,15 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using OpenAutomate.Core.Configurations;
+using OpenAutomate.Core.Domain.Base;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Infrastructure.Services;
 using System;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace OpenAutomate.Infrastructure.DbContext
 {
@@ -66,6 +69,29 @@ namespace OpenAutomate.Infrastructure.DbContext
             
             // Apply tenant query filters to all tenant-aware entities
             _tenantQueryFilterService.ApplyTenantFilters(modelBuilder);
+        }
+
+        public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+        {
+            // Only set tenant ID for new entities when we have a tenant context
+            if (_tenantContext.HasTenant)
+            {
+                // Find all added entities that implement ITenantEntity
+                var tenantEntities = ChangeTracker.Entries<ITenantEntity>()
+                    .Where(e => e.State == EntityState.Added)
+                    .Select(e => e.Entity);
+
+                // Set the tenant ID to the current tenant for all new tenant entities
+                foreach (var entity in tenantEntities)
+                {
+                    if (entity.OrganizationUnitId == Guid.Empty)
+                    {
+                        entity.OrganizationUnitId = _tenantContext.CurrentTenantId;
+                    }
+                }
+            }
+
+            return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         }
 
         public DbSet<User> Users { set; get; }
