@@ -1,20 +1,19 @@
-﻿using System;
-using OpenAutomate.Core.Domain.Base;
+﻿using OpenAutomate.Core.Domain.Base;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class UserAuthority : ITenantEntity
+    public class UserAuthority : BaseEntity
     {
         [Required]
-        public Guid UserId { get; set; }
+        public Guid UserId { set; get; }
         
         [ForeignKey("UserId")]
         public User User { get; set; }
 
         [Required]
-        public Guid AuthorityId { get; set; }
+        public Guid AuthorityId { set; get; }
         
         [ForeignKey("AuthorityId")]
         public Authority Authority { get; set; }

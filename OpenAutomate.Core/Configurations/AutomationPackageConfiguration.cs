@@ -16,7 +16,7 @@ namespace OpenAutomate.Core.Configurations
             // Setup relationships
             builder.HasOne(ap => ap.Creator)
                 .WithMany()
-                .HasForeignKey(ap => ap.CreatedBy)
+                .HasForeignKey(ap => ap.CreatorId)
                 .OnDelete(DeleteBehavior.Restrict);
                 
             builder.HasMany(ap => ap.Versions)

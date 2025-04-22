@@ -19,12 +19,12 @@ namespace OpenAutomate.Core.Configurations
             
             builder.HasMany<BotAgent>()
                 .WithOne(ba => ba.Owner)
-                .HasForeignKey(ba => ba.CreatedBy)
+                .HasForeignKey(ba => ba.OwnerId)
                 .OnDelete(DeleteBehavior.Restrict);
                 
             builder.HasMany<AutomationPackage>()
                 .WithOne(ap => ap.Creator)
-                .HasForeignKey(ap => ap.CreatedBy)
+                .HasForeignKey(ap => ap.CreatorId)
                 .OnDelete(DeleteBehavior.Restrict);
                 
             builder.HasMany<Schedule>()
