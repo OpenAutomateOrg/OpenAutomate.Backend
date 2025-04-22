@@ -17,11 +17,6 @@ namespace OpenAutomate.Infrastructure.Repositories
         private IRepository<RefreshToken> _refreshTokenRepository;
         private IRepository<OrganizationUnit> _organizationUnitRepository;
         private IRepository<OrganizationUnitUser> _organizationUnitUserRepository;
-        private IRepository<Authority> _authorityRepository;
-        private IRepository<UserAuthority> _userAuthorityRepository;
-        private IRepository<AuthorityResource> _authorityResourceRepository;
-        private IRepository<Asset> _assets;
-        private IRepository<AssetBotAgent> _assetBotAgents;
 
         public UnitOfWork(ApplicationDbContext context)
         {
@@ -50,19 +45,6 @@ namespace OpenAutomate.Infrastructure.Repositories
             
         public IRepository<OrganizationUnitUser> OrganizationUnitUsers => 
             _organizationUnitUserRepository ??= new Repository<OrganizationUnitUser>(_context);
-            
-        public IRepository<Authority> Authorities => 
-            _authorityRepository ??= new Repository<Authority>(_context);
-            
-        public IRepository<UserAuthority> UserAuthorities => 
-            _userAuthorityRepository ??= new Repository<UserAuthority>(_context);
-            
-        public IRepository<AuthorityResource> AuthorityResources => 
-            _authorityResourceRepository ??= new Repository<AuthorityResource>(_context);
-
-        public IRepository<Asset> Assets => _assets ??= new Repository<Asset>(_context);
-
-        public IRepository<AssetBotAgent> AssetBotAgents => _assetBotAgents ??= new Repository<AssetBotAgent>(_context);
 
         public async Task<int> CompleteAsync()
         {

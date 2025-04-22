@@ -25,7 +25,7 @@ namespace OpenAutomate.Core.Configurations
             builder.HasOne(ua => ua.Authority)
                 .WithMany(a => a.UserAuthorities)
                 .HasForeignKey(ua => ua.AuthorityId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
                 
             builder.HasOne(ua => ua.OrganizationUnit)
                 .WithMany()
