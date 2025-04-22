@@ -1,16 +1,20 @@
-﻿using OpenAutomate.Core.Domain.Base;
+﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using OpenAutomate.Core.Domain.Base;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class Authority : BaseEntity
+    public class Authority : TenantEntity
     {
-        [Required]
-        public string Name { set; get; }
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
         
         // Navigation properties
-        public ICollection<AuthorityResource> AuthorityResources { get; set; }
-        public ICollection<UserAuthority> UserAuthorities { get; set; }
+        [JsonIgnore]
+        public virtual ICollection<UserAuthority>? UserAuthorities { get; set; }
+        
+        [JsonIgnore]
+        public virtual ICollection<AuthorityResource>? AuthorityResources { get; set; }
     }
 }

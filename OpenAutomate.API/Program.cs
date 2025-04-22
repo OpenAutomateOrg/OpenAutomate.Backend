@@ -11,6 +11,10 @@ using OpenAutomate.API.Extensions;
 using OpenAutomate.Infrastructure.Repositories;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Domain.IRepository;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
+using System.Reflection;
+using System.IO;
 
 namespace OpenAutomate.API
 {
@@ -18,31 +22,37 @@ namespace OpenAutomate.API
     {
         public static void Main(string[] args)
         {
-            var builder = WebApplication.CreateBuilder(args); 
+            var builder = WebApplication.CreateBuilder(args);
 
             builder.Configuration.AddEnvironmentVariables();
-            
+
             // Register configuration sections with the DI container
             var appSettingsSection = builder.Configuration.GetSection("AppSettings");
             builder.Services.Configure<AppSettings>(appSettingsSection);
             builder.Services.Configure<JwtSettings>(appSettingsSection.GetSection("Jwt"));
             builder.Services.Configure<DatabaseSettings>(appSettingsSection.GetSection("Database"));
             builder.Services.Configure<CorsSettings>(appSettingsSection.GetSection("Cors"));
-            
+            builder.Services.Configure<EmailSettings>(appSettingsSection.GetSection("EmailSettings"));
+
             // Get configuration for DbContext
             var dbSettings = appSettingsSection.GetSection("Database").Get<DatabaseSettings>();
-            
+
+            // Register TenantContext before ApplicationDbContext
+            builder.Services.AddSingleton<ITenantContext, TenantContext>();
+
             // Add services to the container.
-            builder.Services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlServer(dbSettings.DefaultConnection));
-            
+            builder.Services.AddDbContext<ApplicationDbContext>((provider, options) =>
+            {
+                options.UseSqlServer(dbSettings.DefaultConnection);
+            });
+
             // Get CORS settings
             var corsSettings = appSettingsSection.GetSection("Cors").Get<CorsSettings>();
-            
+
             // Add CORS
             builder.Services.AddCors(options =>
             {
-                options.AddDefaultPolicy(policy => 
+                options.AddDefaultPolicy(policy =>
                     policy.WithOrigins(corsSettings.AllowedOrigins)
                           .AllowAnyMethod()
                           .AllowAnyHeader()
@@ -52,15 +62,16 @@ namespace OpenAutomate.API
 
             // Get JWT settings
             var jwtSettings = appSettingsSection.GetSection("Jwt").Get<JwtSettings>();
-            
-            // Add JWT Authentication
+
+            // Configure Authentication - properly separate Cookie/Google auth and JWT auth
             builder.Services.AddAuthentication(options =>
             {
-                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                // Default scheme used for cookie authentication (Google auth)
+                options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                // Default scheme for API authentication challenges
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
             })
-            .AddJwtBearer(options =>
+            .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
             {
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -73,7 +84,7 @@ namespace OpenAutomate.API
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.Zero
                 };
-                
+
                 options.Events = new JwtBearerEvents
                 {
                     OnAuthenticationFailed = context =>
@@ -86,22 +97,79 @@ namespace OpenAutomate.API
                     }
                 };
             });
+            // Add Cookie authentication
+            builder.Services.AddAuthentication()
+            .AddCookie(options =>
+            {
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+                options.Cookie.SameSite = SameSiteMode.Lax;
+            });
 
+            // Conditionally add Google authentication only if credentials are configured
+            var googleClientId = builder.Configuration["AppSettings:GoogleAuth:ClientId"];
+            var googleClientSecret = builder.Configuration["AppSettings:GoogleAuth:ClientSecret"];
+
+            if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientSecret))
+            {
+                builder.Services.AddAuthentication()
+                .AddGoogle(options =>
+                {
+                    options.ClientId = googleClientId;
+                    options.ClientSecret = googleClientSecret;
+                    options.CallbackPath = "/signin-google";
+                });
+
+                Console.WriteLine("Google authentication registered successfully.");
+            }
+            else
+            {
+                Console.WriteLine("Google authentication not registered. Missing ClientId or ClientSecret.");
+            }
             // Register application services
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
             builder.Services.AddScoped<ITokenService, TokenService>();
             builder.Services.AddScoped<IUserService, UserService>();
-            builder.Services.AddSingleton<ITenantContext, TenantContext>();
-            
-            // Register RBAC services
-            builder.Services.AddScoped<IAuthorityRepository, AuthorityRepository>();
-            builder.Services.AddScoped<IAuthorityResourceRepository, AuthorityResourceRepository>();
-            builder.Services.AddScoped<IUserAuthorityRepository, UserAuthorityRepository>();
+            builder.Services.AddScoped<IOrganizationUnitService, OrganizationUnitService>();
+            builder.Services.AddScoped<IBotAgentService, BotAgentService>();
+            builder.Services.AddScoped<IEmailService, AwsSesEmailService>();
+
             builder.Services.AddScoped<IAuthorizationManager, AuthorizationManager>();
 
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            builder.Services.AddSwaggerGen(options =>
+            {
+                // Set up XML comments for Swagger
+                var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+                options.IncludeXmlComments(xmlPath);
+
+                // Add security definition for JWT
+                options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                {
+                    Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+                    Name = "Authorization",
+                    In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+                    Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+                    Scheme = "Bearer"
+                });
+
+                options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+                {
+                    {
+                        new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                        {
+                            Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                            {
+                                Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
+                });
+            });
 
             var app = builder.Build();
 
@@ -116,13 +184,18 @@ namespace OpenAutomate.API
             app.UseCors();
 
             app.UseHttpsRedirection();
-            // Add tenant resolution middleware before MVC/API controllers but after authentication
+
+
             app.UseAuthentication();
             app.UseJwtAuthentication();
             app.UseTenantResolution();
+
+            // Authentication and authorization middleware
+
             app.UseAuthorization();
+
             app.MapControllers();
-            
+
             // Automatically apply migrations at startup
             using (var scope = app.Services.CreateScope())
             {
@@ -137,7 +210,7 @@ namespace OpenAutomate.API
                     Console.WriteLine($"An error occurred applying migrations: {ex.Message}");
                 }
             }
-            
+
             app.Run();
         }
     }
