@@ -4,17 +4,15 @@ on:
   push:
     branches:
       - develop
+      - main
   pull_request:
     branches:
       - develop
+      - main
 
 jobs:
   sonar:
     runs-on: ubuntu-latest
-
-    env:
-      DOTNET_CLI_HOME: /tmp
-      PATH: /root/.dotnet/tools:$PATH  # Set PATH globally for the entire job
 
     steps:
       # Step 1: Checkout the repository
@@ -32,6 +30,7 @@ jobs:
         run: |
           apt-get update && apt-get install -y openjdk-17-jdk  # Install Java (required for SonarQube Scanner)
           dotnet tool install --global dotnet-sonarscanner  # Install SonarQube Scanner tool
+          export PATH="$PATH:/root/.dotnet/tools"  # Add dotnet tool to path
 
       # Step 4: Begin SonarQube analysis
       - name: Begin SonarQube analysis
