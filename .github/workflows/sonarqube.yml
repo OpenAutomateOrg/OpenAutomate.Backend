@@ -1,0 +1,61 @@
+name: SonarQube Analysis
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  sonar:
+    runs-on: ubuntu-latest
+
+    env:
+      DOTNET_CLI_HOME: /tmp
+      PATH: /root/.dotnet/tools:$PATH  # Set PATH globally for the entire job
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Step 2: Set up .NET SDK (for .NET-based projects)
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '8.0'  # Set your desired .NET version
+
+      # Step 3: Install SonarQube Scanner
+      - name: Install SonarQube Scanner
+        run: |
+          apt-get update && apt-get install -y openjdk-17-jdk  # Install Java (required for SonarQube Scanner)
+          dotnet tool install --global dotnet-sonarscanner  # Install SonarQube Scanner tool
+
+      # Step 4: Begin SonarQube analysis
+      - name: Begin SonarQube analysis
+        run: |
+          dotnet sonarscanner begin \
+            /k:"$SONAR_PROJECT_KEY" \
+            /o:"$SONAR_PROJECT_NAME" \
+            /d:sonar.host.url="$SONAR_HOST_URL" \
+            /d:sonar.login="$SONAR_TOKEN" \
+            /d:sonar.cs.opencover.reportsPaths=/coverage.opencover.xml  # Adjust as needed
+
+      # Step 5: Restore dependencies and build the project
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build project
+        run: dotnet build --configuration Release
+
+      # Step 6: Run unit tests (if applicable)
+      - name: Run tests
+        run: dotnet test --configuration Release
+
+      # Step 7: End SonarQube analysis
+      - name: End SonarQube analysis
+        run: |
+          dotnet sonarscanner end \
+            /d:sonar.login="$SONAR_TOKEN"  # Provide the token to complete the analysis
