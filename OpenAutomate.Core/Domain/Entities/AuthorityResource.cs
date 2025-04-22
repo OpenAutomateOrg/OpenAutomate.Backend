@@ -1,17 +1,12 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using OpenAutomate.Core.Domain.Base;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class AuthorityResource : BaseEntity
+    public class AuthorityResource : TenantEntity
     {
-        [Required]
-        public string ResourceName { get; set; }
-        
-        [Required]
-        public int Permission { get; set; }
-        
         [Required]
         public Guid AuthorityId { get; set; }
         
@@ -19,9 +14,9 @@ namespace OpenAutomate.Core.Domain.Entities
         public Authority Authority { get; set; }
         
         [Required]
-        public Guid OrganizationUnitId { get; set; }
+        public string ResourceName { get; set; }
         
-        [ForeignKey("OrganizationUnitId")]
-        public OrganizationUnit OrganizationUnit { get; set; }
+        [Required]
+        public int Permission { get; set; }
     }
 } 
