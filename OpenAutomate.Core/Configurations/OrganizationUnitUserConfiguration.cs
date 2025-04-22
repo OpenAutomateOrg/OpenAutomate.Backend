@@ -10,7 +10,7 @@ namespace OpenAutomate.Core.Configurations
         {
             builder.ToTable("OrganizationUnitUsers");
             
-            // Override the default Id key from TenantEntity/BaseEntity with a composite key
+            // Composite key
             builder.HasKey(ouu => new { ouu.UserId, ouu.OrganizationUnitId });
             
             // Setup relationships
@@ -19,8 +19,6 @@ namespace OpenAutomate.Core.Configurations
                 .HasForeignKey(ouu => ouu.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
                 
-            // This relationship is now handled by TenantEntity
-            // but we still need to configure navigation and delete behavior
             builder.HasOne(ouu => ouu.OrganizationUnit)
                 .WithMany(ou => ou.OrganizationUnitUsers)
                 .HasForeignKey(ouu => ouu.OrganizationUnitId)

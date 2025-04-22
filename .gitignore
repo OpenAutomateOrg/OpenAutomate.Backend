@@ -500,6 +500,4 @@ $RECYCLE.BIN/
 *.swp
 *.dotsettings.user
 *.resharper.user*
-**/appsettings*.json
-**/appsettings.Development.json
-
+appsettings.Development.json

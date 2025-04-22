@@ -22,95 +22,6 @@ namespace OpenAutomate.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.Asset", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<bool>("IsEncrypted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Key")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime?>("LastModifyAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("LastModifyBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<Guid>("OrganizationUnitId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Value")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OrganizationUnitId", "Key")
-                        .IsUnique();
-
-                    b.ToTable("Assets", (string)null);
-                });
-
-            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.AssetBotAgent", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("AssetId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("BotAgentId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("LastModifyAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("LastModifyBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("OrganizationUnitId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AssetId");
-
-                    b.HasIndex("BotAgentId");
-
-                    b.HasIndex("OrganizationUnitId");
-
-                    b.ToTable("AssetBotAgents", (string)null);
-                });
-
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.Authority", b =>
                 {
                     b.Property<Guid>("Id")
@@ -120,32 +31,49 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
+                    b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("LastModifyAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("LastModifyBy")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("LastModifyBy")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<Guid>("OrganizationUnitId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("OrganizationUnitId");
-
                     b.ToTable("Authorities", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("1a89f6f4-3c29-4fe1-9483-5de6676cc3f7"),
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "ADMIN"
+                        },
+                        new
+                        {
+                            Id = new Guid("7e4ea7df-5f1c-4234-8c7a-83d0c9ca2018"),
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "USER"
+                        },
+                        new
+                        {
+                            Id = new Guid("e87a7aee-848a-46d4-b9f5-1e28c2571b3a"),
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "OPERATOR"
+                        },
+                        new
+                        {
+                            Id = new Guid("cfe55508-5a24-4f84-b436-36b1b4395436"),
+                            CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Name = "DEVELOPER"
+                        });
                 });
 
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.AuthorityResource", b =>
@@ -160,14 +88,14 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("LastModifyAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("LastModifyBy")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("LastModifyBy")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("OrganizationUnitId")
                         .HasColumnType("uniqueidentifier");
@@ -198,33 +126,33 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("CreatedBy")
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("CreatorId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
                     b.Property<DateTime?>("LastModifyAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("LastModifyBy")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("LastModifyBy")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<Guid>("OrganizationUnitId")
+                    b.Property<Guid?>("OrganizationUnitId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatedBy");
+                    b.HasIndex("CreatorId");
 
                     b.HasIndex("Name");
 
@@ -242,14 +170,12 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("LastConnected")
-                        .HasColumnType("datetime2");
+                    b.Property<string>("IpAddress")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("LastHeartbeat")
                         .HasColumnType("datetime2");
@@ -257,24 +183,26 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<DateTime?>("LastModifyAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("LastModifyBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("MachineKey")
-                        .IsRequired()
+                    b.Property<string>("LastModifyBy")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("MachineName")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
-                    b.Property<Guid>("OrganizationUnitId")
+                    b.Property<Guid?>("OrganizationUnitId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("RegisteredAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -282,11 +210,11 @@ namespace OpenAutomate.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CreatedBy");
-
-                    b.HasIndex("MachineName");
+                    b.HasIndex("Name");
 
                     b.HasIndex("OrganizationUnitId");
+
+                    b.HasIndex("OwnerId");
 
                     b.HasIndex("Status");
 
@@ -305,8 +233,8 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("datetime2");
@@ -317,13 +245,13 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<DateTime?>("LastModifyAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("LastModifyBy")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("LastModifyBy")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("LogOutput")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid>("OrganizationUnitId")
+                    b.Property<Guid?>("OrganizationUnitId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("PackageId")
@@ -366,8 +294,8 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Description")
                         .IsRequired()
@@ -379,8 +307,8 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<DateTime?>("LastModifyAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("LastModifyBy")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("LastModifyBy")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -408,21 +336,6 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<Guid>("OrganizationUnitId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("LastModifyAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("LastModifyBy")
-                        .HasColumnType("uniqueidentifier");
-
                     b.HasKey("UserId", "OrganizationUnitId");
 
                     b.HasIndex("OrganizationUnitId");
@@ -439,8 +352,8 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("FilePath")
                         .IsRequired()
@@ -452,11 +365,8 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<DateTime?>("LastModifyAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("LastModifyBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("OrganizationUnitId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("LastModifyBy")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("PackageId")
                         .HasColumnType("uniqueidentifier");
@@ -467,8 +377,6 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .HasColumnType("nvarchar(50)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("OrganizationUnitId");
 
                     b.HasIndex("PackageId", "VersionNumber")
                         .IsUnique();
@@ -488,8 +396,8 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("CreatedByIp")
                         .IsRequired()
@@ -501,8 +409,8 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<DateTime?>("LastModifyAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("LastModifyBy")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("LastModifyBy")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReasonRevoked")
                         .HasColumnType("nvarchar(max)");
@@ -555,10 +463,10 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<DateTime?>("LastModifyAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("LastModifyBy")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("LastModifyBy")
+                        .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid>("OrganizationUnitId")
+                    b.Property<Guid?>("OrganizationUnitId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("PackageId")
@@ -586,8 +494,8 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Email")
                         .HasColumnType("nvarchar(max)");
@@ -601,8 +509,8 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<DateTime?>("LastModifyAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("LastModifyBy")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("LastModifyBy")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("LastName")
                         .HasColumnType("nvarchar(max)");
@@ -629,6 +537,21 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<Guid>("AuthorityId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("LastModifyAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastModifyBy")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid>("OrganizationUnitId")
                         .HasColumnType("uniqueidentifier");
 
@@ -644,67 +567,18 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.ToTable("UserAuthorities", (string)null);
                 });
 
-            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.Asset", b =>
-                {
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
-                        .WithMany()
-                        .HasForeignKey("OrganizationUnitId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("OrganizationUnit");
-                });
-
-            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.AssetBotAgent", b =>
-                {
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.Asset", "Asset")
-                        .WithMany("AssetBotAgents")
-                        .HasForeignKey("AssetId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.BotAgent", "BotAgent")
-                        .WithMany("AssetBotAgents")
-                        .HasForeignKey("BotAgentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
-                        .WithMany()
-                        .HasForeignKey("OrganizationUnitId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("Asset");
-
-                    b.Navigation("BotAgent");
-
-                    b.Navigation("OrganizationUnit");
-                });
-
-            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.Authority", b =>
-                {
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
-                        .WithMany()
-                        .HasForeignKey("OrganizationUnitId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("OrganizationUnit");
-                });
-
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.AuthorityResource", b =>
                 {
                     b.HasOne("OpenAutomate.Core.Domain.Entities.Authority", "Authority")
                         .WithMany("AuthorityResources")
                         .HasForeignKey("AuthorityId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
                         .WithMany()
                         .HasForeignKey("OrganizationUnitId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Authority");
@@ -716,34 +590,28 @@ namespace OpenAutomate.Infrastructure.Migrations
                 {
                     b.HasOne("OpenAutomate.Core.Domain.Entities.User", "Creator")
                         .WithMany()
-                        .HasForeignKey("CreatedBy")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
-                        .WithMany("AutomationPackages")
-                        .HasForeignKey("OrganizationUnitId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasForeignKey("CreatorId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Creator");
+                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", null)
+                        .WithMany("AutomationPackages")
+                        .HasForeignKey("OrganizationUnitId");
 
-                    b.Navigation("OrganizationUnit");
+                    b.Navigation("Creator");
                 });
 
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.BotAgent", b =>
                 {
+                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", null)
+                        .WithMany("BotAgents")
+                        .HasForeignKey("OrganizationUnitId");
+
                     b.HasOne("OpenAutomate.Core.Domain.Entities.User", "Owner")
                         .WithMany()
-                        .HasForeignKey("CreatedBy")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
-                        .WithMany("BotAgents")
-                        .HasForeignKey("OrganizationUnitId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.Navigation("OrganizationUnit");
 
                     b.Navigation("Owner");
                 });
@@ -756,11 +624,9 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
+                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", null)
                         .WithMany("Executions")
-                        .HasForeignKey("OrganizationUnitId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                        .HasForeignKey("OrganizationUnitId");
 
                     b.HasOne("OpenAutomate.Core.Domain.Entities.AutomationPackage", "Package")
                         .WithMany("Executions")
@@ -775,8 +641,6 @@ namespace OpenAutomate.Infrastructure.Migrations
 
                     b.Navigation("BotAgent");
 
-                    b.Navigation("OrganizationUnit");
-
                     b.Navigation("Package");
 
                     b.Navigation("Schedule");
@@ -787,7 +651,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
                         .WithMany("OrganizationUnitUsers")
                         .HasForeignKey("OrganizationUnitId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("OpenAutomate.Core.Domain.Entities.User", "User")
@@ -803,19 +667,11 @@ namespace OpenAutomate.Infrastructure.Migrations
 
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.PackageVersion", b =>
                 {
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
-                        .WithMany()
-                        .HasForeignKey("OrganizationUnitId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
                     b.HasOne("OpenAutomate.Core.Domain.Entities.AutomationPackage", "Package")
                         .WithMany("Versions")
                         .HasForeignKey("PackageId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("OrganizationUnit");
 
                     b.Navigation("Package");
                 });
@@ -839,11 +695,9 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
+                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", null)
                         .WithMany("Schedules")
-                        .HasForeignKey("OrganizationUnitId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                        .HasForeignKey("OrganizationUnitId");
 
                     b.HasOne("OpenAutomate.Core.Domain.Entities.AutomationPackage", "Package")
                         .WithMany("Schedules")
@@ -853,8 +707,6 @@ namespace OpenAutomate.Infrastructure.Migrations
 
                     b.Navigation("CreatedBy");
 
-                    b.Navigation("OrganizationUnit");
-
                     b.Navigation("Package");
                 });
 
@@ -863,13 +715,13 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.HasOne("OpenAutomate.Core.Domain.Entities.Authority", "Authority")
                         .WithMany("UserAuthorities")
                         .HasForeignKey("AuthorityId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
                         .WithMany()
                         .HasForeignKey("OrganizationUnitId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("OpenAutomate.Core.Domain.Entities.User", "User")
@@ -883,11 +735,6 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Navigation("OrganizationUnit");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.Asset", b =>
-                {
-                    b.Navigation("AssetBotAgents");
                 });
 
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.Authority", b =>
@@ -908,8 +755,6 @@ namespace OpenAutomate.Infrastructure.Migrations
 
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.BotAgent", b =>
                 {
-                    b.Navigation("AssetBotAgents");
-
                     b.Navigation("Executions");
                 });
 
