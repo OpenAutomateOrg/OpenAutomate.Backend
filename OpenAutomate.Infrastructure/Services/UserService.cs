@@ -118,6 +118,33 @@ namespace OpenAutomate.Infrastructure.Services
 
                 _logger.LogInformation("User {Email} registered successfully", user.Email);
 
+                // Check if there is any pending invitation for the email
+                var invitation = await _unitOfWork.OrganizationUnitInvitations
+                    .GetFirstOrDefaultAsync(inv => inv.Email.ToLower() == request.Email.ToLower() && inv.Status == "Pending");
+
+                if (invitation != null)
+                {
+                    // Add the user to the organization unit
+                    var organizationUnitUser = new OrganizationUnitUser
+                    {
+                        OrganizationUnitId = invitation.OrganizationUnitId,
+                        UserId = user.Id,
+                        Role = "Member"
+                    };
+
+                    await _unitOfWork.OrganizationUnitUsers.AddAsync(organizationUnitUser);
+
+                    // Update the invitation status to "Accepted"
+                    invitation.Status = "Accepted";
+                    invitation.UserId = user.Id;
+                    invitation.AcceptedAt = DateTime.UtcNow;
+
+                    await _unitOfWork.CompleteAsync();
+
+                    _logger.LogInformation("User {Email} added to Organization Unit {OrganizationUnitId} via invitation",
+                        user.Email, invitation.OrganizationUnitId);
+                }
+
                 return new UserResponse
                 {
                     Id = user.Id,

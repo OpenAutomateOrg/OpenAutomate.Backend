@@ -1,6 +1,7 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using OpenAutomate.API.Attributes;
 using OpenAutomate.Core.Constants;
+using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Dto.OrganizationUnit;
 using OpenAutomate.Core.IServices;
 using System;
@@ -233,6 +234,68 @@ namespace OpenAutomate.API.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, $"An error occurred while checking name change impact: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Adds a user to an organization unit or sends an invitation if the user does not exist.
+        /// </summary>
+        /// <param name="ouId">The unique identifier of the organization unit.</param>
+        /// <param name="email">The email address of the user to be added or invited.</param>
+        /// <returns>
+        /// A response indicating the result of the operation:
+        /// - 200 OK: If the user was successfully added or the invitation was sent.
+        /// - 400 Bad Request: If the email is invalid, the user already exists in the organization unit, or the invitation could not be created.
+        /// - 500 Internal Server Error: If an unexpected error occurs.
+        /// </returns>
+        /// <remarks>
+        /// This method performs the following steps:
+        /// 1. Checks if the email is valid.
+        /// 2. If the user exists:
+        ///    - Adds the user to the organization unit.
+        ///    - Sends a notification email to the user.
+        /// 3. If the user does not exist:
+        ///    - Creates an invitation for the user.
+        ///    - Sends an invitation email with a registration link.
+        /// </remarks>
+        /// <response code="200">User added successfully or invitation sent.</response>
+        /// <response code="400">Invalid email or user already exists in the organization unit.</response>
+        /// <response code="500">An error occurred during the operation.</response>
+        [HttpPost]
+        public async Task<IActionResult> AddUser(Guid ouId, [FromBody] string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+                return BadRequest("Email is required.");
+
+            try
+            {
+                // Check if the user exists by email
+                var user = await _organizationUnitService.GetUserByEmailAsync(email);
+                if (user != null)
+                {
+                    // Case 1: The user already exists
+                    var result = await _organizationUnitService.AddUserToOrganizationUnitAsync(ouId, user.Id);
+                    if (!result)
+                        return BadRequest("User already exists in the organization unit.");
+
+                    // Send a notification email
+                    await _organizationUnitService.SendNotificationEmailAsync(user.Email, "You have been added to an Organization Unit.");
+                    return Ok("User added successfully and notification email sent.");
+                }
+
+                // Case 2: The user does not exist
+                var invitationResult = await _organizationUnitService.CreateInvitationAsync(ouId, email);
+                if (!invitationResult)
+                    return BadRequest("Failed to create invitation.");
+
+                // Send an invitation email with a registration link
+                await _organizationUnitService.SendInvitationEmailAsync(ouId, email, "Organization Unit Name");
+                return Ok("Invitation sent successfully.");
+            }
+            catch (Exception ex)
+            {
+                // Log the error (if needed)
+                return StatusCode(500, $"An error occurred: {ex.Message}");
             }
         }
     }

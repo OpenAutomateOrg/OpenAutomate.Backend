@@ -25,6 +25,11 @@ namespace OpenAutomate.Core.Configurations
                 .WithMany(ou => ou.OrganizationUnitUsers)
                 .HasForeignKey(ouu => ouu.OrganizationUnitId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Configure Role
+            builder.Property(ouu => ouu.Role)
+            .IsRequired()
+            .HasMaxLength(50);
         }
     }
 } 

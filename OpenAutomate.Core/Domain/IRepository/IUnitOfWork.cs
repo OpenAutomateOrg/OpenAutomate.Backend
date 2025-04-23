@@ -18,7 +18,7 @@ namespace OpenAutomate.Core.Domain.IRepository
         IRepository<AuthorityResource> AuthorityResources { get; }
         IRepository<Asset> Assets { get; }
         IRepository<AssetBotAgent> AssetBotAgents { get; }
-
+        IRepository<OrganizationUnitInvitation> OrganizationUnitInvitations { get; }
         Task<int> CompleteAsync();
     }
 }

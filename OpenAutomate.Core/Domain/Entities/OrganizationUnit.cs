@@ -13,6 +13,7 @@ namespace OpenAutomate.Core.Domain.Entities
         
         // Navigation properties
         public virtual ICollection<OrganizationUnitUser> OrganizationUnitUsers { get; set; }
+        public virtual ICollection<OrganizationUnitInvitation> OrganizationUnitInvitations { get; set; }
         public virtual ICollection<BotAgent> BotAgents { get; set; }
         public virtual ICollection<AutomationPackage> AutomationPackages { get; set; }
         public virtual ICollection<Execution> Executions { get; set; }

@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using OpenAutomate.Core.Constants;
@@ -16,12 +17,15 @@ namespace OpenAutomate.Infrastructure.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<OrganizationUnitService> _logger;
+        private readonly IEmailService _emailService;
 
-        public OrganizationUnitService(IUnitOfWork unitOfWork, ILogger<OrganizationUnitService> logger)
+        public OrganizationUnitService(IUnitOfWork unitOfWork, ILogger<OrganizationUnitService> logger, IEmailService emailService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
+            _emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
         }
+
 
         public async Task<OrganizationUnitResponseDto> CreateOrganizationUnitAsync(CreateOrganizationUnitDto dto, Guid userId)
         {
@@ -330,6 +334,124 @@ namespace OpenAutomate.Infrastructure.Services
                     userId, organizationUnitId);
                 throw;
             }
+        }
+
+        public async Task<User> GetUserByEmailAsync(string email)
+        {
+            return await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email == email);
+        }
+
+        public async Task<bool> AddUserToOrganizationUnitAsync(Guid ouId, Guid userId)
+        {
+            if (await _unitOfWork.OrganizationUnitUsers.AnyAsync(ouu => ouu.OrganizationUnitId == ouId && ouu.UserId == userId))
+                return false;
+
+            var organizationUnitUser = new OrganizationUnitUser
+            {
+                OrganizationUnitId = ouId,
+                UserId = userId,
+                Role = "Member"
+            };
+
+            await _unitOfWork.OrganizationUnitUsers.AddAsync(organizationUnitUser);
+            return await _unitOfWork.CompleteAsync() > 0;
+        }
+
+        public async Task<bool> CreateInvitationAsync(Guid ouId, string email)
+        {
+            var existingInvitation = await _unitOfWork.OrganizationUnitInvitations
+                .GetFirstOrDefaultAsync(inv => inv.OrganizationUnitId == ouId && inv.Email == email && inv.Status == "Pending");
+
+            if (existingInvitation != null)
+                return false;
+
+            var invitation = new OrganizationUnitInvitation
+            {
+                OrganizationUnitId = ouId,
+                Email = email,
+                Status = "Pending",
+                ExpiresAt = DateTime.UtcNow.AddDays(7)
+            };
+
+            await _unitOfWork.OrganizationUnitInvitations.AddAsync(invitation);
+            return await _unitOfWork.CompleteAsync() > 0;
+        }
+
+        public async Task SendNotificationEmailAsync(string email, string message)
+        {
+            if (string.IsNullOrEmpty(email))
+                throw new ArgumentException("Email address is required", nameof(email));
+
+            var subject = "Notification: Added to Organization Unit";
+            var body = $@"
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <style>
+                            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                            .header {{ background-color: #0078d4; color: white; padding: 10px 20px; text-align: center; }}
+                            .content {{ padding: 20px; border: 1px solid #ddd; border-top: none; }}
+                            .footer {{ margin-top: 20px; font-size: 12px; color: #777; text-align: center; }}
+                        </style>
+                    </head>
+                    <body>
+                        <div class='container'>
+                            <div class='header'>
+                                <h2>Notification</h2>
+                            </div>
+                            <div class='content'>
+                                <p>{message}</p>
+                            </div>
+                            <div class='footer'>
+                                <p>© 2023 OpenAutomate. All rights reserved.</p>
+                            </div>
+                        </div>
+                    </body>
+                    </html>";
+
+            await _emailService.SendEmailAsync(email, subject, body, isHtml: true);
+        }
+
+        public async Task SendInvitationEmailAsync(Guid ouId, string email, string organizationUnitName)
+        {
+            if (string.IsNullOrEmpty(email))
+                throw new ArgumentException("Email address is required", nameof(email));
+
+            var registrationLink = $"https://your-app.com/register?email={email}";
+            var subject = "You are invited to join an Organization Unit";
+            var body = $@"
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <style>
+                            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                            .header {{ background-color: #0078d4; color: white; padding: 10px 20px; text-align: center; }}
+                            .content {{ padding: 20px; border: 1px solid #ddd; border-top: none; }}
+                            .footer {{ margin-top: 20px; font-size: 12px; color: #777; text-align: center; }}
+                        </style>
+                    </head>
+                    <body>
+                        <div class='container'>
+                            <div class='header'>
+                                <h2>Invitation to Join</h2>
+                            </div>
+                            <div class='content'>
+                                <p>Hello,</p>
+                                <p>You have been invited to join the organization unit: <strong>{organizationUnitName}</strong>.</p>
+                                <p>Please click the link below to register:</p>
+                                <p><a href='{registrationLink}' style='color: #0078d4;'>Register Now</a></p>
+                                <p>This link will expire in 7 days.</p>
+                            </div>
+                            <div class='footer'>
+                                <p>© 2023 OpenAutomate. All rights reserved.</p>
+                            </div>
+                        </div>
+                    </body>
+                    </html>";
+
+            await _emailService.SendEmailAsync(email, subject, body, isHtml: true);
         }
     }
 } 

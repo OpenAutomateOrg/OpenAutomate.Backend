@@ -12,5 +12,9 @@ namespace OpenAutomate.Core.Domain.Entities
         
         [ForeignKey("UserId")]
         public User User { get; set; }
+
+        [Required]
+        [StringLength(50)]
+        public string Role { get; set; } = "Member";
     }
 }

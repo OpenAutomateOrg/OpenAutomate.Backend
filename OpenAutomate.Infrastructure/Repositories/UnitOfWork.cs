@@ -22,6 +22,7 @@ namespace OpenAutomate.Infrastructure.Repositories
         private IRepository<AuthorityResource> _authorityResourceRepository;
         private IRepository<Asset> _assets;
         private IRepository<AssetBotAgent> _assetBotAgents;
+        private IRepository<OrganizationUnitInvitation> _organizationUnitInvitation;
 
         public UnitOfWork(ApplicationDbContext context)
         {
@@ -63,6 +64,8 @@ namespace OpenAutomate.Infrastructure.Repositories
         public IRepository<Asset> Assets => _assets ??= new Repository<Asset>(_context);
 
         public IRepository<AssetBotAgent> AssetBotAgents => _assetBotAgents ??= new Repository<AssetBotAgent>(_context);
+
+        public IRepository<OrganizationUnitInvitation> OrganizationUnitInvitations => _organizationUnitInvitation ??= new Repository<OrganizationUnitInvitation>(_context);
 
         public async Task<int> CompleteAsync()
         {
