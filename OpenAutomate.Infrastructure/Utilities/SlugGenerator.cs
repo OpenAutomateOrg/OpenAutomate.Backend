@@ -7,6 +7,9 @@ namespace OpenAutomate.Infrastructure.Utilities
 {
     public static class SlugGenerator
     {
+        // Define a constant for regex timeout
+        private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(100);
+
         /// <summary>
         /// Generates a URL-friendly slug from a string
         /// </summary>
@@ -32,16 +35,16 @@ namespace OpenAutomate.Infrastructure.Utilities
             string result = slug.ToString().ToLowerInvariant();
 
             // Replace spaces with hyphens
-            result = Regex.Replace(result, @"\s+", "-");
+            result = Regex.Replace(result, @"\s+", "-", RegexOptions.NonBacktracking, RegexTimeout);
 
             // Remove invalid characters
-            result = Regex.Replace(result, @"[^a-z0-9\-]", string.Empty);
+            result = Regex.Replace(result, @"[^a-z0-9\-]", string.Empty, RegexOptions.NonBacktracking, RegexTimeout);
 
             // Trim hyphens from beginning and end
             result = result.Trim('-');
 
             // Remove duplicate hyphens
-            result = Regex.Replace(result, @"-+", "-");
+            result = Regex.Replace(result, @"-+", "-", RegexOptions.NonBacktracking, RegexTimeout);
 
             return result;
         }
