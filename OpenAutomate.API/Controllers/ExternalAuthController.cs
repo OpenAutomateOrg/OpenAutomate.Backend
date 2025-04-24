@@ -112,9 +112,9 @@ namespace OpenAutomate.API.Controllers
         /// </summary>
         private string GetIpAddress()
         {
-            if (Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedFor))
+            if (Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedFor) && forwardedFor.Count > 0)
             {
-                return forwardedFor.ToString();
+                return forwardedFor.ToString().Split(',')[0].Trim();
             }
             
             return HttpContext.Connection.RemoteIpAddress?.MapToIPv4().ToString() ?? "unknown";

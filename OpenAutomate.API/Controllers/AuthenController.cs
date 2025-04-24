@@ -266,14 +266,14 @@ namespace OpenAutomate.API.Controllers
         /// <returns>The client's IP address or "unknown" if not available</returns>
         private string GetIpAddress()
         {
-            if (Request.Headers.ContainsKey("X-Forwarded-For"))
+            // Use TryGetValue which is cleaner and more efficient
+            if (Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedFor) && forwardedFor.Count > 0)
             {
-                return Request.Headers["X-Forwarded-For"];
+                // X-Forwarded-For can contain multiple IPs, use the first one (client IP)
+                return forwardedFor.ToString().Split(',')[0].Trim();
             }
-            else
-            {
-                return HttpContext.Connection.RemoteIpAddress?.MapToIPv4().ToString() ?? "unknown";
-            }
+            
+            return HttpContext.Connection.RemoteIpAddress?.MapToIPv4().ToString() ?? "unknown";
         }
 
         #endregion
