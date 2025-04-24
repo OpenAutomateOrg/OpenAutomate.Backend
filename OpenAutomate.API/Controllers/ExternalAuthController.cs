@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.Mvc;
 using OpenAutomate.Core.Dto.UserDto;
 using OpenAutomate.Core.IServices;
 using System.Security.Claims;
+using System.Diagnostics.CodeAnalysis;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.Extensions.Primitives;
 
 namespace OpenAutomate.API.Controllers
 {
@@ -112,12 +115,25 @@ namespace OpenAutomate.API.Controllers
         /// </summary>
         private string GetIpAddress()
         {
-            if (Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedFor))
+            // Get the forwarded header through model binding
+            var forwardedForHeader = GetForwardedForHeader();
+            
+            if (!string.IsNullOrEmpty(forwardedForHeader))
             {
-                return forwardedFor.ToString();
+                // X-Forwarded-For can contain multiple IPs, use the first one (client IP)
+                return forwardedForHeader.Split(',')[0].Trim();
             }
             
             return HttpContext.Connection.RemoteIpAddress?.MapToIPv4().ToString() ?? "unknown";
+        }
+
+        /// <summary>
+        /// Uses model binding to retrieve the X-Forwarded-For header
+        /// </summary>
+        [NonAction]
+        public string GetForwardedForHeader([FromHeader(Name = "X-Forwarded-For")] string forwardedFor = null)
+        {
+            return forwardedFor;
         }
     }
 }
