@@ -193,7 +193,7 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 if (computedHashBytes[i] != storedHashBytes[i])
                 {
-                    return false;
+                    return false; 
                 }
             }
 
