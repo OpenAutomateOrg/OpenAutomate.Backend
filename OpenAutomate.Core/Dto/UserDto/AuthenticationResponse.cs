@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using OpenAutomate.Core.Domain.Enums;
 
 namespace OpenAutomate.Core.Dto.UserDto
 {
@@ -14,6 +15,7 @@ namespace OpenAutomate.Core.Dto.UserDto
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public string? Email { get; set; }
+        public SystemRole SystemRole { get; set; }
         public string Token { get; set; }
 
         [JsonIgnore] // refresh token is returned in http only cookie

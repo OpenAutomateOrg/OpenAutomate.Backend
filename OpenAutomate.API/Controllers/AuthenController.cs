@@ -158,7 +158,7 @@ namespace OpenAutomate.API.Controllers
         /// <response code="400">Token is missing</response>
         /// <response code="404">Token not found or already revoked</response>
         /// <response code="500">Server error during revocation process</response>
-        [Authorize]
+
         [HttpPost("revoke-token")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
