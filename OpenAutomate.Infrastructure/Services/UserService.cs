@@ -88,8 +88,6 @@ namespace OpenAutomate.Infrastructure.Services
 
         public async Task<UserResponse> RegisterAsync(RegistrationRequest request, string ipAddress)
         {
-
-            ArgumentNullException.ThrowIfNull(request, nameof(request));
             try
             {
                 // Check if user already exists
@@ -135,14 +133,8 @@ namespace OpenAutomate.Infrastructure.Services
             }
         }
 
-        public async Task<UserResponse?> GetByIdAsync(Guid id)
+        public async Task<UserResponse> GetByIdAsync(Guid id)
         {
-            if (id == Guid.Empty)
-            {
-                _logger.LogWarning("Invalid user ID {UserId}", id);
-                throw new ArgumentException("User ID cannot be empty.", nameof(id));
-            }
-
             try
             {
                 var user = await _unitOfWork.Users.GetByIdAsync(id);
@@ -151,6 +143,7 @@ namespace OpenAutomate.Infrastructure.Services
                     _logger.LogWarning("User with ID {UserId} not found", id);
                     return null;
                 }
+
                 return MapToResponse(user);
             }
             catch (Exception ex)
@@ -160,11 +153,11 @@ namespace OpenAutomate.Infrastructure.Services
             }
         }
 
-        public UserResponse? MapToResponse(User user)
+        public UserResponse MapToResponse(User user)
         {
             if (user == null)
                 return null;
-
+                
             return new UserResponse
             {
                 Id = user.Id,
@@ -181,7 +174,7 @@ namespace OpenAutomate.Infrastructure.Services
             using var hmac = new HMACSHA512();
             byte[] saltBytes = hmac.Key;
             byte[] hashBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
-
+            
             // Convert to Base64 strings for storage
             passwordSalt = Convert.ToBase64String(saltBytes);
             passwordHash = Convert.ToBase64String(hashBytes);
@@ -192,15 +185,15 @@ namespace OpenAutomate.Infrastructure.Services
             // Convert from Base64 strings back to byte arrays
             byte[] saltBytes = Convert.FromBase64String(storedSalt);
             byte[] storedHashBytes = Convert.FromBase64String(storedHash);
-
+            
             using var hmac = new HMACSHA512(saltBytes);
             byte[] computedHashBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
-
+            
             for (int i = 0; i < computedHashBytes.Length; i++)
             {
                 if (computedHashBytes[i] != storedHashBytes[i])
                 {
-                    return false;
+                    return false; 
                 }
             }
 
@@ -209,23 +202,10 @@ namespace OpenAutomate.Infrastructure.Services
 
         #endregion
 
-        public async Task<UserResponse?> GetByEmailAsync(string email)
+        public async Task<UserResponse> GetByEmailAsync(string email)
         {
-            if (string.IsNullOrEmpty(email))
-            {
-                throw new ArgumentException("Email cannot be null or empty.", nameof(email));
-            }
-
-            try
-            {
-                var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
-                return user != null ? MapToResponse(user) : null;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving user with email {Email}", email);
-                throw;
-            }
+            var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+            return user != null ? MapToResponse(user) : null;
         }
     }
-}
+} 
