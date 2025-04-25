@@ -52,6 +52,7 @@ namespace OpenAutomate.Infrastructure.Services
                     FirstName = user.FirstName,
                     LastName = user.LastName,
                     Email = user.Email,
+                    SystemRole = user.SystemRole,
                     Token = token,
                     RefreshToken = refreshToken.Token,
                     RefreshTokenExpiration = refreshToken.Expires
@@ -109,6 +110,7 @@ namespace OpenAutomate.Infrastructure.Services
                     FirstName = user.FirstName,
                     LastName = user.LastName,
                     Email = user.Email,
+                    SystemRole = user.SystemRole,
                     Token = token,
                     RefreshToken = newRefreshToken.Token,
                     RefreshTokenExpiration = newRefreshToken.Expires
@@ -190,7 +192,8 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim(ClaimTypes.Role, user.SystemRole.ToString())
             };
 
             // Add tenant claim if there is a tenant context
