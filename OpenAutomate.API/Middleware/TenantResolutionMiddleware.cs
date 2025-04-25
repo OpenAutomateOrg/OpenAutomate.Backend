@@ -30,60 +30,82 @@ namespace OpenAutomate.API.Middleware
             // URL format: https://domain.com/{tenantSlug}/api/...
             var path = context.Request.Path.Value;
             
-            if (path != null && path.Length > 1)
+            if (ShouldProcessPath(path))
             {
                 var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-                if (segments.Length > 0)
+                var potentialTenantSlug = segments[0];
+                
+                // Skip tenant resolution for system endpoints
+                if (IsSystemEndpoint(potentialTenantSlug))
                 {
-                    var potentialTenantSlug = segments[0];
-                    
-                    // Skip tenant resolution for system endpoints
-                    if (potentialTenantSlug == "api" || potentialTenantSlug == "admin")
-                    {
-                        _logger.LogDebug("Skipping tenant resolution for system endpoint: {Path}", path);
-                        await _next(context);
-                        return;
-                    }
-                    
-                    _logger.LogDebug("Resolving tenant for slug: {TenantSlug}", potentialTenantSlug);
-                    
-                    try
-                    {
-                        var tenant = await unitOfWork.OrganizationUnits
-                            .GetFirstOrDefaultAsync(o => o.Slug == potentialTenantSlug && o.IsActive);
-                        
-                        if (tenant != null)
-                        {
-                            // Store the tenant in HttpContext.Items for later use
-                            context.Items["CurrentTenant"] = tenant;
-                            
-                            // Set the tenant ID in the TenantContext service
-                            tenantContext.SetTenant(tenant.Id);
-                            
-                            _logger.LogDebug("Tenant resolved: {TenantId}, {TenantName}", tenant.Id, tenant.Name);
-                            
-                            // Keep the original path with tenant segment
-                            // No URL rewriting needed
-                        }
-                        else
-                        {
-                            _logger.LogWarning("Tenant not found for slug: {TenantSlug}", potentialTenantSlug);
-                            context.Response.StatusCode = StatusCodes.Status404NotFound;
-                            await context.Response.WriteAsync($"Tenant '{potentialTenantSlug}' not found or inactive.");
-                            return;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error resolving tenant: {Message}", ex.Message);
-                        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-                        await context.Response.WriteAsync("Error resolving tenant.");
-                        return;
-                    }
+                    _logger.LogDebug("Skipping tenant resolution for system endpoint: {Path}", path);
+                    await _next(context);
+                    return;
+                }
+                
+                _logger.LogDebug("Resolving tenant for slug: {TenantSlug}", potentialTenantSlug);
+                
+                if (!await ResolveTenantAsync(context, unitOfWork, tenantContext, potentialTenantSlug))
+                {
+                    return; // Response has been written, stop processing
                 }
             }
             
             await _next(context);
+        }
+
+        private bool ShouldProcessPath(string path)
+        {
+            return path != null && path.Length > 1 && path.Split('/', StringSplitOptions.RemoveEmptyEntries).Length > 0;
+        }
+        
+        private bool IsSystemEndpoint(string segment)
+        {
+            return segment == "api" || segment == "admin";
+        }
+        
+        private async Task<bool> ResolveTenantAsync(HttpContext context, IUnitOfWork unitOfWork, 
+            ITenantContext tenantContext, string tenantSlug)
+        {
+            try
+            {
+                var tenant = await unitOfWork.OrganizationUnits
+                    .GetFirstOrDefaultAsync(o => o.Slug == tenantSlug && o.IsActive);
+                
+                if (tenant != null)
+                {
+                    // Store the tenant in HttpContext.Items for later use
+                    context.Items["CurrentTenant"] = tenant;
+                    
+                    // Set the tenant ID in the TenantContext service
+                    tenantContext.SetTenant(tenant.Id);
+                    
+                    _logger.LogDebug("Tenant resolved: {TenantId}, {TenantName}", tenant.Id, tenant.Name);
+                    return true;
+                }
+                
+                await HandleTenantNotFoundAsync(context, tenantSlug);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                await HandleTenantResolutionErrorAsync(context, ex);
+                return false;
+            }
+        }
+        
+        private async Task HandleTenantNotFoundAsync(HttpContext context, string tenantSlug)
+        {
+            _logger.LogWarning("Tenant not found for slug: {TenantSlug}", tenantSlug);
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            await context.Response.WriteAsync($"Tenant '{tenantSlug}' not found or inactive.");
+        }
+        
+        private async Task HandleTenantResolutionErrorAsync(HttpContext context, Exception ex)
+        {
+            _logger.LogError(ex, "Error resolving tenant: {Message}", ex.Message);
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            await context.Response.WriteAsync("Error resolving tenant.");
         }
     }
     

@@ -72,10 +72,15 @@ namespace OpenAutomate.Infrastructure.Services
         {
             var client = new SmtpClient(_emailSettings.SmtpServer, _emailSettings.Port)
             {
-                EnableSsl = _emailSettings.EnableSsl,
+                EnableSsl = true,
                 Credentials = new NetworkCredential(_emailSettings.Username, _emailSettings.Password),
                 DeliveryMethod = SmtpDeliveryMethod.Network
             };
+
+            if (!_emailSettings.EnableSsl)
+            {
+                _logger.LogWarning("SSL is disabled in configuration but was enforced for security. Please update your configuration to match actual usage.");
+            }
 
             return client;
         }
