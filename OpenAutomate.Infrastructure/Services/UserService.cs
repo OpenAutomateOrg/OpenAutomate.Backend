@@ -207,5 +207,15 @@ namespace OpenAutomate.Infrastructure.Services
             var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
             return user != null ? MapToResponse(user) : null;
         }
+
+        public Task SaveConfirmationTokenAsync(string email, string token)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<bool> ConfirmEmailAsync(string token, string email)
+        {
+            throw new NotImplementedException();
+        }
     }
 } 

@@ -95,5 +95,10 @@ namespace OpenAutomate.Infrastructure.Services
 
             return message;
         }
+
+        public Task SendEmailAsync(string to, string subject, string body)
+        {
+            throw new NotImplementedException();
+        }
     }
 } 

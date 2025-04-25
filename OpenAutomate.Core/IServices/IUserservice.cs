@@ -7,6 +7,8 @@ namespace OpenAutomate.Core.IServices
 {
     public interface IUserService
     {
+        Task SaveConfirmationTokenAsync(string email, string token);
+        Task<bool> ConfirmEmailAsync(string token, string email);
         Task<AuthenticationResponse> AuthenticateAsync(AuthenticationRequest request, string ipAddress);
         Task<AuthenticationResponse> RefreshTokenAsync(string refreshToken, string ipAddress);
         Task<bool> RevokeTokenAsync(string token, string ipAddress, string reason = null);

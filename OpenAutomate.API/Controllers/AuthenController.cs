@@ -24,11 +24,15 @@ namespace OpenAutomate.API.Controllers
         /// </summary>
         /// <param name="userService">The user service for authentication operations</param>
         /// <param name="logger">The logger for recording authentication events</param>
-        public AuthenController(IUserService userService, ILogger<AuthenController> logger)
+        private readonly IEmailService _emailService;
+
+        public AuthenController(IUserService userService, ILogger<AuthenController> logger, IEmailService emailService)
         {
             _userService = userService;
             _logger = logger;
+            _emailService = emailService;
         }
+
 
         /// <summary>
         /// Registers a new user in the system
@@ -46,9 +50,33 @@ namespace OpenAutomate.API.Controllers
         {
             try
             {
+                // Check if the email is already registered
+                var existingUser = await _userService.GetByEmailAsync(request.Email);
+                if (existingUser != null)
+                {
+                    return BadRequest(new { message = "Email is already registered." });
+                }
+
+                // Generate a confirmation token
+                var confirmationToken = Guid.NewGuid().ToString();
+
+                // Save the user with a pending confirmation status
                 var ipAddress = GetIpAddress();
-                var response = await _userService.RegisterAsync(request, ipAddress);
-                return Ok(response);
+                var userResponse = await _userService.RegisterAsync(request, ipAddress);
+
+                // Send confirmation email
+                var confirmationLink = Url.Action(
+                    "ConfirmEmail",
+                    "Authen",
+                    new { token = confirmationToken, email = request.Email },
+                    Request.Scheme
+                );
+
+                // Assuming an email service is available
+                await _emailService.SendEmailAsync(request.Email, "Confirm your email",
+                    $"Please confirm your email by clicking <a href='{confirmationLink}'>here</a>.");
+
+                return Ok(new { message = "Registration successful. Please check your email to confirm your account." });
             }
             catch (ApplicationException ex)
             {
@@ -61,6 +89,31 @@ namespace OpenAutomate.API.Controllers
                 return StatusCode(500, new { message = "An error occurred while processing your request." });
             }
         }
+
+        [HttpGet("confirm-email")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> ConfirmEmail(string token, string email)
+        {
+            try
+            {
+                // Validate the token and activate the user
+                var success = await _userService.ConfirmEmailAsync(token, email);
+                if (!success)
+                {
+                    return BadRequest(new { message = "Invalid or expired token." });
+                }
+
+                return Ok(new { message = "Email confirmed successfully. You can now log in." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during email confirmation");
+                return StatusCode(500, new { message = "An error occurred while processing your request." });
+            }
+        }
+
+
 
         /// <summary>
         /// Authenticates a user and provides access tokens

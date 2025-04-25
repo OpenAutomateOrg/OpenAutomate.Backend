@@ -5,6 +5,9 @@ namespace OpenAutomate.Core.IServices
     /// </summary>
     public interface IEmailService
     {
+
+
+        Task SendEmailAsync(string to, string subject, string body);
         /// <summary>
         /// Sends an email to a single recipient
         /// </summary>
