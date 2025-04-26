@@ -64,7 +64,7 @@ jobs:
             /n:"$SONAR_PROJECT_NAME" \
             /d:sonar.host.url="$SONAR_HOST_URL" \
             /d:sonar.login="$SONAR_TOKEN" \
-            /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" \
+            /d:sonar.cs.opencover.reportsPaths="**/TestResults/coverage.opencover.xml" \
             /d:sonar.cs.vstest.reportsPaths="**/TestResults/*.trx" \
             /d:sonar.coverage.exclusions="**/*Tests*.cs,**/obj/**/*,**/*.designer.cs,**/Migrations/**" \
             /d:sonar.exclusions="**/bin/**/*,**/obj/**/*"
@@ -87,7 +87,7 @@ jobs:
             --results-directory:./TestResults \
             /p:CollectCoverage=true \
             /p:CoverletOutputFormat=opencover \
-            /p:CoverletOutput=./coverage
+            /p:CoverletOutput=./TestResults/coverage.opencover.xml
 
       # Step 10: End SonarQube analysis
       - name: End SonarQube analysis
@@ -101,6 +101,6 @@ jobs:
         with:
           name: code-coverage-report
           path: |
-            **/coverage.opencover.xml
+            **/TestResults/coverage.opencover.xml
             **/TestResults
           retention-days: 5
