@@ -9,7 +9,6 @@ namespace OpenAutomate.Core.Domain.Entities
     {
         public string CronExpression { get; set; } = string.Empty;
         public bool IsActive { get; set; }
-        public DateTime CreatedAt { get; set; }
         
         // Foreign keys
         public Guid PackageId { get; set; }
@@ -20,7 +19,7 @@ namespace OpenAutomate.Core.Domain.Entities
         public virtual AutomationPackage? Package { get; set; }
         
         [JsonIgnore]
-        public virtual User? CreatedBy { get; set; }
+        public virtual User? User { get; set; }
         
         [JsonIgnore]
         public virtual ICollection<Execution>? Executions { get; set; }

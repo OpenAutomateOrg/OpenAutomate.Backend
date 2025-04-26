@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Domain.IRepository;
 using OpenAutomate.Core.Dto.UserDto;
+using Microsoft.Extensions.Options;
+using OpenAutomate.Core.Configurations;
 
 namespace OpenAutomate.Infrastructure.Services
 {
@@ -16,14 +18,20 @@ namespace OpenAutomate.Infrastructure.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly ITokenService _tokenService;
         private readonly ILogger<UserService> _logger;
+        private readonly INotificationService _notificationService;
+        private readonly AppSettings _appSettings;
 
         public UserService(
             IUnitOfWork unitOfWork,
             ITokenService tokenService,
+            INotificationService notificationService,
+            IOptions<AppSettings> appSettings,
             ILogger<UserService> logger)
         {
             _unitOfWork = unitOfWork;
             _tokenService = tokenService;
+            _notificationService = notificationService;
+            _appSettings = appSettings.Value;
             _logger = logger;
         }
 
@@ -32,7 +40,7 @@ namespace OpenAutomate.Infrastructure.Services
             try
             {
                 var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(
-                    u => u.Email.ToLower() == request.Email.ToLower());
+                    u => u.Email != null && u.Email.ToLower() == request.Email.ToLower());
 
                 if (user == null)
                 {
@@ -43,11 +51,18 @@ namespace OpenAutomate.Infrastructure.Services
                 // Skip password verification for external logins (e.g., Google)
                 if (!string.IsNullOrEmpty(request.Password))
                 {
-                    if (!VerifyPasswordHash(request.Password, user.PasswordHash, user.PasswordSalt))
+                    if (!VerifyPasswordHash(request.Password, user.PasswordHash ?? string.Empty, user.PasswordSalt ?? string.Empty))
                     {
                         _logger.LogWarning("Authentication failed: Invalid password for user {Email}", request.Email);
                         throw new ApplicationException("Invalid credentials");
                     }
+                }
+
+                // Check if email is verified
+                if (!user.IsEmailVerified)
+                {
+                    _logger.LogWarning("Authentication failed: Email not verified for user {Email}", request.Email);
+                    throw new ApplicationException("Please verify your email address before logging in. Check your inbox for a verification link or request a new one.");
                 }
 
                 _logger.LogInformation("User {Email} authenticated successfully", user.Email);
@@ -64,7 +79,7 @@ namespace OpenAutomate.Infrastructure.Services
         {
             try
             {
-                return _tokenService.RefreshToken(refreshToken, ipAddress);
+                return await Task.FromResult(_tokenService.RefreshToken(refreshToken, ipAddress));
             }
             catch (Exception ex)
             {
@@ -73,11 +88,11 @@ namespace OpenAutomate.Infrastructure.Services
             }
         }
 
-        public async Task<bool> RevokeTokenAsync(string token, string ipAddress, string reason = null)
+        public async Task<bool> RevokeTokenAsync(string token, string ipAddress, string reason = "")
         {
             try
             {
-                return _tokenService.RevokeToken(token, ipAddress, reason);
+                return await _tokenService.RevokeTokenAsync(token, ipAddress, reason);
             }
             catch (Exception ex)
             {
@@ -109,6 +124,7 @@ namespace OpenAutomate.Infrastructure.Services
                     LastName = request.LastName,
                     PasswordHash = passwordHash,
                     PasswordSalt = passwordSalt,
+                    IsEmailVerified = false,
                     CreatedAt = DateTime.UtcNow
                 };
 
@@ -118,18 +134,71 @@ namespace OpenAutomate.Infrastructure.Services
 
                 _logger.LogInformation("User {Email} registered successfully", user.Email);
 
-                return new UserResponse
-                {
-                    Id = user.Id,
-                    Email = user.Email,
-                    FirstName = user.FirstName,
-                    LastName = user.LastName
-                };
+                return MapToResponse(user);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during registration for user {Email}", request.Email);
                 throw;
+            }
+        }
+        
+        public async Task<bool> VerifyUserEmailAsync(Guid userId)
+        {
+            try
+            {
+                var user = await _unitOfWork.Users.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    _logger.LogWarning("Email verification failed: User not found with ID {UserId}", userId);
+                    return false;
+                }
+                
+                // Update user's email verification status
+                user.IsEmailVerified = true;
+                _unitOfWork.Users.Update(user);
+                await _unitOfWork.CompleteAsync();
+                
+                _logger.LogInformation("Email verified for user: {UserId}", userId);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error verifying email for user {UserId}", userId);
+                return false;
+            }
+        }
+        
+        public async Task<bool> SendVerificationEmailAsync(Guid userId)
+        {
+            try
+            {
+                var user = await _unitOfWork.Users.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    _logger.LogWarning("Failed to send verification email: User not found with ID {UserId}", userId);
+                    return false;
+                }
+                
+                // Generate verification token
+                var verificationToken = await _tokenService.GenerateEmailVerificationTokenAsync(userId);
+                
+                // Generate verification link using strongly-typed AppSettings
+                string verificationLink = $"{_appSettings.FrontendUrl}/verify-email?token={verificationToken}";
+                
+                // Send verification email
+                await _notificationService.SendVerificationEmailAsync(
+                    userId, 
+                    user.Email ?? string.Empty, 
+                    $"{user.FirstName} {user.LastName}");
+                
+                _logger.LogInformation("Verification email sent to user: {UserId}", userId);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending verification email for user {UserId}", userId);
+                return false;
             }
         }
 
@@ -138,11 +207,6 @@ namespace OpenAutomate.Infrastructure.Services
             try
             {
                 var user = await _unitOfWork.Users.GetByIdAsync(id);
-                if (user == null)
-                {
-                    _logger.LogWarning("User with ID {UserId} not found", id);
-                    return null;
-                }
 
                 return MapToResponse(user);
             }
@@ -152,18 +216,32 @@ namespace OpenAutomate.Infrastructure.Services
                 throw;
             }
         }
+        
+        public async Task<UserResponse> GetByEmailAsync(string email)
+        {
+            try
+            {
+                var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == email.ToLower());
+
+                return MapToResponse(user);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving user with email {Email}", email);
+                throw;
+            }
+        }
 
         public UserResponse MapToResponse(User user)
-        {
-            if (user == null)
-                return null;
-                
+        {               
             return new UserResponse
             {
                 Id = user.Id,
-                Email = user.Email,
-                FirstName = user.FirstName,
-                LastName = user.LastName
+                Email = user.Email ?? string.Empty,
+                FirstName = user.FirstName ?? string.Empty,
+                LastName = user.LastName ?? string.Empty,
+                IsEmailVerified = user.IsEmailVerified,
+                SystemRole = user.SystemRole
             };
         }
 
@@ -182,30 +260,27 @@ namespace OpenAutomate.Infrastructure.Services
 
         private static bool VerifyPasswordHash(string password, string storedHash, string storedSalt)
         {
-            // Convert from Base64 strings back to byte arrays
+            // Convert from Base64 strings back to bytes
             byte[] saltBytes = Convert.FromBase64String(storedSalt);
             byte[] storedHashBytes = Convert.FromBase64String(storedHash);
             
             using var hmac = new HMACSHA512(saltBytes);
             byte[] computedHashBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
             
+            // Compare the computed hash with the stored hash
+            if (storedHashBytes.Length != computedHashBytes.Length)
+                return false;
+                
             for (int i = 0; i < computedHashBytes.Length; i++)
             {
                 if (computedHashBytes[i] != storedHashBytes[i])
-                {
                     return false;
-                }
-            }
 
+            }
+            
             return true;
         }
 
         #endregion
-
-        public async Task<UserResponse> GetByEmailAsync(string email)
-        {
-            var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
-            return user != null ? MapToResponse(user) : null;
-        }
     }
 } 

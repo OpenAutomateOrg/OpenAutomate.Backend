@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.Domain.Entities;
+using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
@@ -123,7 +124,7 @@ namespace OpenAutomate.Infrastructure.Services
             }
         }
 
-        public bool RevokeToken(string token, string ipAddress, string reason = null)
+        public Task<bool> RevokeTokenAsync(string token, string ipAddress, string reason = "")
         {
             try
             {
@@ -132,7 +133,7 @@ namespace OpenAutomate.Infrastructure.Services
                     t => t.Token == token).GetAwaiter().GetResult();
                     
                 if (refreshToken == null || refreshToken.IsRevoked)
-                    return false;
+                    return Task.FromResult(false);
                     
                 // Revoke the token
                 refreshToken.Revoked = DateTime.UtcNow;
@@ -142,12 +143,12 @@ namespace OpenAutomate.Infrastructure.Services
                 // Save the changes
                 _unitOfWork.CompleteAsync().GetAwaiter().GetResult();
                 
-                return true;
+                return Task.FromResult(true);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error revoking token: {ex.Message}");
-                return false;
+                return Task.FromResult(false);
             }
         }
 
@@ -225,7 +226,7 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 Token = Convert.ToBase64String(randomBytes),
                 Expires = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
-                Created = DateTime.UtcNow,
+                CreatedAt= DateTime.UtcNow,
                 CreatedByIp = ipAddress
             };
         }
@@ -240,6 +241,96 @@ namespace OpenAutomate.Infrastructure.Services
             
             // Save changes
             await _unitOfWork.CompleteAsync();
+        }
+
+        public async Task<string> GenerateEmailVerificationTokenAsync(Guid userId)
+        {
+            try
+            {
+                // Check if user exists
+                var user = await _unitOfWork.Users.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    throw new Exception($"User with ID {userId} not found");
+                }
+
+                // Remove any existing verification tokens for this user
+                var existingTokens = await _unitOfWork.EmailVerificationTokens
+                    .GetAllAsync(t => t.UserId == userId && !t.IsUsed);
+
+                foreach (var token in existingTokens)
+                {
+                    _unitOfWork.EmailVerificationTokens.Remove(token);
+                }
+                await _unitOfWork.CompleteAsync();
+
+                // Generate a new token
+                using var rng = RandomNumberGenerator.Create();
+                var randomBytes = new byte[32];
+                rng.GetBytes(randomBytes);
+                var tokenString = Convert.ToBase64String(randomBytes)
+                    .Replace("/", "_")
+                    .Replace("+", "-")
+                    .Replace("=", "");
+
+                // Create token entity
+                var verificationToken = new EmailVerificationToken
+                {
+                    UserId = userId,
+                    Token = tokenString,
+                    ExpiresAt = DateTime.UtcNow.AddHours(24), // 24 hour expiration
+                    IsUsed = false
+                };
+
+                // Save to database
+                await _unitOfWork.EmailVerificationTokens.AddAsync(verificationToken);
+                await _unitOfWork.CompleteAsync();
+
+                return tokenString;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error generating email verification token: {ex.Message}");
+                throw;
+            }
+        }
+
+        public async Task<Guid?> ValidateEmailVerificationTokenAsync(string token)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(token))
+                    return null;
+
+                // Find the token in the database
+                var verificationToken = await _unitOfWork.EmailVerificationTokens
+                    .GetFirstOrDefaultAsync(t => t.Token == token, t => t.User);
+
+                // Check if token exists
+                if (verificationToken == null)
+                    return null;
+
+                // Check if token is already used
+                if (verificationToken.IsUsed)
+                    return null;
+
+                // Check if token is expired
+                if (verificationToken.IsExpired)
+                    return null;
+
+                // Mark token as used
+                verificationToken.IsUsed = true;
+                verificationToken.UsedAt = DateTime.UtcNow;
+                _unitOfWork.EmailVerificationTokens.Update(verificationToken);
+                await _unitOfWork.CompleteAsync();
+
+                return verificationToken.UserId;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error validating email verification token: {ex.Message}");
+                return null;
+            }
         }
     }
 } 

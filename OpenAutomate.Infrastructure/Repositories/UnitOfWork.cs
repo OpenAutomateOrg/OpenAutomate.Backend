@@ -22,6 +22,7 @@ namespace OpenAutomate.Infrastructure.Repositories
         private IRepository<AuthorityResource> _authorityResourceRepository;
         private IRepository<Asset> _assets;
         private IRepository<AssetBotAgent> _assetBotAgents;
+        private IRepository<EmailVerificationToken> _emailVerificationTokens;
 
         public UnitOfWork(ApplicationDbContext context)
         {
@@ -63,6 +64,14 @@ namespace OpenAutomate.Infrastructure.Repositories
         public IRepository<Asset> Assets => _assets ??= new Repository<Asset>(_context);
 
         public IRepository<AssetBotAgent> AssetBotAgents => _assetBotAgents ??= new Repository<AssetBotAgent>(_context);
+        
+        public IRepository<EmailVerificationToken> EmailVerificationTokens => 
+            _emailVerificationTokens ??= new Repository<EmailVerificationToken>(_context);
+            
+        public IRepository<T> GetRepository<T>() where T : class
+        {
+            return new Repository<T>(_context);
+        }
 
         public async Task<int> CompleteAsync()
         {

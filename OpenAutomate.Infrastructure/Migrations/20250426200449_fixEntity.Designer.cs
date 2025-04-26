@@ -12,8 +12,8 @@ using OpenAutomate.Infrastructure.DbContext;
 namespace OpenAutomate.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250424100645_updatelatest")]
-    partial class updatelatest
+    [Migration("20250426200449_fixEntity")]
+    partial class fixEntity
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -296,6 +296,49 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.ToTable("BotAgents", (string)null);
                 });
 
+            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.EmailVerificationToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsUsed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime?>("LastModifyAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LastModifyBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("EmailVerificationTokens", (string)null);
+                });
+
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.Execution", b =>
                 {
                     b.Property<Guid>("Id")
@@ -485,9 +528,6 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime>("Created")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -601,6 +641,9 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<string>("ImageUrl")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("IsEmailVerified")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("LastModifyAt")
                         .HasColumnType("datetime2");
 
@@ -618,6 +661,9 @@ namespace OpenAutomate.Infrastructure.Migrations
 
                     b.Property<string>("PasswordSalt")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("SystemRole")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -751,6 +797,17 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Navigation("Owner");
                 });
 
+            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.EmailVerificationToken", b =>
+                {
+                    b.HasOne("OpenAutomate.Core.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.Execution", b =>
                 {
                     b.HasOne("OpenAutomate.Core.Domain.Entities.BotAgent", "BotAgent")
@@ -876,7 +933,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .IsRequired();
 
                     b.HasOne("OpenAutomate.Core.Domain.Entities.User", "User")
-                        .WithMany()
+                        .WithMany("Authorities")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -936,6 +993,8 @@ namespace OpenAutomate.Infrastructure.Migrations
 
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.User", b =>
                 {
+                    b.Navigation("Authorities");
+
                     b.Navigation("OrganizationUnitUsers");
 
                     b.Navigation("RefreshTokens");

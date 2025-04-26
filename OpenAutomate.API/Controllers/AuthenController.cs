@@ -49,7 +49,15 @@ namespace OpenAutomate.API.Controllers
             {
                 var ipAddress = GetIpAddress();
                 var response = await _userService.RegisterAsync(request, ipAddress);
-                return Ok(response);
+
+                // Send email verification
+                await _userService.SendVerificationEmailAsync(response.Id);
+                
+                _logger.LogInformation("User registered successfully: {Email}. Verification email sent.", request.Email);
+                return Ok(new { 
+                    user = response,
+                    message = "Registration successful. Please check your email to verify your account." 
+                });
             }
             catch (ApplicationException ex)
             {

@@ -51,7 +51,7 @@ namespace OpenAutomate.Core.Domain.Entities
         public bool IsActive { get; set; } = true;
 
         /// <summary>
-        /// The user who created this Bot Agent
+        /// The user who CreatedAtthis Bot Agent
         /// </summary>
         [JsonIgnore]
         public virtual User? Owner { get; set; }

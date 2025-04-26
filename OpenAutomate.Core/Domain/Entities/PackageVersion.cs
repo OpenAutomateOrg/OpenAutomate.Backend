@@ -9,7 +9,6 @@ namespace OpenAutomate.Core.Domain.Entities
         public string VersionNumber { get; set; } = string.Empty;
         public string FilePath { get; set; } = string.Empty;
         public bool IsActive { get; set; }
-        public DateTime CreatedAt { get; set; }
         
         // Foreign key for AutomationPackage
         public Guid PackageId { get; set; }

@@ -31,7 +31,7 @@ namespace OpenAutomate.Core.IServices
         /// <param name="ipAddress">IP address of the client</param>
         /// <param name="reason">Reason for revocation</param>
         /// <returns>True if successful, false otherwise</returns>
-        bool RevokeToken(string token, string ipAddress, string reason = null);
+        Task<bool> RevokeTokenAsync(string token, string ipAddress, string reason = "");
 
         /// <summary>
         /// Validates an access token
@@ -39,5 +39,19 @@ namespace OpenAutomate.Core.IServices
         /// <param name="token">The JWT token to validate</param>
         /// <returns>True if valid, false otherwise</returns>
         bool ValidateToken(string token);
+        
+        /// <summary>
+        /// Generates a new email verification token for a user
+        /// </summary>
+        /// <param name="userId">The ID of the user</param>
+        /// <returns>The verification token string</returns>
+        Task<string> GenerateEmailVerificationTokenAsync(Guid userId);
+        
+        /// <summary>
+        /// Validates an email verification token and returns the associated user ID if valid
+        /// </summary>
+        /// <param name="token">The verification token to validate</param>
+        /// <returns>The user ID if valid, null otherwise</returns>
+        Task<Guid?> ValidateEmailVerificationTokenAsync(string token);
     }
 }

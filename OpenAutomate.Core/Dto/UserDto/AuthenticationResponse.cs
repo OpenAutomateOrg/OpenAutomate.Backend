@@ -16,10 +16,10 @@ namespace OpenAutomate.Core.Dto.UserDto
         public string? LastName { get; set; }
         public string? Email { get; set; }
         public SystemRole SystemRole { get; set; }
-        public string Token { get; set; }
+        public string Token { get; set; } = string.Empty;
 
         [JsonIgnore] // refresh token is returned in http only cookie
-        public string RefreshToken { get; set; }
+        public string RefreshToken { get; set; } = string.Empty;
 
         public DateTime RefreshTokenExpiration { get; set; }
     }
