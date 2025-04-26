@@ -31,7 +31,7 @@ namespace OpenAutomate.Core.IServices
         /// <param name="ipAddress">IP address of the client</param>
         /// <param name="reason">Reason for revocation</param>
         /// <returns>True if successful, false otherwise</returns>
-        bool RevokeToken(string token, string ipAddress, string reason = null);
+        Task<bool> RevokeTokenAsync(string token, string ipAddress, string reason = "");
 
         /// <summary>
         /// Validates an access token

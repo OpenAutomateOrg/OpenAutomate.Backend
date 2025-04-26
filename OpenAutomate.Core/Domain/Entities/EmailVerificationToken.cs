@@ -17,10 +17,10 @@ namespace OpenAutomate.Core.Domain.Entities
         public Guid UserId { get; set; }
         
         [ForeignKey("UserId")]
-        public virtual User? User { get; set; }
+        public virtual User User { get; set; } = null!;
         
         [Required]
-        public string Token { get; set; }
+        public string Token { get; set; } = string.Empty;
         
         [Required]
         public DateTime ExpiresAt { get; set; }

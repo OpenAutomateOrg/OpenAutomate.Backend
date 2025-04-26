@@ -7,6 +7,8 @@ using OpenAutomate.Core.IServices;
 using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options;
+using OpenAutomate.Core.Configurations;
 
 namespace OpenAutomate.API.Controllers
 {
@@ -20,7 +22,7 @@ namespace OpenAutomate.API.Controllers
         private readonly IUserService _userService;
         private readonly ITokenService _tokenService;
         private readonly INotificationService _notificationService;
-        private readonly IConfiguration _configuration;
+        private readonly AppSettings _appSettings;
         private readonly ILogger<EmailVerificationController> _logger;
 
         /// <summary>
@@ -30,13 +32,13 @@ namespace OpenAutomate.API.Controllers
             IUserService userService,
             ITokenService tokenService,
             INotificationService notificationService,
-            IConfiguration configuration,
+            IOptions<AppSettings> appSettings,
             ILogger<EmailVerificationController> logger)
         {
             _userService = userService;
             _tokenService = tokenService;
             _notificationService = notificationService;
-            _configuration = configuration;
+            _appSettings = appSettings.Value;
             _logger = logger;
         }
 
@@ -57,14 +59,14 @@ namespace OpenAutomate.API.Controllers
                 if (!userId.HasValue)
                 {
                     _logger.LogWarning("Invalid or expired verification token");
-                    return Redirect($"{_configuration["FrontendUrl"]}/email-verified?success=false&reason=invalid-token");
+                    return Redirect($"{_appSettings.FrontendUrl}/email-verified?success=false&reason=invalid-token");
                 }
 
                 var result = await _userService.VerifyUserEmailAsync(userId.Value);
                 if (!result)
                 {
                     _logger.LogWarning("Failed to verify email for user ID: {UserId}", userId);
-                    return Redirect($"{_configuration["FrontendUrl"]}/email-verified?success=false&reason=verification-failed");
+                    return Redirect($"{_appSettings.FrontendUrl}/email-verified?success=false&reason=verification-failed");
                 }
 
                 // Get user info
@@ -75,12 +77,12 @@ namespace OpenAutomate.API.Controllers
 
                 _logger.LogInformation("Email verified successfully for user ID: {UserId}", userId);
                 // Redirect to frontend with success message
-                return Redirect($"{_configuration["FrontendUrl"]}/email-verified?success=true");
+                return Redirect($"{_appSettings.FrontendUrl}/email-verified?success=true");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing email verification");
-                return Redirect($"{_configuration["FrontendUrl"]}/email-verified?success=false&reason=server-error");
+                return Redirect($"{_appSettings.FrontendUrl}/email-verified?success=false&reason=server-error");
             }
         }
 

@@ -124,7 +124,7 @@ namespace OpenAutomate.Infrastructure.Services
             }
         }
 
-        public bool RevokeToken(string token, string ipAddress, string reason = null)
+        public Task<bool> RevokeTokenAsync(string token, string ipAddress, string reason = "")
         {
             try
             {
@@ -133,7 +133,7 @@ namespace OpenAutomate.Infrastructure.Services
                     t => t.Token == token).GetAwaiter().GetResult();
                     
                 if (refreshToken == null || refreshToken.IsRevoked)
-                    return false;
+                    return Task.FromResult(false);
                     
                 // Revoke the token
                 refreshToken.Revoked = DateTime.UtcNow;
@@ -143,12 +143,12 @@ namespace OpenAutomate.Infrastructure.Services
                 // Save the changes
                 _unitOfWork.CompleteAsync().GetAwaiter().GetResult();
                 
-                return true;
+                return Task.FromResult(true);
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error revoking token: {ex.Message}");
-                return false;
+                return Task.FromResult(false);
             }
         }
 
@@ -226,7 +226,7 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 Token = Convert.ToBase64String(randomBytes),
                 Expires = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
-                Created = DateTime.UtcNow,
+                CreatedAt= DateTime.UtcNow,
                 CreatedByIp = ipAddress
             };
         }

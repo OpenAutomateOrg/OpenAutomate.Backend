@@ -5,6 +5,7 @@ namespace OpenAutomate.Core.Configurations;
 /// </summary>
 public class AppSettings
 {
+    public string FrontendUrl { get; set; }
     public JwtSettings Jwt { get; set; }
     public DatabaseSettings Database { get; set; }
     public CorsSettings Cors { get; set; }

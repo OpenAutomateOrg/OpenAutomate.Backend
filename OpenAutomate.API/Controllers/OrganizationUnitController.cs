@@ -35,7 +35,7 @@ namespace OpenAutomate.API.Controllers
         /// Creates a new organization unit with default authorities
         /// </summary>
         /// <param name="dto">The organization unit creation data</param>
-        /// <returns>The newly created organization unit details</returns>
+        /// <returns>The newly CreatedAtorganization unit details</returns>
         /// <remarks>
         /// This endpoint creates a new organization unit (tenant) and automatically sets up
         /// default authorities (OWNER, MANAGER, DEVELOPER, USER). The authenticated user

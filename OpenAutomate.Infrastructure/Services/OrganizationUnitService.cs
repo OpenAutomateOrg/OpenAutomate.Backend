@@ -50,7 +50,7 @@ namespace OpenAutomate.Infrastructure.Services
                 // Create default authorities for the organization unit
                 await CreateDefaultAuthoritiesAsync(organizationUnit.Id);
                 
-                // Assign the OWNER authority to the user who created the organization unit
+                // Assign the OWNER authority to the user who CreatedAtthe organization unit
                 await AssignOwnerAuthorityToUserAsync(organizationUnit.Id, userId);
 
                 // Return response
@@ -293,7 +293,7 @@ namespace OpenAutomate.Infrastructure.Services
             }
 
             await _unitOfWork.CompleteAsync();
-            _logger.LogInformation("Created default authorities for organization unit {OrganizationUnitId}", organizationUnitId);
+            _logger.LogInformation("CreatedAtdefault authorities for organization unit {OrganizationUnitId}", organizationUnitId);
         }
 
         private async Task AssignOwnerAuthorityToUserAsync(Guid organizationUnitId, Guid userId)

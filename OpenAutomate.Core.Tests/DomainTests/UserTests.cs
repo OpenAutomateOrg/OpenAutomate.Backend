@@ -29,7 +29,7 @@ namespace OpenAutomate.Core.Tests.DomainTests
             var token = new RefreshToken
             {
                 Token = "test-token",
-                Created = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
                 Expires = DateTime.UtcNow.AddDays(7)
             };
             
@@ -70,13 +70,13 @@ namespace OpenAutomate.Core.Tests.DomainTests
             var expiredToken = new RefreshToken
             {
                 Token = "expired-token",
-                Created = DateTime.UtcNow.AddDays(-10),
+                CreatedAt = DateTime.UtcNow.AddDays(-10),
                 Expires = DateTime.UtcNow.AddDays(-3)
             };
             var validToken = new RefreshToken
             {
                 Token = "valid-token",
-                Created = DateTime.UtcNow,
+                CreatedAt= DateTime.UtcNow,
                 Expires = DateTime.UtcNow.AddDays(7)
             };
             user.RefreshTokens.Add(expiredToken);

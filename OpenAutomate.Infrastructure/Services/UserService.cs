@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Domain.IRepository;
 using OpenAutomate.Core.Dto.UserDto;
+using Microsoft.Extensions.Options;
+using OpenAutomate.Core.Configurations;
 
 namespace OpenAutomate.Infrastructure.Services
 {
@@ -17,19 +19,19 @@ namespace OpenAutomate.Infrastructure.Services
         private readonly ITokenService _tokenService;
         private readonly ILogger<UserService> _logger;
         private readonly INotificationService _notificationService;
-        private readonly IConfiguration _configuration;
+        private readonly AppSettings _appSettings;
 
         public UserService(
             IUnitOfWork unitOfWork,
             ITokenService tokenService,
             INotificationService notificationService,
-            IConfiguration configuration,
+            IOptions<AppSettings> appSettings,
             ILogger<UserService> logger)
         {
             _unitOfWork = unitOfWork;
             _tokenService = tokenService;
             _notificationService = notificationService;
-            _configuration = configuration;
+            _appSettings = appSettings.Value;
             _logger = logger;
         }
 
@@ -38,7 +40,7 @@ namespace OpenAutomate.Infrastructure.Services
             try
             {
                 var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(
-                    u => u.Email.ToLower() == request.Email.ToLower());
+                    u => u.Email != null && u.Email.ToLower() == request.Email.ToLower());
 
                 if (user == null)
                 {
@@ -49,7 +51,7 @@ namespace OpenAutomate.Infrastructure.Services
                 // Skip password verification for external logins (e.g., Google)
                 if (!string.IsNullOrEmpty(request.Password))
                 {
-                    if (!VerifyPasswordHash(request.Password, user.PasswordHash, user.PasswordSalt))
+                    if (!VerifyPasswordHash(request.Password, user.PasswordHash ?? string.Empty, user.PasswordSalt ?? string.Empty))
                     {
                         _logger.LogWarning("Authentication failed: Invalid password for user {Email}", request.Email);
                         throw new ApplicationException("Invalid credentials");
@@ -86,11 +88,11 @@ namespace OpenAutomate.Infrastructure.Services
             }
         }
 
-        public async Task<bool> RevokeTokenAsync(string token, string ipAddress, string reason = null)
+        public async Task<bool> RevokeTokenAsync(string token, string ipAddress, string reason = "")
         {
             try
             {
-                return _tokenService.RevokeToken(token, ipAddress, reason);
+                return await _tokenService.RevokeTokenAsync(token, ipAddress, reason);
             }
             catch (Exception ex)
             {
@@ -181,14 +183,13 @@ namespace OpenAutomate.Infrastructure.Services
                 // Generate verification token
                 var verificationToken = await _tokenService.GenerateEmailVerificationTokenAsync(userId);
                 
-                // Generate verification link
-                string baseUrl = _configuration["FrontendUrl"];
-                string verificationLink = $"{baseUrl}/verify-email?token={verificationToken}";
+                // Generate verification link using strongly-typed AppSettings
+                string verificationLink = $"{_appSettings.FrontendUrl}/verify-email?token={verificationToken}";
                 
                 // Send verification email
                 await _notificationService.SendVerificationEmailAsync(
                     userId, 
-                    user.Email, 
+                    user.Email ?? string.Empty, 
                     $"{user.FirstName} {user.LastName}");
                 
                 _logger.LogInformation("Verification email sent to user: {UserId}", userId);
@@ -206,11 +207,6 @@ namespace OpenAutomate.Infrastructure.Services
             try
             {
                 var user = await _unitOfWork.Users.GetByIdAsync(id);
-                if (user == null)
-                {
-                    _logger.LogWarning("User with ID {UserId} not found", id);
-                    return null;
-                }
 
                 return MapToResponse(user);
             }
@@ -225,12 +221,7 @@ namespace OpenAutomate.Infrastructure.Services
         {
             try
             {
-                var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
-                if (user == null)
-                {
-                    _logger.LogWarning("User with email {Email} not found", email);
-                    return null;
-                }
+                var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == email.ToLower());
 
                 return MapToResponse(user);
             }
@@ -242,16 +233,13 @@ namespace OpenAutomate.Infrastructure.Services
         }
 
         public UserResponse MapToResponse(User user)
-        {
-            if (user == null)
-                return null;
-                
+        {               
             return new UserResponse
             {
                 Id = user.Id,
-                Email = user.Email,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
+                Email = user.Email ?? string.Empty,
+                FirstName = user.FirstName ?? string.Empty,
+                LastName = user.LastName ?? string.Empty,
                 IsEmailVerified = user.IsEmailVerified,
                 SystemRole = user.SystemRole
             };
