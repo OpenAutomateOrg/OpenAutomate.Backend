@@ -10,13 +10,20 @@ namespace OpenAutomate.Core.Domain.Entities
 {
     public class User : BaseUser
     {
+        public User()
+        {
+            RefreshTokens = new List<RefreshToken>();
+            OrganizationUnitUsers = new List<OrganizationUnitUser>();
+            Authorities = new List<UserAuthority>();
+        }
+
         public string? FirstName { set; get; }
         public string? LastName { set; get; }
         public string? ImageUrl { set; get; }
         public bool IsEmailVerified { get; set; } = false;
         public SystemRole SystemRole { get; set; } = SystemRole.User;
-        public List<RefreshToken>? RefreshTokens { get; set; }
-        public List<OrganizationUnitUser>? OrganizationUnitUsers { get; set; }
+        public List<RefreshToken> RefreshTokens { get; set; }
+        public List<OrganizationUnitUser> OrganizationUnitUsers { get; set; }
         public List<UserAuthority>? Authorities { get; set; }
         
         public bool OwnsToken(string token)
