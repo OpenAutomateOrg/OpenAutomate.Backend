@@ -10,6 +10,7 @@ using OpenAutomate.Core.Domain.IRepository;
 using OpenAutomate.Core.Dto.UserDto;
 using Microsoft.Extensions.Options;
 using OpenAutomate.Core.Configurations;
+using OpenAutomate.Core.Exceptions;
 
 namespace OpenAutomate.Infrastructure.Services
 {
@@ -19,19 +20,16 @@ namespace OpenAutomate.Infrastructure.Services
         private readonly ITokenService _tokenService;
         private readonly ILogger<UserService> _logger;
         private readonly INotificationService _notificationService;
-        private readonly AppSettings _appSettings;
 
         public UserService(
             IUnitOfWork unitOfWork,
             ITokenService tokenService,
             INotificationService notificationService,
-            IOptions<AppSettings> appSettings,
             ILogger<UserService> logger)
         {
             _unitOfWork = unitOfWork;
             _tokenService = tokenService;
             _notificationService = notificationService;
-            _appSettings = appSettings.Value;
             _logger = logger;
         }
 
@@ -45,7 +43,7 @@ namespace OpenAutomate.Infrastructure.Services
                 if (user == null)
                 {
                     _logger.LogWarning("Authentication failed: User not found for email {Email}", request.Email);
-                    throw new ApplicationException("Invalid credentials");
+                    throw new AuthenticationException("Invalid credentials");
                 }
 
                 // Skip password verification for external logins (e.g., Google)
@@ -54,7 +52,7 @@ namespace OpenAutomate.Infrastructure.Services
                     if (!VerifyPasswordHash(request.Password, user.PasswordHash ?? string.Empty, user.PasswordSalt ?? string.Empty))
                     {
                         _logger.LogWarning("Authentication failed: Invalid password for user {Email}", request.Email);
-                        throw new ApplicationException("Invalid credentials");
+                        throw new AuthenticationException("Invalid credentials");
                     }
                 }
 
@@ -62,15 +60,20 @@ namespace OpenAutomate.Infrastructure.Services
                 if (!user.IsEmailVerified)
                 {
                     _logger.LogWarning("Authentication failed: Email not verified for user {Email}", request.Email);
-                    throw new ApplicationException("Please verify your email address before logging in. Check your inbox for a verification link or request a new one.");
+                    throw new EmailVerificationRequiredException("Please verify your email address before logging in. Check your inbox for a verification link or request a new one.");
                 }
 
                 _logger.LogInformation("User {Email} authenticated successfully", user.Email);
                 return _tokenService.GenerateTokens(user, ipAddress);
             }
+            catch (OpenAutomateException)
+            {
+                // Rethrow application exceptions as they are already properly typed
+                throw;
+            }
             catch (Exception ex)
             {
-                throw new Exception("Error during authentication for user: "+request.Email+" - "+ex.Message);
+                throw new AuthenticationException($"Error during authentication for user: {request.Email}", ex);
             }
         }
 
@@ -82,7 +85,7 @@ namespace OpenAutomate.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                throw new Exception("Error during token refresh - "+ex.Message);
+                throw new TokenException("Error during token refresh", ex);
             }
         }
 
@@ -107,7 +110,7 @@ namespace OpenAutomate.Infrastructure.Services
                 if (await _unitOfWork.Users.AnyAsync(u => u.Email != null && u.Email.ToLower() == request.Email.ToLower()))
                 {
                     _logger.LogWarning("Registration failed: Email {Email} already exists", request.Email);
-                    throw new ApplicationException($"Email '{request.Email}' is already registered");
+                    throw new UserAlreadyExistsException(request.Email);
                 }
 
                 // Create password hash
@@ -134,9 +137,14 @@ namespace OpenAutomate.Infrastructure.Services
 
                 return MapToResponse(user);
             }
+            catch (UserAlreadyExistsException)
+            {
+                // Rethrow as it's already the correct exception type
+                throw;
+            }
             catch (Exception ex)
             {
-                throw new Exception("Error during registration for user: "+request.Email+" - "+ex.Message);
+                throw new ServiceException($"Error during registration for user: {request.Email}", ex);
             }
         }
         
@@ -206,7 +214,7 @@ namespace OpenAutomate.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                throw new Exception("Error retrieving user with ID: "+id+" - "+ex.Message);
+                throw new ServiceException($"Error retrieving user with ID: {id}", ex);
             }
         }
         
@@ -220,7 +228,7 @@ namespace OpenAutomate.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                throw new Exception("Error retrieving user with email: "+email+" - "+ex.Message);
+                throw new ServiceException($"Error retrieving user with email: {email}", ex);
             }
         }
 
