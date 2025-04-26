@@ -53,7 +53,10 @@ namespace OpenAutomate.API
             
             // Register configuration sections with the DI container
             var appSettingsSection = builder.Configuration.GetSection("AppSettings");
-            builder.Services.Configure<AppSettings>(appSettingsSection);
+            builder.Services.Configure<AppSettings>(options => {
+                appSettingsSection.Bind(options);
+                options.FrontendUrl = builder.Configuration["FrontendUrl"];
+            });
             builder.Services.Configure<JwtSettings>(appSettingsSection.GetSection("Jwt"));
             builder.Services.Configure<DatabaseSettings>(appSettingsSection.GetSection("Database"));
             builder.Services.Configure<CorsSettings>(appSettingsSection.GetSection("Cors"));
