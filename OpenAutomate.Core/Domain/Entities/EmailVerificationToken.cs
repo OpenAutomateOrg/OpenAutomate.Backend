@@ -7,11 +7,17 @@ namespace OpenAutomate.Core.Domain.Entities
 {
     public class EmailVerificationToken : BaseEntity
     {
+        // Default constructor for EF Core
+        public EmailVerificationToken()
+        {
+            Token = string.Empty;
+        }
+        
         [Required]
         public Guid UserId { get; set; }
         
         [ForeignKey("UserId")]
-        public virtual User User { get; set; }
+        public virtual User? User { get; set; }
         
         [Required]
         public string Token { get; set; }
