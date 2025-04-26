@@ -87,9 +87,7 @@ jobs:
             --results-directory:./TestResults \
             /p:CollectCoverage=true \
             /p:CoverletOutputFormat=opencover \
-            /p:CoverletOutput=./coverage \
-            /p:Include="[OpenAutomate.API]*,[OpenAutomate.Core]*,[OpenAutomate.Infrastructure]*" \
-            /p:Exclude="[*Tests]*"
+            /p:CoverletOutput=./coverage
 
       # Step 10: End SonarQube analysis
       - name: End SonarQube analysis
