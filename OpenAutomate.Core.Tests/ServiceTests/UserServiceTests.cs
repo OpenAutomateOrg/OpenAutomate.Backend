@@ -48,9 +48,10 @@ namespace OpenAutomate.Core.Tests.ServiceTests
         {
             // Arrange
             var invalidId = Guid.NewGuid();
+            UserResponse? nullResponse = null;
             
             _mockUserService.Setup(service => service.GetByIdAsync(invalidId))
-                .ReturnsAsync((UserResponse)null);
+                .ReturnsAsync(nullResponse);
             
             // Act
             var result = await _mockUserService.Object.GetByIdAsync(invalidId);
