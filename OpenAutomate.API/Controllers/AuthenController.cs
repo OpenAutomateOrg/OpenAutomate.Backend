@@ -213,10 +213,10 @@ namespace OpenAutomate.API.Controllers
         /// <response code="500">Server error while retrieving user information</response>
         [Authorize]
         [HttpGet("user")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GetCurrentUser()
+        public IActionResult GetCurrentUser()
         {
             try
             {
