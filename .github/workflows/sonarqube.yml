@@ -99,7 +99,7 @@ jobs:
 
       # Step 11: Upload coverage reports as artifacts (optional)
       - name: Upload coverage reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: code-coverage-report
           path: |
