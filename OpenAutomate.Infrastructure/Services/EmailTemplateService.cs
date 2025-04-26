@@ -10,14 +10,11 @@ namespace OpenAutomate.Infrastructure.Services
     public class EmailTemplateService : IEmailTemplateService
     {
         private readonly IConfiguration _configuration;
-        private readonly ILogger<EmailTemplateService> _logger;
 
         public EmailTemplateService(
-            IConfiguration configuration,
-            ILogger<EmailTemplateService> logger)
+            IConfiguration configuration)
         {
             _configuration = configuration;
-            _logger = logger;
         }
 
         public async Task<string> GetVerificationEmailTemplateAsync(string userName, string verificationLink, int tokenValidityHours)

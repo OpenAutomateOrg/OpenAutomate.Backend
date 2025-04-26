@@ -20,7 +20,7 @@ namespace OpenAutomate.Core.Domain.Entities
         public virtual User User { get; set; } = null!;
         
         [Required]
-        public string Token { get; set; } = string.Empty;
+        public string Token { get; set; } = "";
         
         [Required]
         public DateTime ExpiresAt { get; set; }
