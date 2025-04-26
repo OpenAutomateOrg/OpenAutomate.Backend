@@ -13,6 +13,7 @@ namespace OpenAutomate.Core.Domain.Entities
         public string? FirstName { set; get; }
         public string? LastName { set; get; }
         public string? ImageUrl { set; get; }
+        public bool IsEmailVerified { get; set; } = false;
         public SystemRole SystemRole { get; set; } = SystemRole.User;
         public List<RefreshToken>? RefreshTokens { get; set; }
         public List<OrganizationUnitUser>? OrganizationUnitUsers { get; set; }

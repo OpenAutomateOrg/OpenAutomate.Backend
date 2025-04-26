@@ -116,6 +116,10 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<IBotAgentService, BotAgentService>();
             builder.Services.AddScoped<IEmailService, AwsSesEmailService>();
             builder.Services.AddScoped<IAuthorizationManager, AuthorizationManager>();
+            
+            // Register email verification services
+            builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
+            builder.Services.AddScoped<INotificationService, NotificationService>();
         }
         
         private static void ConfigureAuthentication(WebApplicationBuilder builder)
