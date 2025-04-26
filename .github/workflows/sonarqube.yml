@@ -64,10 +64,11 @@ jobs:
             /n:"$SONAR_PROJECT_NAME" \
             /d:sonar.host.url="$SONAR_HOST_URL" \
             /d:sonar.login="$SONAR_TOKEN" \
-            /d:sonar.cs.opencover.reportsPaths="**/TestResults/coverage.opencover.xml" \
+            /d:sonar.cs.opencover.reportsPaths="**/TestResults/*.coverage.opencover.xml" \
             /d:sonar.cs.vstest.reportsPaths="**/TestResults/*.trx" \
             /d:sonar.coverage.exclusions="**/*Tests*.cs,**/obj/**/*,**/*.designer.cs,**/Migrations/**" \
-            /d:sonar.exclusions="**/bin/**/*,**/obj/**/*"
+            /d:sonar.exclusions="**/bin/**/*,**/obj/**/*" \
+            /d:sonar.verbose=true
 
       # Step 7: Restore dependencies
       - name: Restore dependencies
@@ -80,14 +81,36 @@ jobs:
       # Step 9: Run tests with coverage (proper project targeting)
       - name: Run tests with coverage
         run: |
-          dotnet test OpenAutomate.Backend.sln \
+          # Create a directory for the results
+          mkdir -p ./TestResults
+          
+          # Run tests for each project separately to ensure proper coverage reporting
+          dotnet test OpenAutomate.Core.Tests/OpenAutomate.Core.Tests.csproj \
             --configuration Release \
             --no-build \
             --logger:trx \
             --results-directory:./TestResults \
             /p:CollectCoverage=true \
             /p:CoverletOutputFormat=opencover \
-            /p:CoverletOutput=./TestResults/coverage.opencover.xml
+            /p:CoverletOutput=./TestResults/Core.coverage.opencover.xml
+            
+          dotnet test OpenAutomate.API.Tests/OpenAutomate.API.Tests.csproj \
+            --configuration Release \
+            --no-build \
+            --logger:trx \
+            --results-directory:./TestResults \
+            /p:CollectCoverage=true \
+            /p:CoverletOutputFormat=opencover \
+            /p:CoverletOutput=./TestResults/API.coverage.opencover.xml
+            
+          dotnet test OpenAutomate.Infrastructure.Tests/OpenAutomate.Infrastructure.Tests.csproj \
+            --configuration Release \
+            --no-build \
+            --logger:trx \
+            --results-directory:./TestResults \
+            /p:CollectCoverage=true \
+            /p:CoverletOutputFormat=opencover \
+            /p:CoverletOutput=./TestResults/Infrastructure.coverage.opencover.xml
 
       # Step 10: End SonarQube analysis
       - name: End SonarQube analysis
@@ -101,6 +124,6 @@ jobs:
         with:
           name: code-coverage-report
           path: |
-            **/TestResults/coverage.opencover.xml
+            **/TestResults/*.coverage.opencover.xml
             **/TestResults
           retention-days: 5
