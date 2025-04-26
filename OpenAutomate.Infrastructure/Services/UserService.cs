@@ -70,8 +70,7 @@ namespace OpenAutomate.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during authentication for user {Email}", request.Email);
-                throw;
+                throw new Exception("Error during authentication for user: "+request.Email+" - "+ex.Message);
             }
         }
 
@@ -83,8 +82,7 @@ namespace OpenAutomate.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error refreshing token");
-                throw;
+                throw new Exception("Error during token refresh - "+ex.Message);
             }
         }
 
@@ -106,7 +104,7 @@ namespace OpenAutomate.Infrastructure.Services
             try
             {
                 // Check if user already exists
-                if (await _unitOfWork.Users.AnyAsync(u => u.Email.ToLower() == request.Email.ToLower()))
+                if (await _unitOfWork.Users.AnyAsync(u => u.Email != null && u.Email.ToLower() == request.Email.ToLower()))
                 {
                     _logger.LogWarning("Registration failed: Email {Email} already exists", request.Email);
                     throw new ApplicationException($"Email '{request.Email}' is already registered");
@@ -138,8 +136,7 @@ namespace OpenAutomate.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during registration for user {Email}", request.Email);
-                throw;
+                throw new Exception("Error during registration for user: "+request.Email+" - "+ex.Message);
             }
         }
         
@@ -182,10 +179,7 @@ namespace OpenAutomate.Infrastructure.Services
                 
                 // Generate verification token
                 var verificationToken = await _tokenService.GenerateEmailVerificationTokenAsync(userId);
-                
-                // Generate verification link using strongly-typed AppSettings
-                string verificationLink = $"{_appSettings.FrontendUrl}/verify-email?token={verificationToken}";
-                
+                                
                 // Send verification email
                 await _notificationService.SendVerificationEmailAsync(
                     userId, 
@@ -212,8 +206,7 @@ namespace OpenAutomate.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving user with ID {UserId}", id);
-                throw;
+                throw new Exception("Error retrieving user with ID: "+id+" - "+ex.Message);
             }
         }
         
@@ -227,8 +220,7 @@ namespace OpenAutomate.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving user with email {Email}", email);
-                throw;
+                throw new Exception("Error retrieving user with email: "+email+" - "+ex.Message);
             }
         }
 
