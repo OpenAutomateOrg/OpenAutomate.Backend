@@ -55,7 +55,7 @@ namespace OpenAutomate.API
             var appSettingsSection = builder.Configuration.GetSection("AppSettings");
             builder.Services.Configure<AppSettings>(options => {
                 appSettingsSection.Bind(options);
-                options.FrontendUrl = builder.Configuration["FrontendUrl"];
+                options.FrontendUrl = builder.Configuration["FrontendUrl"] ?? "http://localhost:3000";
             });
             builder.Services.Configure<JwtSettings>(appSettingsSection.GetSection("Jwt"));
             builder.Services.Configure<DatabaseSettings>(appSettingsSection.GetSection("Database"));

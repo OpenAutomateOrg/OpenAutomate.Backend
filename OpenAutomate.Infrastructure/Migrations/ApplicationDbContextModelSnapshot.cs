@@ -195,7 +195,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("CreatedBy")
@@ -479,7 +479,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("CreatedBy")
@@ -578,8 +578,11 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("CreatedById")
                         .HasColumnType("uniqueidentifier");
@@ -604,15 +607,18 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<Guid>("PackageId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.HasKey("Id");
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
 
-                    b.HasIndex("CreatedById");
+                    b.HasKey("Id");
 
                     b.HasIndex("IsActive");
 
                     b.HasIndex("OrganizationUnitId");
 
                     b.HasIndex("PackageId");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("Schedules", (string)null);
                 });
@@ -890,12 +896,6 @@ namespace OpenAutomate.Infrastructure.Migrations
 
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.Schedule", b =>
                 {
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.User", "CreatedBy")
-                        .WithMany()
-                        .HasForeignKey("CreatedById")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
                         .WithMany("Schedules")
                         .HasForeignKey("OrganizationUnitId")
@@ -908,11 +908,15 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("CreatedBy");
+                    b.HasOne("OpenAutomate.Core.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId");
 
                     b.Navigation("OrganizationUnit");
 
                     b.Navigation("Package");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.UserAuthority", b =>

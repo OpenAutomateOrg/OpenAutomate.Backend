@@ -27,10 +27,6 @@ namespace OpenAutomate.Core.Configurations
                 .HasForeignKey(ap => ap.CreatedBy)
                 .OnDelete(DeleteBehavior.Restrict);
                 
-            builder.HasMany<Schedule>()
-                .WithOne(s => s.CreatedBy)
-                .HasForeignKey(s => s.CreatedById)
-                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 } 

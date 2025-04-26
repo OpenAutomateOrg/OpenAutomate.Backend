@@ -16,24 +16,24 @@ namespace OpenAutomate.Core.Domain.Entities
         /// The display name for the Asset
         /// </summary>
         [Required]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
         
         /// <summary>
         /// The unique key used to reference this Asset
         /// </summary>
         [Required]
-        public string Key { get; set; }
+        public string Key { get; set; } = string.Empty;
         
         /// <summary>
         /// The value of the Asset (may be encrypted)
         /// </summary>
         [Required]
-        public string Value { get; set; }
+        public string Value { get; set; } = string.Empty;
         
         /// <summary>
         /// Description of the Asset
         /// </summary>
-        public string Description { get; set; }
+        public string Description { get; set; } = string.Empty;
         
         /// <summary>
         /// Whether the Asset value is encrypted
@@ -51,12 +51,12 @@ namespace OpenAutomate.Core.Domain.Entities
         /// </summary>
         [ForeignKey("OrganizationUnitId")]
         [JsonIgnore]
-        public virtual OrganizationUnit OrganizationUnit { get; set; }
+        public virtual OrganizationUnit OrganizationUnit { get; set; } = null!;
         
         /// <summary>
         /// Bot Agents that have access to this Asset
         /// </summary>
         [JsonIgnore]
-        public virtual ICollection<AssetBotAgent> AssetBotAgents { get; set; }
-    }
+        public virtual ICollection<AssetBotAgent> AssetBotAgents { get; set; } = new List<AssetBotAgent>();
+    }   
 } 

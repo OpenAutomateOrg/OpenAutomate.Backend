@@ -11,10 +11,10 @@ namespace OpenAutomate.Core.Domain.Entities
         public Guid AuthorityId { get; set; }
         
         [ForeignKey("AuthorityId")]
-        public Authority Authority { get; set; }
+        public Authority Authority { get; set; } = null!;
         
         [Required]
-        public string ResourceName { get; set; }
+        public string ResourceName { get; set; } = string.Empty;
         
         [Required]
         public int Permission { get; set; }
