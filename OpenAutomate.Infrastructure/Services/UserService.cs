@@ -185,9 +185,6 @@ namespace OpenAutomate.Infrastructure.Services
                     return false;
                 }
                 
-                // Generate verification token
-                var verificationToken = await _tokenService.GenerateEmailVerificationTokenAsync(userId);
-                                
                 // Send verification email
                 await _notificationService.SendVerificationEmailAsync(
                     userId, 
