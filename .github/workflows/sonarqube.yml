@@ -77,7 +77,6 @@ jobs:
             /d:sonar.host.url="$SONAR_HOST_URL" \
             /d:sonar.login="$SONAR_TOKEN" \
             /d:sonar.projectBaseDir="${{ github.workspace }}" \
-            /d:sonar.working.directory="${{ github.workspace }}/.sonarqube" \
             /d:sonar.cs.opencover.reportsPaths="**/TestResults/*.coverage.opencover.xml" \
             /d:sonar.cs.vstest.reportsPaths="**/TestResults/*.trx" \
             /d:sonar.coverage.exclusions="**/*Tests*.cs,**/obj/**/*,**/*.designer.cs,**/Migrations/**" \
