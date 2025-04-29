@@ -27,10 +27,8 @@ namespace OpenAutomate.Infrastructure.Services
         {
             try
             {
-                // Generate slug if not provided
-                string slug = !string.IsNullOrWhiteSpace(dto.Slug) 
-                    ? dto.Slug 
-                    : GenerateSlugFromName(dto.Name);
+                // Generate slug from name
+                string slug = GenerateSlugFromName(dto.Name);
 
                 // Ensure slug is unique
                 slug = await EnsureUniqueSlugAsync(slug);
@@ -102,18 +100,12 @@ namespace OpenAutomate.Infrastructure.Services
             if (organizationUnit == null)
                 throw new KeyNotFoundException($"Organization unit with ID {id} not found");
 
-            string newSlug = dto.Slug;
-            bool generateNewSlug = string.IsNullOrWhiteSpace(dto.Slug) && dto.Name != organizationUnit.Name;
-
-            // Generate new slug if name changed and slug not explicitly provided
-            if (generateNewSlug)
+            // Generate new slug if name changed
+            string newSlug = organizationUnit.Slug;
+            if (dto.Name != organizationUnit.Name)
             {
                 newSlug = GenerateSlugFromName(dto.Name);
-            }
-
-            // If slug changed, ensure it's unique
-            if (newSlug != organizationUnit.Slug)
-            {
+                // Ensure new slug is unique
                 newSlug = await EnsureUniqueSlugAsync(newSlug, id);
             }
 
@@ -171,6 +163,57 @@ namespace OpenAutomate.Infrastructure.Services
         public string GenerateSlugFromName(string name)
         {
             return SlugGenerator.GenerateSlug(name);
+        }
+        
+        /// <summary>
+        /// Gets all organization units that a user belongs to, regardless of role
+        /// </summary>
+        /// <param name="userId">The ID of the user</param>
+        /// <returns>A response containing organization units and the total count</returns>
+        public async Task<UserOrganizationUnitsResponseDto> GetUserOrganizationUnitsAsync(Guid userId)
+        {
+            try
+            {
+                // Get all organization unit users for this user
+                var organizationUnitUsers = await _unitOfWork.OrganizationUnitUsers
+                    .GetAllAsync(ou => ou.UserId == userId);
+                
+                // Extract the organization unit IDs
+                var organizationUnitIds = organizationUnitUsers.Select(ou => ou.OrganizationUnitId).ToList();
+                
+                // Get the actual organization units
+                var organizationUnits = new List<OrganizationUnit>();
+                
+                foreach (var ouId in organizationUnitIds)
+                {
+                    var orgUnit = await _unitOfWork.OrganizationUnits.GetByIdAsync(ouId);
+                    if (orgUnit != null)
+                    {
+                        organizationUnits.Add(orgUnit);
+                    }
+                }
+                
+                // Map to DTOs
+                var organizationUnitDtos = organizationUnits.Select(MapToResponseDto).ToList();
+                
+                // Create the response DTO
+                var response = new UserOrganizationUnitsResponseDto
+                {
+                    Count = organizationUnitDtos.Count,
+                    OrganizationUnits = organizationUnitDtos
+                };
+                
+                _logger.LogInformation("Retrieved {Count} organization units for user {UserId}", 
+                    response.Count, userId);
+                
+                return response;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving organization units for user {UserId}: {Message}", 
+                    userId, ex.Message);
+                throw;
+            }
         }
         
         private async Task<string> EnsureUniqueSlugAsync(string baseSlug, Guid? excludeId = null)
@@ -319,9 +362,18 @@ namespace OpenAutomate.Infrastructure.Services
                 };
                 
                 await _unitOfWork.UserAuthorities.AddAsync(userAuthority);
+                
+                // Create the direct user-organization association
+                var organizationUnitUser = new OrganizationUnitUser
+                {
+                    UserId = userId,
+                    OrganizationUnitId = organizationUnitId
+                };
+                
+                await _unitOfWork.OrganizationUnitUsers.AddAsync(organizationUnitUser);
                 await _unitOfWork.CompleteAsync();
                 
-                _logger.LogInformation("User {UserId} assigned as OWNER of organization unit {OrganizationUnitId}", 
+                _logger.LogInformation("User {UserId} assigned as OWNER of organization unit {OrganizationUnitId} and added to organization", 
                     userId, organizationUnitId);
             }
             catch (Exception ex)

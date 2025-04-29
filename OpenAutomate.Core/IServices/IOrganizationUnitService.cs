@@ -41,5 +41,12 @@ namespace OpenAutomate.Core.IServices
         /// Generates a slug from the organization unit name
         /// </summary>
         string GenerateSlugFromName(string name);
+        
+        /// <summary>
+        /// Gets all organization units that a user belongs to, regardless of role
+        /// </summary>
+        /// <param name="userId">The ID of the user</param>
+        /// <returns>A response containing organization units and the total count</returns>
+        Task<UserOrganizationUnitsResponseDto> GetUserOrganizationUnitsAsync(Guid userId);
     }
 } 

@@ -10,8 +10,5 @@ namespace OpenAutomate.Core.Dto.OrganizationUnit
         
         [StringLength(500)]
         public string Description { get; set; }
-        
-        [StringLength(50)]
-        public string Slug { get; set; } // Optional - will be auto-generated if not provided
     }
 } 
