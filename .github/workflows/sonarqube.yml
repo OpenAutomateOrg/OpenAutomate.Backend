@@ -19,6 +19,9 @@ jobs:
   sonar:
     name: SonarQube Analysis with Code Coverage
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
 
     steps:
       # Step 1: Checkout the repository with full history for better SonarQube analysis
@@ -57,12 +60,13 @@ jobs:
           restore-keys: ${{ runner.os }}-sonar
 
       # Debug step: Show current directory structure
-      - name: Debug directory structure
+      - name: Debug directory structure before analysis
         run: |
-          echo "Current directory: $(pwd)"
+          echo "Current working directory: $(pwd)"
+          echo "GitHub workspace: $GITHUB_WORKSPACE"
+          echo "Listing root directory contents:"
           ls -la
-          echo "Is this a git repository?"
-          git status || echo "Not a git repository"
+          echo "Repository is at commit: $(git rev-parse HEAD)"
 
       # Step 6: Begin SonarQube analysis
       - name: Begin SonarQube analysis
@@ -72,6 +76,8 @@ jobs:
             /n:"$SONAR_PROJECT_NAME" \
             /d:sonar.host.url="$SONAR_HOST_URL" \
             /d:sonar.login="$SONAR_TOKEN" \
+            /d:sonar.projectBaseDir="${{ github.workspace }}" \
+            /d:sonar.working.directory="${{ github.workspace }}/.sonarqube" \
             /d:sonar.cs.opencover.reportsPaths="**/TestResults/*.coverage.opencover.xml" \
             /d:sonar.cs.vstest.reportsPaths="**/TestResults/*.trx" \
             /d:sonar.coverage.exclusions="**/*Tests*.cs,**/obj/**/*,**/*.designer.cs,**/Migrations/**" \
@@ -126,18 +132,48 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed for PR decoration
 
-      # Debug step: Check if .scannerwork directory and report-task.txt exists
-      - name: Check for report-task.txt
+      # Step 11: Find and prepare report file
+      - name: Find and prepare report file
+        id: find-report
         run: |
-          echo "Current directory: $(pwd)"
-          echo "Listing directories:"
-          ls -la
-          echo "Checking .scannerwork directory:"
-          ls -la .scannerwork || echo ".scannerwork directory not found"
-          echo "Searching for report-task.txt:"
-          find . -name "report-task.txt" || echo "File not found"
+          echo "Searching for report-task.txt files:"
+          REPORT_FILES=$(find $GITHUB_WORKSPACE -name "report-task.txt" -type f)
+          echo "Found files: $REPORT_FILES"
+          
+          # Check if we found any files
+          if [ -z "$REPORT_FILES" ]; then
+            echo "No report-task.txt files found!"
+            echo "Listing all directories under .sonarqube:"
+            find $GITHUB_WORKSPACE -name ".sonarqube" -type d -exec ls -la {} \; || echo "No .sonarqube directory found"
+            
+            echo "Listing all directories under .scannerwork:"
+            find $GITHUB_WORKSPACE -name ".scannerwork" -type d -exec ls -la {} \; || echo "No .scannerwork directory found"
+            
+            exit 1
+          fi
+          
+          # Use the first file found
+          REPORT_FILE=$(echo "$REPORT_FILES" | head -1)
+          echo "Using report file: $REPORT_FILE"
+          
+          # Create directory if it doesn't exist
+          mkdir -p $GITHUB_WORKSPACE/.scannerwork
+          
+          # Copy the file to the expected location
+          cp "$REPORT_FILE" "$GITHUB_WORKSPACE/.scannerwork/report-task.txt"
+          echo "Copied report file to $GITHUB_WORKSPACE/.scannerwork/report-task.txt"
+          
+          # Verify the file exists
+          if [ -f "$GITHUB_WORKSPACE/.scannerwork/report-task.txt" ]; then
+            echo "Report file successfully copied and verified"
+            cat "$GITHUB_WORKSPACE/.scannerwork/report-task.txt"
+            echo "report_file=$GITHUB_WORKSPACE/.scannerwork/report-task.txt" >> $GITHUB_OUTPUT
+          else
+            echo "Failed to create report file at $GITHUB_WORKSPACE/.scannerwork/report-task.txt"
+            exit 1
+          fi
 
-      # Step 11: Upload coverage reports as artifacts (optional)
+      # Step 12: Upload coverage reports as artifacts (optional)
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4
         with:
@@ -146,9 +182,84 @@ jobs:
             **/TestResults/*.coverage.opencover.xml
             **/TestResults
           retention-days: 5
+      
+      # Step 13: Upload report file as artifact (for debugging)
+      - name: Upload report file
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonarqube-report
+          path: .scannerwork/report-task.txt
+          if-no-files-found: ignore
+          retention-days: 1
 
-      # Step 12: SonarQube Quality Gate check
-      - name: SonarQube Quality Gate check
+      # Step: Manual SonarQube Quality Gate check
+      - name: Manual SonarQube Quality Gate check
+        if: steps.find-report.outputs.report_file != ''
+        run: |
+          echo "Checking Quality Gate using sonar-qualitygate.sh"
+          
+          # Extract CE task ID from the report file
+          REPORT_FILE="${{ steps.find-report.outputs.report_file }}"
+          CE_TASK_ID=$(grep "ceTaskId=" "$REPORT_FILE" | cut -d'=' -f2)
+          
+          if [ -z "$CE_TASK_ID" ]; then
+            echo "Failed to extract ceTaskId from report file"
+            cat "$REPORT_FILE"
+            exit 1
+          fi
+          
+          echo "CE Task ID: $CE_TASK_ID"
+          
+          # Wait for analysis to complete
+          TIMEOUT=300
+          START_TIME=$(date +%s)
+          
+          echo "Waiting for SonarQube analysis to complete (timeout: ${TIMEOUT}s)..."
+          
+          while true; do
+            # Check if timeout has been reached
+            CURRENT_TIME=$(date +%s)
+            ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
+            
+            if [ $ELAPSED_TIME -gt $TIMEOUT ]; then
+              echo "Timeout reached while waiting for analysis to complete"
+              exit 1
+            fi
+            
+            # Check CE task status
+            STATUS=$(curl -s -u "$SONAR_TOKEN:" "$SONAR_HOST_URL/api/ce/task?id=$CE_TASK_ID" | grep -o '"status":"[^"]*"' | cut -d':' -f2 | tr -d '"')
+            
+            echo "Current status: $STATUS (elapsed time: ${ELAPSED_TIME}s)"
+            
+            if [ "$STATUS" = "SUCCESS" ]; then
+              break
+            elif [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "CANCELED" ]; then
+              echo "Analysis failed with status: $STATUS"
+              exit 1
+            fi
+            
+            sleep 5
+          done
+          
+          echo "Analysis completed successfully, checking quality gate"
+          
+          # Get quality gate status
+          PROJECT_STATUS=$(curl -s -u "$SONAR_TOKEN:" "$SONAR_HOST_URL/api/qualitygates/project_status?analysisId=$CE_TASK_ID" | grep -o '"status":"[^"]*"' | cut -d':' -f2 | tr -d '"')
+          
+          echo "Quality Gate status: $PROJECT_STATUS"
+          
+          if [ "$PROJECT_STATUS" = "OK" ]; then
+            echo "Quality Gate passed"
+            exit 0
+          else
+            echo "Quality Gate failed with status: $PROJECT_STATUS"
+            exit 1
+          fi
+
+      # Step 14: SonarQube Quality Gate check (using official action as fallback)
+      - name: SonarQube Quality Gate check (fallback)
+        if: always()
+        continue-on-error: true
         uses: sonarsource/sonarqube-quality-gate-action@master
         with:
           scanMetadataReportFile: .scannerwork/report-task.txt
