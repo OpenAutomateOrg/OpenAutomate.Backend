@@ -127,3 +127,11 @@ jobs:
             **/TestResults/*.coverage.opencover.xml
             **/TestResults
           retention-days: 5
+
+      # Step 12: SonarQube Quality Gate check
+      - name: SonarQube Quality Gate check
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
