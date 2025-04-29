@@ -131,6 +131,8 @@ jobs:
       # Step 12: SonarQube Quality Gate check
       - name: SonarQube Quality Gate check
         uses: sonarsource/sonarqube-quality-gate-action@master
+        with:
+          scanMetadataReportFile: .scannerwork/report-task.txt
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
