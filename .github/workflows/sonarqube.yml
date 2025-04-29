@@ -56,9 +56,16 @@ jobs:
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
 
-      # Step 6: Begin SonarQube analysis with working directory specification
+      # Debug step: Show current directory structure
+      - name: Debug directory structure
+        run: |
+          echo "Current directory: $(pwd)"
+          ls -la
+          echo "Is this a git repository?"
+          git status || echo "Not a git repository"
+
+      # Step 6: Begin SonarQube analysis
       - name: Begin SonarQube analysis
-        working-directory: OpenAutomate.Backend
         run: |
           dotnet sonarscanner begin \
             /k:"$SONAR_PROJECT_KEY" \
@@ -73,17 +80,14 @@ jobs:
 
       # Step 7: Restore dependencies
       - name: Restore dependencies
-        working-directory: OpenAutomate.Backend
-        run: dotnet restore
+        run: dotnet restore OpenAutomate.Backend.sln
 
       # Step 8: Build the solution
       - name: Build solution
-        working-directory: OpenAutomate.Backend
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build OpenAutomate.Backend.sln --configuration Release --no-restore
 
       # Step 9: Run tests with coverage (proper project targeting)
       - name: Run tests with coverage
-        working-directory: OpenAutomate.Backend
         run: |
           # Create a directory for the results
           mkdir -p ./TestResults
@@ -118,7 +122,6 @@ jobs:
 
       # Step 10: End SonarQube analysis
       - name: End SonarQube analysis
-        working-directory: OpenAutomate.Backend
         run: dotnet sonarscanner end /d:sonar.login="$SONAR_TOKEN"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed for PR decoration
@@ -129,10 +132,8 @@ jobs:
           echo "Current directory: $(pwd)"
           echo "Listing directories:"
           ls -la
-          echo "OpenAutomate.Backend directory:"
-          ls -la OpenAutomate.Backend || echo "Directory not found"
-          echo "OpenAutomate.Backend/.scannerwork directory:"
-          ls -la OpenAutomate.Backend/.scannerwork || echo "Directory not found"
+          echo "Checking .scannerwork directory:"
+          ls -la .scannerwork || echo ".scannerwork directory not found"
           echo "Searching for report-task.txt:"
           find . -name "report-task.txt" || echo "File not found"
 
@@ -142,23 +143,11 @@ jobs:
         with:
           name: code-coverage-report
           path: |
-            OpenAutomate.Backend/**/TestResults/*.coverage.opencover.xml
-            OpenAutomate.Backend/**/TestResults
+            **/TestResults/*.coverage.opencover.xml
+            **/TestResults
           retention-days: 5
 
-      # Step 12: Create a symlink to ensure the report-task.txt file is found
-      - name: Create symlink for SonarQube report
-        run: |
-          if [ -f "OpenAutomate.Backend/.scannerwork/report-task.txt" ]; then
-            mkdir -p .scannerwork
-            cp OpenAutomate.Backend/.scannerwork/report-task.txt .scannerwork/report-task.txt
-            echo "Copied report-task.txt from OpenAutomate.Backend/.scannerwork to .scannerwork"
-          else
-            echo "Report file not found in OpenAutomate.Backend/.scannerwork"
-            find OpenAutomate.Backend -name "report-task.txt"
-          fi
-
-      # Step 13: SonarQube Quality Gate check
+      # Step 12: SonarQube Quality Gate check
       - name: SonarQube Quality Gate check
         uses: sonarsource/sonarqube-quality-gate-action@master
         with:
