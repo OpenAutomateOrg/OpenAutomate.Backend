@@ -41,5 +41,7 @@ namespace OpenAutomate.Core.IServices
         /// Generates a slug from the organization unit name
         /// </summary>
         string GenerateSlugFromName(string name);
+
+        Task<IEnumerable<OrganizationUnitResponseDto>> GetOrganizationUnitsByUserIdAsync(Guid userId);
     }
 } 

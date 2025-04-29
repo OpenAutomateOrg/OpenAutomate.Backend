@@ -331,5 +331,28 @@ namespace OpenAutomate.Infrastructure.Services
                 throw;
             }
         }
+
+        public async Task<IEnumerable<OrganizationUnitResponseDto>> GetOrganizationUnitsByUserIdAsync(Guid userId)
+        {
+            try
+            {
+                var organizationUnitUsers = await _unitOfWork.OrganizationUnitUsers.GetAllAsync(
+                    ouu => ouu.UserId == userId,
+                    null,
+                    ouu => ouu.OrganizationUnit // include navigation property
+                );
+
+                var organizationUnits = organizationUnitUsers
+                    .Select(ouu => ouu.OrganizationUnit)
+                    .ToList();
+
+                return organizationUnits.Select(MapToResponseDto).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting organization units for user {UserId}: {Message}", userId, ex.Message);
+                throw;
+            }
+        }
     }
 } 

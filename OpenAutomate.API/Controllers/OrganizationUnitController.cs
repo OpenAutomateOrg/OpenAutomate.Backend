@@ -235,5 +235,21 @@ namespace OpenAutomate.API.Controllers
                 return StatusCode(500, $"An error occurred while checking name change impact: {ex.Message}");
             }
         }
+
+        /// <summary>
+        /// Gets all organization units that the current user belongs to
+        /// </summary>
+        /// <returns>A collection of organization units the user belongs to</returns>
+        /// <response code="200">List of organization units retrieved successfully</response>
+        /// <response code="401">User is not authenticated</response>
+        [HttpGet("my-ous")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<IEnumerable<OrganizationUnitResponseDto>>> GetMyOrganizationUnits()
+        {
+            var userId = GetCurrentUserId();
+            var organizationUnits = await _organizationUnitService.GetOrganizationUnitsByUserIdAsync(userId);
+            return Ok(organizationUnits);
+        }
     }
 } 
