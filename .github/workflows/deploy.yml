@@ -17,8 +17,14 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build app
+      run: dotnet build --configuration Release --no-restore
+
     - name: Publish app
-      run: dotnet publish -c Release -o publish
+      run: dotnet publish -c Release -o publish --no-restore
 
     - name: Copy files to server
       uses: appleboy/scp-action@v0.1.4
