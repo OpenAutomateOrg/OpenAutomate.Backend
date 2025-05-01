@@ -30,4 +30,8 @@
     <ProjectReference Include="..\OpenAutomate.Core\OpenAutomate.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="TestResults\" />
+  </ItemGroup>
+
 </Project>
