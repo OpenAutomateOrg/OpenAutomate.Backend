@@ -24,7 +24,7 @@ jobs:
       run: dotnet build --configuration Release --no-restore
 
     - name: Publish app
-      run: dotnet publish -c Release -o publish --no-restore
+      run: dotnet publish -c Release -o publish --self-contained --runtime linux-x64
 
     - name: Copy files to server
       uses: appleboy/scp-action@v0.1.4
