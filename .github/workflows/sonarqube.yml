@@ -68,6 +68,7 @@ jobs:
             /d:sonar.cs.vstest.reportsPaths="**/TestResults/*.trx" \
             /d:sonar.coverage.exclusions="**/*Tests*.cs,**/obj/**/*,**/*.designer.cs,**/Migrations/**" \
             /d:sonar.exclusions="**/bin/**/*,**/obj/**/*" \
+            /d:sonar.cpd.exclusions="**/Migrations/**/*" \
             /d:sonar.verbose=true
 
       # Step 7: Restore dependencies
