@@ -19,7 +19,12 @@ namespace OpenAutomate.Core.Configurations
                 .HasForeignKey(s => s.PackageId)
                 .OnDelete(DeleteBehavior.Cascade);
                 
-                
+            // User relationship with UserId
+            builder.HasOne(s => s.User)
+                .WithMany()
+                .HasForeignKey(s => s.CreatedById)
+                .OnDelete(DeleteBehavior.NoAction);
+            
             builder.HasMany(s => s.Executions)
                 .WithOne(e => e.Schedule)
                 .HasForeignKey(e => e.ScheduleId)
