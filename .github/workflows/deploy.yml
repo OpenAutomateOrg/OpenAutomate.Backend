@@ -22,7 +22,6 @@ jobs:
       
     - name: Verify JWT package
       run: |
-        dotnet add OpenAutomate.API/OpenAutomate.API.csproj package System.IdentityModel.Tokens.Jwt --version 7.1.2.0
         dotnet restore
 
     - name: Build app
@@ -37,7 +36,7 @@ jobs:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_KEY }}
-        source: "publish/*"
+        source: "publish/**"
         target: "${{ secrets.DEPLOY_PATH }}/app"
 
     - name: Restart service on server
