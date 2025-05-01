@@ -20,11 +20,6 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
       
-    - name: Verify JWT package
-      run: |
-        dotnet add OpenAutomate.API/OpenAutomate.API.csproj package System.IdentityModel.Tokens.Jwt --version 7.1.2
-        dotnet restore
-
     - name: Build app
       run: dotnet build --configuration Release --no-restore
 
