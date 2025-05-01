@@ -20,11 +20,16 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
       
+    - name: Ensure JWT package version
+      run: |
+        dotnet add OpenAutomate.API/OpenAutomate.API.csproj package System.IdentityModel.Tokens.Jwt --version 8.0.0
+        dotnet restore
+      
     - name: Build app
       run: dotnet build --configuration Release --no-restore
 
     - name: Publish app
-      run: dotnet publish -c Release -o publish --self-contained --runtime linux-x64
+      run: dotnet publish -c Release -o publish --no-restore
 
     - name: Copy files to server
       uses: appleboy/scp-action@v0.1.4
