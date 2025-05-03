@@ -49,7 +49,15 @@ namespace OpenAutomate.API.Controllers
             {
                 var ipAddress = GetIpAddress();
                 var response = await _userService.RegisterAsync(request, ipAddress);
-                return Ok(response);
+
+                // Send email verification
+                await _userService.SendVerificationEmailAsync(response.Id);
+                
+                _logger.LogInformation("User registered successfully: {Email}. Verification email sent.", request.Email);
+                return Ok(new { 
+                    user = response,
+                    message = "Registration successful. Please check your email to verify your account." 
+                });
             }
             catch (ApplicationException ex)
             {
@@ -122,11 +130,21 @@ namespace OpenAutomate.API.Controllers
                 var refreshToken = Request.Cookies["refreshToken"];
                 if (string.IsNullOrEmpty(refreshToken))
                 {
+                    _logger.LogWarning("Refresh token is missing in request cookies");
                     return BadRequest(new { message = "Refresh token is required" });
                 }
 
+                _logger.LogInformation("Processing refresh token request with token: {Token}", refreshToken.Substring(0, 10));
+                
+                // Get client IP for tracking
                 var ipAddress = GetIpAddress();
+                _logger.LogInformation("Client IP: {IpAddress}", ipAddress);
+                
+                // Attempt to refresh the token
                 var response = await _userService.RefreshTokenAsync(refreshToken, ipAddress);
+                
+                _logger.LogInformation("Token refreshed successfully for user: {UserId}, {Email}", 
+                    response.Id, response.Email);
                 
                 // Set new refresh token in cookie
                 SetRefreshTokenCookie(response.RefreshToken, response.RefreshTokenExpiration);
@@ -158,7 +176,7 @@ namespace OpenAutomate.API.Controllers
         /// <response code="400">Token is missing</response>
         /// <response code="404">Token not found or already revoked</response>
         /// <response code="500">Server error during revocation process</response>
-        [Authorize]
+
         [HttpPost("revoke-token")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -205,10 +223,10 @@ namespace OpenAutomate.API.Controllers
         /// <response code="500">Server error while retrieving user information</response>
         [Authorize]
         [HttpGet("user")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GetCurrentUser()
+        public IActionResult GetCurrentUser()
         {
             try
             {
@@ -241,24 +259,39 @@ namespace OpenAutomate.API.Controllers
         /// <param name="expires">The expiration date for the token</param>
         private void SetRefreshTokenCookie(string token, DateTime expires)
         {
-            // Get the current environment
-            var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-            var isDevelopment = string.Equals(env, "Development", StringComparison.OrdinalIgnoreCase);
-            
-            var cookieOptions = new CookieOptions
+            try
             {
-                HttpOnly = true,          // Prevents client-side JS from accessing the cookie
-                Expires = expires,
-                SameSite = SameSiteMode.None, // Use None for both development and production with CORS
-                Secure = true,            // Always use secure cookies (required with SameSite=None)
-                Path = "/",               // Make cookie available to all paths
-                MaxAge = TimeSpan.FromDays(7) // Explicit max age as backup to Expires
-            };
-
-            _logger.LogDebug("Setting refresh token cookie. SameSite: {SameSite}, Secure: {Secure}, Expires: {Expires}, Path: {Path}", 
-                cookieOptions.SameSite, cookieOptions.Secure, cookieOptions.Expires, cookieOptions.Path);
+                // Get the current environment
+                var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+                var isDevelopment = string.Equals(env, "Development", StringComparison.OrdinalIgnoreCase);
                 
-            Response.Cookies.Append("refreshToken", token, cookieOptions);
+                // Configure cookie options
+                var cookieOptions = new CookieOptions
+                {
+                    HttpOnly = true,          // Prevents client-side JS from accessing the cookie
+                    Expires = expires,
+                    SameSite = SameSiteMode.None, // Use None for both development and production with CORS
+                    Secure = true,            // Always use secure cookies (required with SameSite=None)
+                    Path = "/",               // Make cookie available to all paths
+                    MaxAge = TimeSpan.FromDays(7) // Explicit max age as backup to Expires
+                };
+
+                _logger.LogDebug("Setting refresh token cookie. Token: {TokenPreview}, SameSite: {SameSite}, Secure: {Secure}, Expires: {Expires}", 
+                    token.Substring(0, 10), cookieOptions.SameSite, cookieOptions.Secure, cookieOptions.Expires);
+                    
+                // Clear any existing cookie first to ensure we're not having duplicates
+                Response.Cookies.Delete("refreshToken");
+                
+                // Add the new cookie
+                Response.Cookies.Append("refreshToken", token, cookieOptions);
+                
+                _logger.LogInformation("Refresh token cookie set successfully. Expires: {Expires}", expires);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error setting refresh token cookie");
+                throw;
+            }
         }
 
         /// <summary>

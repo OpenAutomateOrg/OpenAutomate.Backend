@@ -14,8 +14,8 @@ namespace OpenAutomate.API.Controllers
         /// Gets the current authenticated user from the HttpContext
         /// </summary>
         /// <remarks>Returns null if no user is authenticated</remarks>
-        public User currentUser => (User)HttpContext.Items["User"];
-        
+        public User? currentUser => HttpContext.Items["User"] as User;
+
         /// <summary>
         /// Gets the ID of the currently authenticated user
         /// </summary>

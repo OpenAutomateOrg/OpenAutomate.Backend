@@ -18,6 +18,10 @@ namespace OpenAutomate.Core.Domain.IRepository
         IRepository<AuthorityResource> AuthorityResources { get; }
         IRepository<Asset> Assets { get; }
         IRepository<AssetBotAgent> AssetBotAgents { get; }
+        IRepository<EmailVerificationToken> EmailVerificationTokens { get; }
+        
+        // Get a repository for a specific entity type
+        IRepository<T> GetRepository<T>() where T : class;
 
         Task<int> CompleteAsync();
     }

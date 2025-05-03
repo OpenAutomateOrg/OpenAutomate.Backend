@@ -35,11 +35,13 @@ namespace OpenAutomate.API.Controllers
         /// Creates a new organization unit with default authorities
         /// </summary>
         /// <param name="dto">The organization unit creation data</param>
-        /// <returns>The newly created organization unit details</returns>
+        /// <returns>The newly CreatedAtorganization unit details</returns>
         /// <remarks>
         /// This endpoint creates a new organization unit (tenant) and automatically sets up
         /// default authorities (OWNER, MANAGER, DEVELOPER, USER). The authenticated user
         /// will be assigned as an OWNER of the new organization unit.
+        /// 
+        /// The slug is automatically generated from the name and does not need to be provided in the request.
         /// </remarks>
         /// <response code="201">Organization unit successfully created</response>
         /// <response code="400">Invalid organization unit data</response>
@@ -66,6 +68,35 @@ namespace OpenAutomate.API.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, $"An error occurred while creating the organization unit: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Gets all organization units that the current user belongs to
+        /// </summary>
+        /// <returns>A collection of organization units the user belongs to and the total count</returns>
+        /// <remarks>
+        /// This endpoint retrieves all organization units that the authenticated user belongs to,
+        /// regardless of their role (OWNER, MANAGER, etc.) within those units.
+        /// </remarks>
+        /// <response code="200">Organization units retrieved successfully</response>
+        /// <response code="401">User is not authenticated</response>
+        /// <response code="500">Server error during retrieval process</response>
+        [HttpGet("my-ous")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<UserOrganizationUnitsResponseDto>> GetMyOrganizationUnits()
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                var result = await _organizationUnitService.GetUserOrganizationUnitsAsync(userId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred while retrieving your organization units: {ex.Message}");
             }
         }
 
@@ -147,8 +178,9 @@ namespace OpenAutomate.API.Controllers
         /// <param name="dto">The updated organization unit data</param>
         /// <returns>The updated organization unit details</returns>
         /// <remarks>
-        /// This endpoint updates organization unit properties such as name, description, and slug.
-        /// Note that changing the slug may impact URL routing to this organization unit.
+        /// This endpoint updates organization unit properties such as name and description.
+        /// The slug is automatically regenerated when the name changes.
+        /// Note that changing the name will impact URL routing to this organization unit as the slug will change.
         /// </remarks>
         /// <response code="200">Organization unit updated successfully</response>
         /// <response code="400">Invalid organization unit data</response>

@@ -33,7 +33,7 @@ namespace OpenAutomate.API.Controllers
         /// Creates a new Bot Agent and generates a machine key
         /// </summary>
         /// <param name="dto">The Bot Agent creation data</param>
-        /// <returns>The created Bot Agent with machine key</returns>
+        /// <returns>The CreatedAtBot Agent with machine key</returns>
         [HttpPost("create")]
         [RequirePermission(Resources.AgentResource, Permissions.Create)]
         public async Task<ActionResult<BotAgentResponseDto>> CreateBotAgent([FromBody] CreateBotAgentDto dto)

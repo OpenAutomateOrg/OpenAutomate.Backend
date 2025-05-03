@@ -18,9 +18,9 @@ namespace OpenAutomate.Core.Domain.Entities
         
         // Navigation properties
         [ForeignKey("AssetId")]
-        public virtual Asset Asset { get; set; }
+        public virtual Asset Asset { get; set; } = null!;
         
         [ForeignKey("BotAgentId")]
-        public virtual BotAgent BotAgent { get; set; }
+        public virtual BotAgent BotAgent { get; set; } = null!;
     }
 } 

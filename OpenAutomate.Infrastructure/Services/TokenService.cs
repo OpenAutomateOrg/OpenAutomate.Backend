@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.Domain.Entities;
+using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
@@ -14,6 +15,7 @@ using System.Threading.Tasks;
 using OpenAutomate.Core.Dto.UserDto;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Domain.IRepository;
+using Microsoft.Extensions.Logging;
 
 namespace OpenAutomate.Infrastructure.Services
 {
@@ -22,21 +24,26 @@ namespace OpenAutomate.Infrastructure.Services
         private readonly JwtSettings _jwtSettings;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ITenantContext _tenantContext;
+        private readonly ILogger<TokenService> _logger;
 
         public TokenService(
             IOptions<JwtSettings> jwtSettings,
             IUnitOfWork unitOfWork,
-            ITenantContext tenantContext)
+            ITenantContext tenantContext,
+            ILogger<TokenService> logger)
         {
             _jwtSettings = jwtSettings.Value;
             _unitOfWork = unitOfWork;
             _tenantContext = tenantContext;
+            _logger = logger;
         }
 
         public AuthenticationResponse GenerateTokens(User user, string ipAddress)
         {
             try
             {
+                _logger.LogInformation("Generating tokens for user {UserId} - {UserEmail}", user.Id, user.Email);
+                
                 // Generate JWT token
                 var token = GenerateJwtToken(user);
 
@@ -46,12 +53,15 @@ namespace OpenAutomate.Infrastructure.Services
                 // Add refresh token to user
                 AddRefreshTokenToUserAsync(user, refreshToken).GetAwaiter().GetResult();
 
+                _logger.LogInformation("Generated refresh token {Token} for user {UserId}", refreshToken.Token.Substring(0, 10), user.Id);
+
                 return new AuthenticationResponse
                 {
                     Id = user.Id,
                     FirstName = user.FirstName,
                     LastName = user.LastName,
                     Email = user.Email,
+                    SystemRole = user.SystemRole,
                     Token = token,
                     RefreshToken = refreshToken.Token,
                     RefreshTokenExpiration = refreshToken.Expires
@@ -60,7 +70,7 @@ namespace OpenAutomate.Infrastructure.Services
             catch (Exception ex)
             {
                 // Log the error
-                Console.WriteLine($"Error saving refresh token: {ex.Message}");
+                _logger.LogError(ex, "Error saving refresh token for user {UserId}", user.Id);
                 throw;
             }
         }
@@ -69,22 +79,51 @@ namespace OpenAutomate.Infrastructure.Services
         {
             try
             {
-                // First find the token in the database without the computed properties
+                _logger.LogInformation("Refreshing token {Token}", refreshToken.Substring(0, 10));
+                
+                // First find the token in the database with the exact token string
                 var oldToken = _unitOfWork.RefreshTokens.GetFirstOrDefaultAsync(
-                    t => t.Token == refreshToken,
-                    t => t.User).GetAwaiter().GetResult();
+                    t => t.Token == refreshToken).GetAwaiter().GetResult();
                     
                 if (oldToken == null)
+                {
+                    _logger.LogWarning("Invalid token: Token not found in database");
                     throw new Exception("Invalid token");
+                }
+                
+                _logger.LogInformation("Found token for user {UserId}", oldToken.UserId);
                     
                 // Then check the computed properties in memory
                 if (oldToken.IsRevoked || oldToken.IsExpired)
+                {
+                    _logger.LogWarning("Token is revoked or expired. Revoked: {IsRevoked}, Expired: {IsExpired}", 
+                        oldToken.IsRevoked, oldToken.IsExpired);
                     throw new Exception("Token is revoked or expired");
-                    
-                var user = oldToken.User;
+                }
+                
+                // Get the full user information directly from the database by ID
+                var userId = oldToken.UserId;
+                _logger.LogInformation("Retrieving user with ID {UserId}", userId);
+                
+                // Get the user by ID - critical to ensure we get the correct user
+                var user = _unitOfWork.Users.GetByIdAsync(userId).GetAwaiter().GetResult();
+                
                 if (user == null)
+                {
+                    _logger.LogWarning("User not found with ID {UserId}", userId);
                     throw new Exception("User not found");
-                    
+                }
+                
+                _logger.LogInformation("Found user: ID={UserId}, Email={Email}, FirstName={FirstName}, LastName={LastName}", 
+                    user.Id, user.Email, user.FirstName, user.LastName);
+                
+                // Verify the token belongs to this user
+                if (!user.OwnsToken(refreshToken))
+                {
+                    _logger.LogWarning("Token does not belong to user {UserId}", user.Id);
+                    throw new Exception("Invalid token for user");
+                }
+                
                 // Mark the old token as revoked
                 oldToken.Revoked = DateTime.UtcNow;
                 oldToken.RevokedByIp = ipAddress;
@@ -100,6 +139,9 @@ namespace OpenAutomate.Infrastructure.Services
                 // Save the changes
                 _unitOfWork.CompleteAsync().GetAwaiter().GetResult();
                 
+                _logger.LogInformation("Generated new refresh token {Token} for user {UserId}", 
+                    newRefreshToken.Token.Substring(0, 10), user.Id);
+                
                 // Generate a new JWT token
                 var token = GenerateJwtToken(user);
                     
@@ -109,6 +151,7 @@ namespace OpenAutomate.Infrastructure.Services
                     FirstName = user.FirstName,
                     LastName = user.LastName,
                     Email = user.Email,
+                    SystemRole = user.SystemRole,
                     Token = token,
                     RefreshToken = newRefreshToken.Token,
                     RefreshTokenExpiration = newRefreshToken.Expires
@@ -116,21 +159,28 @@ namespace OpenAutomate.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error refreshing token: {ex.Message}");
+                _logger.LogError(ex, "Error refreshing token: {Message}", ex.Message);
                 throw;
             }
         }
 
-        public bool RevokeToken(string token, string ipAddress, string reason = null)
+        public Task<bool> RevokeTokenAsync(string token, string ipAddress, string reason = "")
         {
             try
             {
+                _logger.LogInformation("Revoking token {Token}", token.Substring(0, 10));
+                
                 // Find the token directly in the database without the computed property
                 var refreshToken = _unitOfWork.RefreshTokens.GetFirstOrDefaultAsync(
                     t => t.Token == token).GetAwaiter().GetResult();
                     
                 if (refreshToken == null || refreshToken.IsRevoked)
-                    return false;
+                {
+                    _logger.LogWarning("Token not found or already revoked: {Token}", token.Substring(0, 10));
+                    return Task.FromResult(false);
+                }
+                
+                _logger.LogInformation("Found token for user {UserId}", refreshToken.UserId);
                     
                 // Revoke the token
                 refreshToken.Revoked = DateTime.UtcNow;
@@ -140,12 +190,13 @@ namespace OpenAutomate.Infrastructure.Services
                 // Save the changes
                 _unitOfWork.CompleteAsync().GetAwaiter().GetResult();
                 
-                return true;
+                _logger.LogInformation("Successfully revoked token for user {UserId}", refreshToken.UserId);
+                return Task.FromResult(true);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error revoking token: {ex.Message}");
-                return false;
+                _logger.LogError(ex, "Error revoking token");
+                return Task.FromResult(false);
             }
         }
 
@@ -189,8 +240,9 @@ namespace OpenAutomate.Infrastructure.Services
             var claims = new List<Claim>
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, user.Email),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+                new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim(ClaimTypes.Role, user.SystemRole.ToString())
             };
 
             // Add tenant claim if there is a tenant context
@@ -222,21 +274,137 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 Token = Convert.ToBase64String(randomBytes),
                 Expires = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays),
-                Created = DateTime.UtcNow,
+                CreatedAt= DateTime.UtcNow,
                 CreatedByIp = ipAddress
             };
         }
 
         private async Task AddRefreshTokenToUserAsync(User user, RefreshToken refreshToken)
         {
-            // Set the UserId on the refresh token
-            refreshToken.UserId = user.Id;
-            
-            // Add the refresh token directly to the RefreshTokens repository
-            await _unitOfWork.RefreshTokens.AddAsync(refreshToken);
-            
-            // Save changes
-            await _unitOfWork.CompleteAsync();
+            try
+            {
+                _logger.LogInformation("Adding refresh token to user {UserId}", user.Id);
+                
+                // Explicitly set both the UserId and User properties
+                refreshToken.UserId = user.Id;
+                refreshToken.User = user;
+                
+                _logger.LogInformation("Set UserId to {UserId}", refreshToken.UserId);
+                
+                // Add the refresh token directly to the RefreshTokens repository
+                await _unitOfWork.RefreshTokens.AddAsync(refreshToken);
+                
+                // Save changes to persist the refresh token
+                await _unitOfWork.CompleteAsync();
+                
+                // Verify the token was saved with the correct UserId
+                var savedToken = await _unitOfWork.RefreshTokens.GetFirstOrDefaultAsync(
+                    t => t.Id == refreshToken.Id);
+                
+                if (savedToken != null)
+                {
+                    _logger.LogInformation("Verified token {TokenId} saved with UserId {UserId}", 
+                        savedToken.Id, savedToken.UserId);
+                }
+                
+                _logger.LogInformation("Successfully added refresh token {TokenId} to user {UserId}", 
+                    refreshToken.Id, user.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding refresh token to user {UserId}: {Message}", user.Id, ex.Message);
+                throw;
+            }
+        }
+
+        public async Task<string> GenerateEmailVerificationTokenAsync(Guid userId)
+        {
+            try
+            {
+                // Check if user exists
+                var user = await _unitOfWork.Users.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    throw new Exception($"User with ID {userId} not found");
+                }
+
+                // Remove any existing verification tokens for this user
+                var existingTokens = await _unitOfWork.EmailVerificationTokens
+                    .GetAllAsync(t => t.UserId == userId && !t.IsUsed);
+
+                foreach (var token in existingTokens)
+                {
+                    _unitOfWork.EmailVerificationTokens.Remove(token);
+                }
+                await _unitOfWork.CompleteAsync();
+
+                // Generate a new token
+                using var rng = RandomNumberGenerator.Create();
+                var randomBytes = new byte[32];
+                rng.GetBytes(randomBytes);
+                var tokenString = Convert.ToBase64String(randomBytes)
+                    .Replace("/", "_")
+                    .Replace("+", "-")
+                    .Replace("=", "");
+
+                // Create token entity
+                var verificationToken = new EmailVerificationToken
+                {
+                    UserId = userId,
+                    Token = tokenString,
+                    ExpiresAt = DateTime.UtcNow.AddHours(24), // 24 hour expiration
+                    IsUsed = false
+                };
+
+                // Save to database
+                await _unitOfWork.EmailVerificationTokens.AddAsync(verificationToken);
+                await _unitOfWork.CompleteAsync();
+
+                return tokenString;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error generating email verification token: {ex.Message}");
+                throw;
+            }
+        }
+
+        public async Task<Guid?> ValidateEmailVerificationTokenAsync(string token)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(token))
+                    return null;
+
+                // Find the token in the database
+                var verificationToken = await _unitOfWork.EmailVerificationTokens
+                    .GetFirstOrDefaultAsync(t => t.Token == token, t => t.User);
+
+                // Check if token exists
+                if (verificationToken == null)
+                    return null;
+
+                // Check if token is already used
+                if (verificationToken.IsUsed)
+                    return null;
+
+                // Check if token is expired
+                if (verificationToken.IsExpired)
+                    return null;
+
+                // Mark token as used
+                verificationToken.IsUsed = true;
+                verificationToken.UsedAt = DateTime.UtcNow;
+                _unitOfWork.EmailVerificationTokens.Update(verificationToken);
+                await _unitOfWork.CompleteAsync();
+
+                return verificationToken.UserId;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error validating email verification token: {ex.Message}");
+                return null;
+            }
         }
     }
 } 

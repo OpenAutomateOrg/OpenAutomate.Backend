@@ -127,3 +127,60 @@ dotnet test
 ## License
 
 This project is licensed under the MIT License
+
+## Code Coverage
+
+This project is configured to meet SonarQube's 80% code coverage requirement.
+
+### Running Tests with Code Coverage Locally
+
+1. **Using the Command Line**:
+   ```bash
+   # Navigate to the backend project directory
+   cd OpenAutomate.Backend
+   
+   # Run tests with code coverage
+   dotnet test --collect:"XPlat Code Coverage"
+   ```
+
+2. **Using Visual Studio**:
+   - Right-click on the test project in Solution Explorer
+   - Select "Run Tests with Coverage"
+
+3. **Using VS Code**:
+   - Open the Command Palette (Ctrl+Shift+P)
+   - Run the "Tasks: Run Task" command
+   - Select "test with coverage"
+
+### Coverage Reports
+
+After running tests with coverage, reports will be generated in the `TestResults` directory of each test project. These reports are in Cobertura XML format and can be viewed with coverage visualization tools.
+
+### SonarQube Integration
+
+To run a complete SonarQube analysis with code coverage:
+
+1. Install the SonarScanner for .NET globally:
+   ```bash
+   dotnet tool install --global dotnet-sonarscanner
+   ```
+
+2. Run the analysis script:
+   ```bash
+   # From PowerShell
+   .\sonarqube-analysis.ps1
+   ```
+   
+   Or use the VS Code task "run sonarqube analysis".
+
+3. View the results in your SonarQube dashboard.
+
+### Coverage Requirements
+
+- Aim for 80% code coverage for all new code
+- Focus on testing business logic and services
+- Exclude boilerplate and generated code from coverage calculations
+
+### Continuous Integration
+
+The GitHub Actions workflow automatically runs tests with coverage and reports the results to SonarQube on each pull request and push to main branches.

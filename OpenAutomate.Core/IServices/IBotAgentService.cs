@@ -15,7 +15,7 @@ namespace OpenAutomate.Core.IServices
         /// Creates a new Bot Agent with a generated machine key
         /// </summary>
         /// <param name="dto">The Bot Agent creation data</param>
-        /// <returns>The created Bot Agent with machine key</returns>
+        /// <returns>The CreatedAtBot Agent with machine key</returns>
         Task<BotAgentResponseDto> CreateBotAgentAsync(CreateBotAgentDto dto);
         
         /// <summary>

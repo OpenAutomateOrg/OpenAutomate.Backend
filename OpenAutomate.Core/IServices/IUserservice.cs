@@ -15,6 +15,19 @@ namespace OpenAutomate.Core.IServices
 
         Task<UserResponse> GetByEmailAsync(string email);
 
+        /// <summary>
+        /// Verifies a user's email using a verification token
+        /// </summary>
+        /// <param name="userId">The ID of the user to verify</param>
+        /// <returns>True if verification succeeded, false otherwise</returns>
+        Task<bool> VerifyUserEmailAsync(Guid userId);
+
+        /// <summary>
+        /// Sends a verification email to a user
+        /// </summary>
+        /// <param name="userId">The ID of the user to send verification to</param>
+        /// <returns>True if the email was sent successfully</returns>
+        Task<bool> SendVerificationEmailAsync(Guid userId);
 
         /// <summary>
         /// Maps a User entity to a UserResponse DTO without making a database call
