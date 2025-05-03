@@ -19,7 +19,8 @@ namespace OpenAutomate.Core.Domain.Entities
         
         // Foreign key for User
         public Guid UserId { get; set; }
+        
         [JsonIgnore]
-        public virtual User User { get; set; } = new User();
+        public virtual User? User { get; set; }
     }
 } 
