@@ -64,8 +64,6 @@ jobs:
             /n:"$SONAR_PROJECT_NAME" \
             /d:sonar.host.url="$SONAR_HOST_URL" \
             /d:sonar.login="$SONAR_TOKEN" \
-            /d:sonar.branch.name="develop" \
-            /d:sonar.branch.target="develop" \
             /d:sonar.cs.opencover.reportsPaths="./TestResults/coverage.opencover.xml,**/TestResults/coverage.opencover.xml" \
             /d:sonar.cs.vstest.reportsPaths="./TestResults/*.trx" \
             /d:sonar.coverage.exclusions="**/*Tests*.cs,**/obj/**/*,**/*.designer.cs,**/Migrations/**" \
