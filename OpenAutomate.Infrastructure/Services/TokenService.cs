@@ -16,6 +16,7 @@ using OpenAutomate.Core.Dto.UserDto;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Domain.IRepository;
 using Microsoft.Extensions.Logging;
+using OpenAutomate.Core.Exceptions;
 
 namespace OpenAutomate.Infrastructure.Services
 {
@@ -67,11 +68,16 @@ namespace OpenAutomate.Infrastructure.Services
                     RefreshTokenExpiration = refreshToken.Expires
                 };
             }
+            catch (OpenAutomateException)
+            {
+                // Rethrow custom exceptions
+                throw;
+            }
             catch (Exception ex)
             {
                 // Log the error
                 _logger.LogError(ex, "Error saving refresh token for user {UserId}", user.Id);
-                throw;
+                throw new ServiceException($"Failed to generate tokens for user {user.Id}: {ex.Message}", ex);
             }
         }
 
@@ -88,7 +94,7 @@ namespace OpenAutomate.Infrastructure.Services
                 if (oldToken == null)
                 {
                     _logger.LogWarning("Invalid token: Token not found in database");
-                    throw new Exception("Invalid token");
+                    throw new TokenException("Invalid token");
                 }
                 
                 _logger.LogInformation("Found token for user {UserId}", oldToken.UserId);
@@ -98,7 +104,7 @@ namespace OpenAutomate.Infrastructure.Services
                 {
                     _logger.LogWarning("Token is revoked or expired. Revoked: {IsRevoked}, Expired: {IsExpired}", 
                         oldToken.IsRevoked, oldToken.IsExpired);
-                    throw new Exception("Token is revoked or expired");
+                    throw new TokenException("Token is revoked or expired");
                 }
                 
                 // Get the full user information directly from the database by ID
@@ -111,7 +117,7 @@ namespace OpenAutomate.Infrastructure.Services
                 if (user == null)
                 {
                     _logger.LogWarning("User not found with ID {UserId}", userId);
-                    throw new Exception("User not found");
+                    throw new AuthenticationException("User not found");
                 }
                 
                 _logger.LogInformation("Found user: ID={UserId}, Email={Email}, FirstName={FirstName}, LastName={LastName}", 
@@ -121,7 +127,7 @@ namespace OpenAutomate.Infrastructure.Services
                 if (!user.OwnsToken(refreshToken))
                 {
                     _logger.LogWarning("Token does not belong to user {UserId}", user.Id);
-                    throw new Exception("Invalid token for user");
+                    throw new TokenException("Invalid token for user");
                 }
                 
                 // Mark the old token as revoked
@@ -157,10 +163,15 @@ namespace OpenAutomate.Infrastructure.Services
                     RefreshTokenExpiration = newRefreshToken.Expires
                 };
             }
+            catch (OpenAutomateException)
+            {
+                // Rethrow custom exceptions
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error refreshing token: {Message}", ex.Message);
-                throw;
+                throw new ServiceException($"Error refreshing token: {ex.Message}", ex);
             }
         }
 
@@ -325,7 +336,7 @@ namespace OpenAutomate.Infrastructure.Services
                 var user = await _unitOfWork.Users.GetByIdAsync(userId);
                 if (user == null)
                 {
-                    throw new Exception($"User with ID {userId} not found");
+                    throw new AuthenticationException($"User with ID {userId} not found");
                 }
 
                 // Remove any existing verification tokens for this user
@@ -362,10 +373,15 @@ namespace OpenAutomate.Infrastructure.Services
 
                 return tokenString;
             }
+            catch (OpenAutomateException)
+            {
+                // Rethrow custom exceptions
+                throw;
+            }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error generating email verification token: {ex.Message}");
-                throw;
+                _logger.LogError(ex, "Error generating email verification token: {Message}", ex.Message);
+                throw new ServiceException($"Error generating email verification token: {ex.Message}", ex);
             }
         }
 
@@ -400,9 +416,14 @@ namespace OpenAutomate.Infrastructure.Services
 
                 return verificationToken.UserId;
             }
+            catch (OpenAutomateException)
+            {
+                // Rethrow custom exceptions
+                throw;
+            }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error validating email verification token: {ex.Message}");
+                _logger.LogError(ex, "Error validating email verification token: {Message}", ex.Message);
                 return null;
             }
         }
