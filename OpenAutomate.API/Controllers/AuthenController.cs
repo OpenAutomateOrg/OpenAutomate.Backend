@@ -134,11 +134,10 @@ namespace OpenAutomate.API.Controllers
                     return BadRequest(new { message = "Refresh token is required" });
                 }
 
-                _logger.LogInformation("Processing refresh token request with token: {Token}", refreshToken.Substring(0, 10));
-                
                 // Get client IP for tracking
                 var ipAddress = GetIpAddress();
-                _logger.LogInformation("Client IP: {IpAddress}", ipAddress);
+                _logger.LogInformation("Processing refresh token request with token: {Token}, Client IP: {IpAddress}", 
+                    refreshToken.Substring(0, 10), ipAddress);
                 
                 // Attempt to refresh the token
                 var response = await _userService.RefreshTokenAsync(refreshToken, ipAddress);
@@ -261,10 +260,7 @@ namespace OpenAutomate.API.Controllers
         {
             try
             {
-                // Get the current environment
-                var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-                var isDevelopment = string.Equals(env, "Development", StringComparison.OrdinalIgnoreCase);
-                
+
                 // Configure cookie options
                 var cookieOptions = new CookieOptions
                 {
