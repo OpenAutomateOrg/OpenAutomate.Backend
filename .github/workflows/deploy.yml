@@ -2,7 +2,7 @@ name: Deploy .NET API to Ubuntu
 
 on:
   push:
-    branches: [ main, test-deploy ]
+    branches: [ main ]
 
 jobs:
   deploy:

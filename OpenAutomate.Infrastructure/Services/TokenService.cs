@@ -16,6 +16,7 @@ using OpenAutomate.Core.Dto.UserDto;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Domain.IRepository;
 using Microsoft.Extensions.Logging;
+using OpenAutomate.Core.Exceptions;
 
 namespace OpenAutomate.Infrastructure.Services
 {
@@ -67,11 +68,16 @@ namespace OpenAutomate.Infrastructure.Services
                     RefreshTokenExpiration = refreshToken.Expires
                 };
             }
+            catch (OpenAutomateException)
+            {
+                // Rethrow custom exceptions
+                throw;
+            }
             catch (Exception ex)
             {
                 // Log the error
                 _logger.LogError(ex, "Error saving refresh token for user {UserId}", user.Id);
-                throw;
+                throw new ServiceException($"Failed to generate tokens for user {user.Id}: {ex.Message}", ex);
             }
         }
 
@@ -79,7 +85,7 @@ namespace OpenAutomate.Infrastructure.Services
         {
             try
             {
-                _logger.LogInformation("Refreshing token {Token}", refreshToken.Substring(0, 10));
+                _logger.LogInformation("Processing refresh token {Token}", refreshToken.Substring(0, 10));
                 
                 // First find the token in the database with the exact token string
                 var oldToken = _unitOfWork.RefreshTokens.GetFirstOrDefaultAsync(
@@ -88,22 +94,19 @@ namespace OpenAutomate.Infrastructure.Services
                 if (oldToken == null)
                 {
                     _logger.LogWarning("Invalid token: Token not found in database");
-                    throw new Exception("Invalid token");
+                    throw new TokenException("Invalid token");
                 }
-                
-                _logger.LogInformation("Found token for user {UserId}", oldToken.UserId);
                     
                 // Then check the computed properties in memory
                 if (oldToken.IsRevoked || oldToken.IsExpired)
                 {
                     _logger.LogWarning("Token is revoked or expired. Revoked: {IsRevoked}, Expired: {IsExpired}", 
                         oldToken.IsRevoked, oldToken.IsExpired);
-                    throw new Exception("Token is revoked or expired");
+                    throw new TokenException("Token is revoked or expired");
                 }
                 
                 // Get the full user information directly from the database by ID
                 var userId = oldToken.UserId;
-                _logger.LogInformation("Retrieving user with ID {UserId}", userId);
                 
                 // Get the user by ID - critical to ensure we get the correct user
                 var user = _unitOfWork.Users.GetByIdAsync(userId).GetAwaiter().GetResult();
@@ -111,17 +114,14 @@ namespace OpenAutomate.Infrastructure.Services
                 if (user == null)
                 {
                     _logger.LogWarning("User not found with ID {UserId}", userId);
-                    throw new Exception("User not found");
+                    throw new AuthenticationException("User not found");
                 }
-                
-                _logger.LogInformation("Found user: ID={UserId}, Email={Email}, FirstName={FirstName}, LastName={LastName}", 
-                    user.Id, user.Email, user.FirstName, user.LastName);
                 
                 // Verify the token belongs to this user
                 if (!user.OwnsToken(refreshToken))
                 {
                     _logger.LogWarning("Token does not belong to user {UserId}", user.Id);
-                    throw new Exception("Invalid token for user");
+                    throw new TokenException("Invalid token for user");
                 }
                 
                 // Mark the old token as revoked
@@ -139,8 +139,8 @@ namespace OpenAutomate.Infrastructure.Services
                 // Save the changes
                 _unitOfWork.CompleteAsync().GetAwaiter().GetResult();
                 
-                _logger.LogInformation("Generated new refresh token {Token} for user {UserId}", 
-                    newRefreshToken.Token.Substring(0, 10), user.Id);
+                _logger.LogInformation("Refreshed token for user {UserId} ({Email}): old token {OldToken} replaced with {NewToken}", 
+                    user.Id, user.Email, refreshToken.Substring(0, 10), newRefreshToken.Token.Substring(0, 10));
                 
                 // Generate a new JWT token
                 var token = GenerateJwtToken(user);
@@ -157,10 +157,15 @@ namespace OpenAutomate.Infrastructure.Services
                     RefreshTokenExpiration = newRefreshToken.Expires
                 };
             }
+            catch (OpenAutomateException)
+            {
+                // Rethrow custom exceptions
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error refreshing token: {Message}", ex.Message);
-                throw;
+                throw new ServiceException($"Error refreshing token: {ex.Message}", ex);
             }
         }
 
@@ -168,7 +173,7 @@ namespace OpenAutomate.Infrastructure.Services
         {
             try
             {
-                _logger.LogInformation("Revoking token {Token}", token.Substring(0, 10));
+                _logger.LogDebug("Revoking token {Token}", token.Substring(0, 10));
                 
                 // Find the token directly in the database without the computed property
                 var refreshToken = _unitOfWork.RefreshTokens.GetFirstOrDefaultAsync(
@@ -180,8 +185,6 @@ namespace OpenAutomate.Infrastructure.Services
                     return Task.FromResult(false);
                 }
                 
-                _logger.LogInformation("Found token for user {UserId}", refreshToken.UserId);
-                    
                 // Revoke the token
                 refreshToken.Revoked = DateTime.UtcNow;
                 refreshToken.RevokedByIp = ipAddress;
@@ -219,7 +222,7 @@ namespace OpenAutomate.Infrastructure.Services
                     ValidateAudience = true,
                     ValidAudience = _jwtSettings.Audience,
                     ClockSkew = TimeSpan.Zero
-                }, out SecurityToken validatedToken);
+                }, out _);
 
                 return true;
             }
@@ -283,13 +286,11 @@ namespace OpenAutomate.Infrastructure.Services
         {
             try
             {
-                _logger.LogInformation("Adding refresh token to user {UserId}", user.Id);
+                _logger.LogDebug("Adding refresh token to user {UserId}", user.Id);
                 
                 // Explicitly set both the UserId and User properties
                 refreshToken.UserId = user.Id;
                 refreshToken.User = user;
-                
-                _logger.LogInformation("Set UserId to {UserId}", refreshToken.UserId);
                 
                 // Add the refresh token directly to the RefreshTokens repository
                 await _unitOfWork.RefreshTokens.AddAsync(refreshToken);
@@ -303,17 +304,19 @@ namespace OpenAutomate.Infrastructure.Services
                 
                 if (savedToken != null)
                 {
-                    _logger.LogInformation("Verified token {TokenId} saved with UserId {UserId}", 
-                        savedToken.Id, savedToken.UserId);
+                    _logger.LogInformation("Token {TokenId} successfully added for user {UserId}", 
+                        refreshToken.Id, user.Id);
                 }
-                
-                _logger.LogInformation("Successfully added refresh token {TokenId} to user {UserId}", 
-                    refreshToken.Id, user.Id);
+                else
+                {
+                    _logger.LogWarning("Failed to verify token {TokenId} was saved properly for user {UserId}",
+                        refreshToken.Id, user.Id);
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error adding refresh token to user {UserId}: {Message}", user.Id, ex.Message);
-                throw;
+                throw new ServiceException($"Error adding refresh token to user {user.Id}: {ex.Message}", ex);
             }
         }
 
@@ -325,7 +328,7 @@ namespace OpenAutomate.Infrastructure.Services
                 var user = await _unitOfWork.Users.GetByIdAsync(userId);
                 if (user == null)
                 {
-                    throw new Exception($"User with ID {userId} not found");
+                    throw new AuthenticationException($"User with ID {userId} not found");
                 }
 
                 // Remove any existing verification tokens for this user
@@ -362,10 +365,15 @@ namespace OpenAutomate.Infrastructure.Services
 
                 return tokenString;
             }
+            catch (OpenAutomateException)
+            {
+                // Rethrow custom exceptions
+                throw;
+            }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error generating email verification token: {ex.Message}");
-                throw;
+                _logger.LogError(ex, "Error generating email verification token: {Message}", ex.Message);
+                throw new ServiceException($"Error generating email verification token: {ex.Message}", ex);
             }
         }
 
@@ -400,9 +408,14 @@ namespace OpenAutomate.Infrastructure.Services
 
                 return verificationToken.UserId;
             }
+            catch (OpenAutomateException)
+            {
+                // Rethrow custom exceptions
+                throw;
+            }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error validating email verification token: {ex.Message}");
+                _logger.LogError(ex, "Error validating email verification token: {Message}", ex.Message);
                 return null;
             }
         }
