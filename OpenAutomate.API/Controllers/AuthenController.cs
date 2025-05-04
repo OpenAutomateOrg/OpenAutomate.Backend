@@ -260,6 +260,7 @@ namespace OpenAutomate.API.Controllers
         {
             try
             {
+
                 // Configure cookie options
                 var cookieOptions = new CookieOptions
                 {
