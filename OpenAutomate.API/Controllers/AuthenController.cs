@@ -260,9 +260,6 @@ namespace OpenAutomate.API.Controllers
         {
             try
             {
-                // Get the current environment
-                var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-                
                 // Configure cookie options
                 var cookieOptions = new CookieOptions
                 {
