@@ -25,7 +25,6 @@ namespace OpenAutomate.Core.Domain.Entities
         public List<RefreshToken> RefreshTokens { get; set; }
         public List<OrganizationUnitUser> OrganizationUnitUsers { get; set; }
         public List<UserAuthority>? Authorities { get; set; }
-        public object EmailVerificationTokens { get; set; }
 
         public bool OwnsToken(string token)
         {

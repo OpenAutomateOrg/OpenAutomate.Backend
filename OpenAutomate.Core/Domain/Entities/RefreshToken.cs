@@ -16,11 +16,11 @@ namespace OpenAutomate.Core.Domain.Entities
         public string? ReasonRevoked { get; set; }
         public bool IsRevoked => Revoked != null;
         public bool IsActive => !IsRevoked && !IsExpired;
-        
+
         // Foreign key for User
         public Guid UserId { get; set; }
-        
+
         [JsonIgnore]
         public virtual User? User { get; set; }
     }
-} 
+}
