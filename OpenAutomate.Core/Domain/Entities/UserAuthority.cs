@@ -9,19 +9,19 @@ namespace OpenAutomate.Core.Domain.Entities
     {
         [Required]
         public Guid UserId { get; set; }
-        
+
         [ForeignKey("UserId")]
         public User User { get; set; } = null!;
 
         [Required]
         public Guid AuthorityId { get; set; }
-        
+
         [ForeignKey("AuthorityId")]
         public Authority Authority { get; set; } = null!;
-        
+
         [Required]
         public Guid OrganizationUnitId { get; set; }
-        
+
         [ForeignKey("OrganizationUnitId")]
         public OrganizationUnit OrganizationUnit { get; set; } = null!;
     }
