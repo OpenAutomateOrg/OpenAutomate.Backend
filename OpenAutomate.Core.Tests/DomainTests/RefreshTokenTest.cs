@@ -21,10 +21,10 @@ namespace OpenAutomate.Core.Tests.DomainTests
             Assert.Null(refreshToken.ReplacedByToken);
             Assert.Null(refreshToken.ReasonRevoked);
             Assert.False(refreshToken.IsRevoked);
-            Assert.False(refreshToken.IsExpired);
-            Assert.True(refreshToken.IsActive);
-        
+            Assert.True(refreshToken.IsExpired); 
+            Assert.False(refreshToken.IsActive); 
         }
+
         [Fact]
         public void RefreshToken_IsExpired_ReturnsTrueForExpiredToken()
         {

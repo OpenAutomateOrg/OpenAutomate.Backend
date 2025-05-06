@@ -14,16 +14,26 @@ namespace OpenAutomate.Core.Tests.DomainTests
 
             // Assert
             Assert.NotNull(package);
+
+            // Check string properties
             Assert.Equal(string.Empty, package.Name);
             Assert.Equal(string.Empty, package.Description);
+
+            // Check boolean properties
             Assert.True(package.IsActive);
+
+            // Check nullable reference types
             Assert.Null(package.Creator);
+
+            // Check collection properties
             Assert.NotNull(package.Versions);
             Assert.Empty(package.Versions);
             Assert.NotNull(package.Executions);
             Assert.Empty(package.Executions);
             Assert.NotNull(package.Schedules);
             Assert.Empty(package.Schedules);
+
+           
         }
         [Fact]
         public void AutomationPackage_SetName_NameIsSet()

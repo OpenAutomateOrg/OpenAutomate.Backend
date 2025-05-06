@@ -19,9 +19,10 @@ namespace OpenAutomate.Core.Tests.DomainTests
             Assert.Equal(DateTime.MinValue, token.ExpiresAt);
             Assert.False(token.IsUsed);
             Assert.Null(token.UsedAt);
-            Assert.False(token.IsExpired);
-            Assert.True(token.IsActive);
+            Assert.True(token.IsExpired); // Thay đổi kỳ vọng để phù hợp với giá trị mặc định của ExpiresAt
+            Assert.False(token.IsActive); // Thay đổi kỳ vọng để phù hợp với logic IsActive
         }
+
         [Fact]
         public void EmailVerificationToken_IsExpired_ReturnsTrueForExpiredToken()
         {
