@@ -28,7 +28,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OpenAutomate.Core\OpenAutomate.Core.csproj" />
-    <ProjectReference Include="..\OpenAutomate.Infrastructure\OpenAutomate.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
