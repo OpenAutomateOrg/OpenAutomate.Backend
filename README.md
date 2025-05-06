@@ -1,15 +1,17 @@
 # OpenAutomate Backend
 
-OpenAutomate is a distributed automation platform that allows organizations to create, manage, and execute automation tasks across multiple machines. This repository contains the backend components of the OpenAutomate platform.
+OpenAutomate is an automation platform that allows organizations to create, manage, and execute automation tasks across multiple machines. This repository contains the backend components of the OpenAutomate platform.
 
 ## Architecture Overview
 
-OpenAutomate follows a distributed microservices architecture with centralized management. The system consists of:
+OpenAutomate follows a centralized orchestration platform with distributed execution architecture. The system consists of:
 
 - **Web-based control panel** (frontend)
 - **Backend API services** (this repository)
 - **Worker services** for job processing
 - **Distributed bot agents** that execute automation tasks on target machines
+
+The platform uses a client-server model where the central components (server) are hosted by OpenAutomate, while the execution agents (clients) are deployed and hosted by customers on their own infrastructure. Customers control how many agents they deploy based on their needs.
 
 The platform is built as a multi-tenant system where each organization represents a tenant, with data isolation implemented through tenant filtering.
 
