@@ -40,7 +40,9 @@ namespace OpenAutomate.Domain.IRepository
                 foreach (var include in includes)
                     query = query.Include(include);
 
-            return await query.FirstOrDefaultAsync(filter!);
+            return filter != null 
+                ? await query.FirstOrDefaultAsync(filter)
+                : await query.FirstOrDefaultAsync();
         }
 
         public async Task<IEnumerable<TEntity>> GetAllAsync(Expression<Func<TEntity, bool>>? filter = null,
@@ -111,13 +113,27 @@ namespace OpenAutomate.Domain.IRepository
 
             if (entity != null)
             {
-                var memberExpression = (MemberExpression)field.Body;
-                var propertyName = memberExpression.Member.Name;
-                var propertyInfo = typeof(TEntity).GetProperty(propertyName);
-                if (propertyInfo != null)
+                MemberExpression? memberExpression = null;
+                
+                // Xử lý các trường hợp khác nhau của field.Body
+                if (field.Body is MemberExpression directMember)
                 {
-                    propertyInfo.SetValue(entity, value);
-                    await _dbContext.SaveChangesAsync();
+                    memberExpression = directMember;
+                }
+                else if (field.Body is UnaryExpression unary && unary.Operand is MemberExpression unaryMember)
+                {
+                    memberExpression = unaryMember;
+                }
+                
+                if (memberExpression != null)
+                {
+                    var propertyName = memberExpression.Member.Name;
+                    var propertyInfo = typeof(TEntity).GetProperty(propertyName);
+                    if (propertyInfo != null)
+                    {
+                        propertyInfo.SetValue(entity, value);
+                        await _dbContext.SaveChangesAsync();
+                    }
                 }
             }
 
@@ -128,7 +144,17 @@ namespace OpenAutomate.Domain.IRepository
         {
             if (expression == null) return null;
 
-            var member = expression.Body as MemberExpression;
+            MemberExpression? member = null;
+            
+            if (expression.Body is MemberExpression directMember)
+            {
+                member = directMember;
+            }
+            else if (expression.Body is UnaryExpression unaryExpression)
+            {
+                member = unaryExpression.Operand as MemberExpression;
+            }
+            
             if (member == null) return null;
 
             return member.Member as PropertyInfo;

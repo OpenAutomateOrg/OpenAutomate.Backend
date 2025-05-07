@@ -19,7 +19,7 @@ namespace OpenAutomate.API.Controllers
         /// Get all user details.
         /// </summary>
         /// <returns>A list of users.</returns>
-        [HttpGet("users/All-users")]
+        [HttpGet("users/all-users")]
         public async Task<IActionResult> GetAllUserDetails()
         {
        
