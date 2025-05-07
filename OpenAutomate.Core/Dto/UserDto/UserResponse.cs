@@ -11,5 +11,7 @@ namespace OpenAutomate.Core.Dto.UserDto
         public string LastName { get; set; } = string.Empty;
         public bool IsEmailVerified { get; set; } = false;
         public SystemRole SystemRole { get; set; } = SystemRole.User;
+        public Guid? CreatedBy { get; set; } 
+        public DateTime? CreatedAt { get; set; } 
     }
 }
