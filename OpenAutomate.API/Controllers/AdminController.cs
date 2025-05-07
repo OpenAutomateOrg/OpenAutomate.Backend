@@ -6,7 +6,7 @@ namespace OpenAutomate.API.Controllers
 {
     [ApiController]
     [Route("api/admin")]
-    public class AdminController : ControllerBase
+    public class AdminController : CustomControllerBase
     {
         private readonly IUserService _userService;
 
@@ -19,7 +19,7 @@ namespace OpenAutomate.API.Controllers
         /// Get all user details.
         /// </summary>
         /// <returns>A list of users.</returns>
-        [HttpGet("users/details")]
+        [HttpGet("users/All-users")]
         public async Task<IActionResult> GetAllUserDetails()
         {
        
