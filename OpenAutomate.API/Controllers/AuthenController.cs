@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Dto.UserDto;
+using OpenAutomate.Core.Exceptions;
 using OpenAutomate.Core.IServices;
 using System.Diagnostics.CodeAnalysis;
 
