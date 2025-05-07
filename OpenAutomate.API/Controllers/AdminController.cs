@@ -1,8 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using OpenAutomate.Core.Domain.Entities;
-using OpenAutomate.Core.Dto.UserDto;
-using Microsoft.EntityFrameworkCore;
-using OpenAutomate.Infrastructure.DbContext;
+using OpenAutomate.Core.IServices;
+using System.Threading.Tasks;
 
 namespace OpenAutomate.API.Controllers
 {
@@ -10,31 +8,24 @@ namespace OpenAutomate.API.Controllers
     [Route("api/admin")]
     public class AdminController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IUserService _userService;
 
-        public AdminController(ApplicationDbContext context)
+        public AdminController(IUserService userService)
         {
-            _context = context;
+            _userService = userService;
         }
 
-        [HttpGet("users")]
-        public async Task<IActionResult> GetAllUsers()
+        /// <summary>
+        /// Get all user details.
+        /// </summary>
+        /// <returns>A list of users.</returns>
+        [HttpGet("users/details")]
+        public async Task<IActionResult> GetAllUserDetails()
         {
-            var users = await _context.Users
-                .Select(user => new UserResponse
-                {
-                    Id = user.Id,
-                    Email = user.Email ?? string.Empty,
-                    FirstName = user.FirstName ?? string.Empty,
-                    LastName = user.LastName ?? string.Empty,
-                    IsEmailVerified = user.IsEmailVerified,
-                    SystemRole = user.SystemRole,
-                     CreatedBy = user.CreatedBy, 
-                    CreatedAt = user.CreatedAt
-                })
-                .ToListAsync();
-
-            return Ok(users);
+       
+                var users = await _userService.GetAllUsersAsync();
+                return Ok(users);
+        
         }
     }
 }
