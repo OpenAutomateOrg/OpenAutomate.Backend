@@ -32,7 +32,21 @@ namespace OpenAutomate.Infrastructure.Services
             _notificationService = notificationService;
             _logger = logger;
         }
-
+        public async Task<IEnumerable<UserResponse>> GetAllUsersAsync()
+        {
+            var users = await _unitOfWork.Users.GetAllAsync();
+            return users.Select(user => new UserResponse
+            {
+                Id = user.Id,
+                Email = user.Email ?? string.Empty,
+                FirstName = user.FirstName ?? string.Empty,
+                LastName = user.LastName ?? string.Empty,
+                IsEmailVerified = user.IsEmailVerified,
+                SystemRole = user.SystemRole,
+                CreatedBy = user.CreatedBy,
+                CreatedAt = user.CreatedAt
+            });
+        }
         public async Task<AuthenticationResponse> AuthenticateAsync(AuthenticationRequest request, string ipAddress)
         {
             try

@@ -14,7 +14,7 @@ namespace OpenAutomate.Core.IServices
         Task<UserResponse> GetByIdAsync(Guid id);
 
         Task<UserResponse> GetByEmailAsync(string email);
-
+        Task<IEnumerable<UserResponse>> GetAllUsersAsync();
         /// <summary>
         /// Verifies a user's email using a verification token
         /// </summary>
