@@ -42,7 +42,7 @@ namespace OpenAutomate.API.Controllers
         /// </summary>
         /// <param name="userId">The ID of the user to update.</param>
         /// <param name="request">The new first and last name information.</param>
-        [HttpPut("{userId}")]
+        [HttpPut("user-detail/{userId}")]
         [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
