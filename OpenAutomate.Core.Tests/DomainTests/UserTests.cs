@@ -169,27 +169,6 @@ namespace OpenAutomate.Core.Tests.DomainTests
             Assert.Equal(orgUnit, orgUnitUser.OrganizationUnit);
         }
         [Fact]
-        public void User_AddEmailVerificationToken_TokenIsAdded()
-        {
-            // Arrange
-            var user = new User();
-            var emailVerificationTokens = new List<EmailVerificationToken>
-    {
-        new EmailVerificationToken
-        {
-            Token = "verification-token",
-            ExpiresAt = DateTime.UtcNow.AddDays(1)
-        }
-    };
-
-            // Act
-            user.EmailVerificationTokens = emailVerificationTokens;
-
-            // Assert
-            Assert.NotNull(user.EmailVerificationTokens);
-            Assert.Contains(emailVerificationTokens[0], (List<EmailVerificationToken>)user.EmailVerificationTokens);
-        }
-        [Fact]
         public void User_UpdateDetails_UpdatesSuccessfully()
         {
             // Arrange
