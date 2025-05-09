@@ -113,7 +113,7 @@ namespace OpenAutomate.Infrastructure.Services
                 _logger.LogInformation(LogMessages.AssetCreated, asset.Id, asset.Key, _tenantContext.CurrentTenantId);
                 
                 // Return the created asset
-                return await MapToResponseDtoAsync(asset);
+                return MapToResponseDto(asset);
             }
             catch (AssetException)
             {
@@ -175,7 +175,7 @@ namespace OpenAutomate.Infrastructure.Services
                 }
                 
                 // Return the asset
-                return await MapToResponseDtoAsync(asset);
+                return MapToResponseDto(asset);
             }
             catch (Exception ex)
             {
@@ -200,7 +200,7 @@ namespace OpenAutomate.Infrastructure.Services
                 }
                 
                 // Return the asset
-                return await MapToResponseDtoAsync(asset);
+                return MapToResponseDto(asset);
             }
             catch (Exception ex)
             {
@@ -235,7 +235,7 @@ namespace OpenAutomate.Infrastructure.Services
                 await _context.SaveChangesAsync();
                 
                 // Return the updated asset
-                return await MapToResponseDtoAsync(asset);
+                return MapToResponseDto(asset);
             }
             catch (Exception ex)
             {
@@ -471,7 +471,7 @@ namespace OpenAutomate.Infrastructure.Services
         
         #region Helper Methods
         
-        private async Task<AssetResponseDto> MapToResponseDtoAsync(Asset asset)
+        private AssetResponseDto MapToResponseDto(Asset asset)
         {
             return new AssetResponseDto
             {

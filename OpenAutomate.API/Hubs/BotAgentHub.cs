@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Domain.IRepository;
 using Microsoft.Extensions.Logging;
+using OpenAutomate.Core.Domain.Entities;
 
 namespace OpenAutomate.API.Hubs
 {
@@ -27,6 +28,8 @@ namespace OpenAutomate.API.Hubs
             public const string BotAgentDisconnected = "Bot agent disconnected: {BotAgentName} ({BotAgentId})";
             public const string BotStatusUpdate = "Bot status update: {BotAgentName} - {Status}";
             public const string CommandSent = "Command sent to bot agent {BotAgentId}: {Command}";
+            public const string DisconnectionError = "Error during bot agent disconnection: {Message}";
+            public const string QueryNullReference = "HTTP context or query parameter is null during disconnection";
         }
         
         public BotAgentHub(
@@ -34,9 +37,9 @@ namespace OpenAutomate.API.Hubs
             IUnitOfWork unitOfWork,
             ILogger<BotAgentHub> logger)
         {
-            _tenantContext = tenantContext;
-            _unitOfWork = unitOfWork;
-            _logger = logger;
+            _tenantContext = tenantContext ?? throw new ArgumentNullException(nameof(tenantContext));
+            _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
         
         /// <summary>
@@ -105,36 +108,59 @@ namespace OpenAutomate.API.Hubs
         /// <summary>
         /// Handles disconnection of a bot agent
         /// </summary>
-        public override async Task OnDisconnectedAsync(Exception exception)
+        /// <param name="exception">Optional exception that caused the disconnection</param>
+        public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            var httpContext = Context.GetHttpContext();
-            var machineKey = httpContext.Request.Query["machineKey"].ToString();
-            
-            if (!string.IsNullOrEmpty(machineKey))
+            try
             {
-                // Use the tenant context that was set by middleware
-                var botAgent = await _unitOfWork.BotAgents
-                    .GetFirstOrDefaultAsync(ba => ba.MachineKey == machineKey && ba.OrganizationUnitId == _tenantContext.CurrentTenantId);
-                    
-                if (botAgent != null)
+                var httpContext = Context.GetHttpContext();
+                if (httpContext == null)
                 {
-                    botAgent.Status = "Offline";
-                    await _unitOfWork.CompleteAsync();
-                    
-                    // Notify frontend clients about bot agent status change
-                    await Clients.Group($"tenant-{_tenantContext.CurrentTenantId}").SendAsync("BotStatusChanged", 
-                        new { 
-                            Id = botAgent.Id,
-                            Name = botAgent.Name,
-                            Status = botAgent.Status,
-                            LastHeartbeat = botAgent.LastHeartbeat
-                        });
-                        
-                    _logger.LogInformation(LogMessages.BotAgentDisconnected, botAgent.Name, botAgent.Id);
+                    _logger.LogWarning(LogMessages.QueryNullReference);
+                    return;
                 }
+                
+                var machineKey = httpContext.Request.Query["machineKey"].ToString();
+                
+                if (!string.IsNullOrEmpty(machineKey))
+                {
+                    // Use the tenant context that was set by middleware
+                    var botAgent = await _unitOfWork.BotAgents
+                        .GetFirstOrDefaultAsync(ba => ba.MachineKey == machineKey && ba.OrganizationUnitId == _tenantContext.CurrentTenantId);
+                        
+                    if (botAgent != null)
+                    {
+                        botAgent.Status = "Offline";
+                        await _unitOfWork.CompleteAsync();
+                        
+                        // Notify frontend clients about bot agent status change
+                        await Clients.Group($"tenant-{_tenantContext.CurrentTenantId}").SendAsync("BotStatusChanged", 
+                            new { 
+                                Id = botAgent.Id,
+                                Name = botAgent.Name,
+                                Status = botAgent.Status,
+                                LastHeartbeat = botAgent.LastHeartbeat
+                            });
+                            
+                        _logger.LogInformation(LogMessages.BotAgentDisconnected, botAgent.Name, botAgent.Id);
+                        
+                        // Log the exception if present
+                        if (exception != null)
+                        {
+                            _logger.LogWarning(exception, "Bot agent disconnected with exception: {BotAgentName} ({BotAgentId})", 
+                                botAgent.Name, botAgent.Id);
+                        }
+                    }
+                }
+                
+                await base.OnDisconnectedAsync(exception);
             }
-            
-            await base.OnDisconnectedAsync(exception);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, LogMessages.DisconnectionError, ex.Message);
+                // Still call the base method to ensure proper cleanup
+                await base.OnDisconnectedAsync(exception);
+            }
         }
         
         /// <summary>
@@ -182,9 +208,16 @@ namespace OpenAutomate.API.Hubs
         /// <summary>
         /// Helper method to get the bot agent associated with the current connection
         /// </summary>
-        private async Task<dynamic> GetBotAgentFromContext()
+        /// <returns>The bot agent or null if not found</returns>
+        private async Task<BotAgent?> GetBotAgentFromContext()
         {
             var httpContext = Context.GetHttpContext();
+            if (httpContext == null)
+            {
+                _logger.LogWarning(LogMessages.QueryNullReference);
+                return null;
+            }
+            
             var machineKey = httpContext.Request.Query["machineKey"].ToString();
             
             if (string.IsNullOrEmpty(machineKey))

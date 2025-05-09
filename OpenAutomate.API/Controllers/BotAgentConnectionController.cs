@@ -42,6 +42,8 @@ namespace OpenAutomate.API.Controllers
             public const string NoTenantContextForBroadcast = "Attempt to broadcast notification without valid tenant context";
             public const string NotificationBroadcast = "Notification '{NotificationType}' broadcast to tenant {TenantId}";
             public const string BroadcastError = "Error broadcasting notification";
+            public const string PayloadValidationError = "Invalid command payload for command type: {CommandType}";
+            public const string DataValidationError = "Invalid notification data for notification type: {NotificationType}";
         }
         
         /// <summary>
@@ -57,10 +59,10 @@ namespace OpenAutomate.API.Controllers
             ILogger<BotAgentConnectionController> logger,
             ITenantContext tenantContext)
         {
-            _botAgentService = botAgentService;
-            _hubContext = hubContext;
-            _logger = logger;
-            _tenantContext = tenantContext;
+            _botAgentService = botAgentService ?? throw new ArgumentNullException(nameof(botAgentService));
+            _hubContext = hubContext ?? throw new ArgumentNullException(nameof(hubContext));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _tenantContext = tenantContext ?? throw new ArgumentNullException(nameof(tenantContext));
         }
         
         /// <summary>
@@ -74,6 +76,17 @@ namespace OpenAutomate.API.Controllers
         {
             try
             {
+                // Validate input
+                if (connectionRequest == null)
+                {
+                    return BadRequest(new { error = "Connection request is required" });
+                }
+                
+                if (string.IsNullOrEmpty(connectionRequest.MachineKey))
+                {
+                    return BadRequest(new { error = "Machine key is required" });
+                }
+                
                 // Ensure tenant context is properly set
                 if (!_tenantContext.HasTenant)
                 {
@@ -128,6 +141,17 @@ namespace OpenAutomate.API.Controllers
         {
             try
             {
+                // Validate input
+                if (command == null)
+                {
+                    return BadRequest(new { error = "Command data is required" });
+                }
+                
+                if (string.IsNullOrEmpty(command.CommandType))
+                {
+                    return BadRequest(new { error = "Command type is required" });
+                }
+                
                 // Ensure tenant context is properly set
                 if (!_tenantContext.HasTenant)
                 {
@@ -151,12 +175,15 @@ namespace OpenAutomate.API.Controllers
                     return BadRequest(new { error = "Bot agent is not online" });
                 }
                 
+                // Ensure payload is not null before passing it to the method
+                object payload = command.Payload ?? new {}; // Use empty object if payload is null
+                
                 // Send command via SignalR
                 await _botAgentService.SendCommandToBotAgentAsync(
                     _hubContext,
                     id,
                     command.CommandType,
-                    command.Payload,
+                    payload, // Pass non-null payload
                     _logger);
                 
                 _logger.LogInformation(LogMessages.CommandSent, 
@@ -224,6 +251,12 @@ namespace OpenAutomate.API.Controllers
         {
             try
             {
+                // Validate input
+                if (notification == null)
+                {
+                    return BadRequest(new { error = "Notification data is required" });
+                }
+                
                 // Ensure tenant context is properly set
                 if (!_tenantContext.HasTenant)
                 {
@@ -236,12 +269,15 @@ namespace OpenAutomate.API.Controllers
                     return BadRequest(new { error = "Notification type is required" });
                 }
                 
+                // Ensure data is not null before passing it to the method
+                object data = notification.Data ?? new {}; // Use empty object if data is null
+                
                 // Send notification to all clients in the tenant
                 await _botAgentService.SendTenantNotificationAsync(
                     _hubContext,
                     _tenantContext.CurrentTenantId,
                     notification.NotificationType,
-                    notification.Data,
+                    data, // Pass non-null data
                     _tenantContext,
                     _logger);
                 
