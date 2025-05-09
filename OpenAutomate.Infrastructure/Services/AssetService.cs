@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Dto.Asset;
 using OpenAutomate.Core.Dto.BotAgent;
+using OpenAutomate.Core.Exceptions;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Infrastructure.DbContext;
 using System;
@@ -22,6 +23,19 @@ namespace OpenAutomate.Infrastructure.Services
         private readonly ApplicationDbContext _context;
         private readonly ITenantContext _tenantContext;
         private readonly ILogger<AssetService> _logger;
+        
+        // Standardized log message templates
+        private static class LogMessages
+        {
+            public const string AssetKeyExists = "Asset with key '{Key}' already exists for tenant {TenantId}";
+            public const string AssetCreated = "Asset created: {Id}, Key: {Key}, Tenant: {TenantId}";
+            public const string AssetCreationError = "Error creating asset: {Message}";
+            public const string AssetsRetrievalError = "Error getting all assets: {Message}";
+            public const string AssetByIdError = "Error getting asset by ID {Id}: {Message}";
+            public const string AssetByKeyError = "Error getting asset by key {Key}: {Message}";
+            public const string AssetNotFound = "Asset with ID {Id} not found for tenant {TenantId}";
+            public const string EncryptionError = "Error encrypting/decrypting value: {Message}";
+        }
         
         /// <summary>
         /// Initializes a new instance of the <see cref="AssetService"/> class
@@ -51,7 +65,8 @@ namespace OpenAutomate.Infrastructure.Services
                     
                 if (keyExists)
                 {
-                    throw new InvalidOperationException($"Asset with key '{dto.Key}' already exists");
+                    _logger.LogWarning(LogMessages.AssetKeyExists, dto.Key, _tenantContext.CurrentTenantId);
+                    throw new AssetKeyAlreadyExistsException(dto.Key, _tenantContext.CurrentTenantId);
                 }
                 
                 // Create the new asset
@@ -71,7 +86,7 @@ namespace OpenAutomate.Infrastructure.Services
                 await _context.SaveChangesAsync();
                 
                 // If bot agent IDs are provided, authorize them
-                if (dto.BotAgentIds != null && dto.BotAgentIds.Any())
+                if (dto.BotAgentIds != null && dto.BotAgentIds.Count > 0)
                 {
                     foreach (var botAgentId in dto.BotAgentIds)
                     {
@@ -95,13 +110,20 @@ namespace OpenAutomate.Infrastructure.Services
                     await _context.SaveChangesAsync();
                 }
                 
+                _logger.LogInformation(LogMessages.AssetCreated, asset.Id, asset.Key, _tenantContext.CurrentTenantId);
+                
                 // Return the created asset
                 return await MapToResponseDtoAsync(asset);
             }
+            catch (AssetException)
+            {
+                // Rethrow custom exceptions as they already have context
+                throw;
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating asset: {Message}", ex.Message);
-                throw;
+                _logger.LogError(ex, LogMessages.AssetCreationError, ex.Message);
+                throw new ServiceException("Error creating asset", ex);
             }
         }
         
@@ -465,28 +487,40 @@ namespace OpenAutomate.Infrastructure.Services
             };
         }
         
-        private string EncryptValue(string value)
+        /// <summary>
+        /// Helper method to encrypt sensitive values
+        /// </summary>
+        private static string EncryptValue(string value)
         {
-            // Simple encryption for demo purposes
-            // In a production environment, use a more secure approach with proper key management
-            using (var aes = Aes.Create())
+            try
             {
-                aes.Key = Encoding.UTF8.GetBytes("YourEncryptionKey12345678901234567890");
-                aes.IV = new byte[16]; // Using a zero IV for simplicity - not secure for production
-                
-                using (var encryptor = aes.CreateEncryptor())
+                // Simple encryption for demo purposes
+                // In a production environment, use a more secure approach with proper key management
+                using (var aes = Aes.Create())
                 {
-                    byte[] valueBytes = Encoding.UTF8.GetBytes(value);
-                    byte[] encryptedBytes = encryptor.TransformFinalBlock(valueBytes, 0, valueBytes.Length);
-                    return Convert.ToBase64String(encryptedBytes);
+                    aes.Key = Encoding.UTF8.GetBytes("YourEncryptionKey12345678901234567890");
+                    aes.IV = new byte[16]; // Using a zero IV for simplicity - not secure for production
+                    
+                    using (var encryptor = aes.CreateEncryptor())
+                    {
+                        byte[] valueBytes = Encoding.UTF8.GetBytes(value);
+                        byte[] encryptedBytes = encryptor.TransformFinalBlock(valueBytes, 0, valueBytes.Length);
+                        return Convert.ToBase64String(encryptedBytes);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                // We can't use _logger here since the method is static
+                throw new AssetEncryptionException("Error encrypting asset value", ex);
             }
         }
         
-        private string DecryptValue(string encryptedValue)
+        /// <summary>
+        /// Helper method to decrypt sensitive values
+        /// </summary>
+        private static string DecryptValue(string encryptedValue)
         {
-            // Simple decryption for demo purposes
-            // In a production environment, use a more secure approach with proper key management
             try
             {
                 using (var aes = Aes.Create())
@@ -504,8 +538,8 @@ namespace OpenAutomate.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error decrypting value: {Message}", ex.Message);
-                return "[Decryption Error]";
+                // We can't use _logger here since the method is static
+                throw new AssetEncryptionException("Error decrypting asset value", ex);
             }
         }
         

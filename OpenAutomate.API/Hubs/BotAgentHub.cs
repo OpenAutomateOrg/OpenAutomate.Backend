@@ -16,6 +16,19 @@ namespace OpenAutomate.API.Hubs
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<BotAgentHub> _logger;
         
+        // Standardized log message templates
+        private static class LogMessages
+        {
+            public const string MissingMachineKey = "Connection attempt with missing machine key";
+            public const string NoTenantContext = "Connection attempt without valid tenant context";
+            public const string ProcessingConnection = "Processing connection for machine key {MachineKey} in tenant {TenantId}";
+            public const string InvalidMachineKey = "Connection attempt with invalid machine key: {MachineKey} for tenant {TenantId}";
+            public const string BotAgentConnected = "Bot agent connected: {BotAgentName} ({BotAgentId})";
+            public const string BotAgentDisconnected = "Bot agent disconnected: {BotAgentName} ({BotAgentId})";
+            public const string BotStatusUpdate = "Bot status update: {BotAgentName} - {Status}";
+            public const string CommandSent = "Command sent to bot agent {BotAgentId}: {Command}";
+        }
+        
         public BotAgentHub(
             ITenantContext tenantContext, 
             IUnitOfWork unitOfWork,
@@ -34,11 +47,11 @@ namespace OpenAutomate.API.Hubs
             var httpContext = Context.GetHttpContext();
             
             // Extract machine key
-            var machineKey = httpContext.Request.Query["machineKey"].ToString();
+            var machineKey = httpContext?.Request.Query["machineKey"].ToString() ?? string.Empty;
             
             if (string.IsNullOrEmpty(machineKey))
             {
-                _logger.LogWarning("Connection attempt with missing machine key");
+                _logger.LogWarning(LogMessages.MissingMachineKey);
                 Context.Abort();
                 return;
             }
@@ -46,12 +59,12 @@ namespace OpenAutomate.API.Hubs
             // Tenant context is already set by the TenantResolutionMiddleware
             if (!_tenantContext.HasTenant)
             {
-                _logger.LogWarning("Connection attempt without valid tenant context");
+                _logger.LogWarning(LogMessages.NoTenantContext);
                 Context.Abort();
                 return;
             }
             
-            _logger.LogDebug($"Processing connection for machine key {machineKey} in tenant {_tenantContext.CurrentTenantId}");
+            _logger.LogDebug(LogMessages.ProcessingConnection, machineKey, _tenantContext.CurrentTenantId);
             
             // Verify bot agent exists and belongs to this tenant
             var botAgent = await _unitOfWork.BotAgents
@@ -59,7 +72,7 @@ namespace OpenAutomate.API.Hubs
                 
             if (botAgent == null)
             {
-                _logger.LogWarning($"Connection attempt with invalid machine key: {machineKey} for tenant {_tenantContext.CurrentTenantId}");
+                _logger.LogWarning(LogMessages.InvalidMachineKey, machineKey, _tenantContext.CurrentTenantId);
                 Context.Abort();
                 return;
             }
@@ -84,7 +97,7 @@ namespace OpenAutomate.API.Hubs
                     LastHeartbeat = botAgent.LastHeartbeat
                 });
                 
-            _logger.LogInformation($"Bot agent connected: {botAgent.Name} ({botAgent.Id})");
+            _logger.LogInformation(LogMessages.BotAgentConnected, botAgent.Name, botAgent.Id);
             
             await base.OnConnectedAsync();
         }
@@ -117,7 +130,7 @@ namespace OpenAutomate.API.Hubs
                             LastHeartbeat = botAgent.LastHeartbeat
                         });
                         
-                    _logger.LogInformation($"Bot agent disconnected: {botAgent.Name} ({botAgent.Id})");
+                    _logger.LogInformation(LogMessages.BotAgentDisconnected, botAgent.Name, botAgent.Id);
                 }
             }
             
@@ -149,7 +162,9 @@ namespace OpenAutomate.API.Hubs
             await Clients.Group($"tenant-{_tenantContext.CurrentTenantId}").SendAsync(
                 "BotStatusUpdate", updateData);
                 
-            _logger.LogDebug($"Bot status update: {botAgent.Name} - {status}");
+            // Cast dynamic botAgent to avoid extension method issues
+            string botAgentName = botAgent.Name?.ToString() ?? "Unknown";
+            _logger.LogDebug(LogMessages.BotStatusUpdate, botAgentName, status);
         }
         
         /// <summary>
@@ -161,7 +176,7 @@ namespace OpenAutomate.API.Hubs
         public async Task SendCommandToBotAgent(string botAgentId, string command, object payload)
         {
             await Clients.Group($"bot-{botAgentId}").SendAsync("ReceiveCommand", command, payload);
-            _logger.LogInformation($"Command sent to bot agent {botAgentId}: {command}");
+            _logger.LogInformation(LogMessages.CommandSent, botAgentId, command);
         }
         
         /// <summary>

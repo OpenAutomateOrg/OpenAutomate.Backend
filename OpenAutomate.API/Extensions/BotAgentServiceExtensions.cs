@@ -12,6 +12,14 @@ namespace OpenAutomate.API.Extensions
     /// </summary>
     public static class BotAgentServiceExtensions
     {
+        // Standardized log message templates
+        private static class LogMessages
+        {
+            public const string CommandSent = "Command sent to bot agent {BotAgentId}: {Command}";
+            public const string CrossTenantNotification = "Attempted cross-tenant notification: Current tenant {CurrentTenantId}, requested tenant {RequestedTenantId}";
+            public const string SendingNotification = "Sending notification to tenant {TenantId}: {NotificationType}";
+        }
+
         /// <summary>
         /// Sends a command to a bot agent via SignalR
         /// </summary>
@@ -27,20 +35,17 @@ namespace OpenAutomate.API.Extensions
             Guid botAgentId,
             string command,
             object payload,
-            ILogger logger = null)
+            ILogger? logger = null)
         {
-            if (botAgentService == null)
-                throw new ArgumentNullException(nameof(botAgentService));
-                
-            if (hubContext == null)
-                throw new ArgumentNullException(nameof(hubContext));
+            ArgumentNullException.ThrowIfNull(botAgentService);
+            ArgumentNullException.ThrowIfNull(hubContext);
                 
             // Send command to the specific bot agent group
             await hubContext.Clients
                 .Group($"bot-{botAgentId}")
                 .SendAsync("ReceiveCommand", command, payload);
                 
-            logger?.LogInformation($"Command sent to bot agent {botAgentId}: {command}");
+            logger?.LogInformation(LogMessages.CommandSent, botAgentId, command);
         }
         
         /// <summary>
@@ -59,14 +64,11 @@ namespace OpenAutomate.API.Extensions
             Guid tenantId,
             string notificationType,
             object data,
-            ITenantContext tenantContext = null,
-            ILogger logger = null)
+            ITenantContext? tenantContext = null,
+            ILogger? logger = null)
         {
-            if (botAgentService == null)
-                throw new ArgumentNullException(nameof(botAgentService));
-                
-            if (hubContext == null)
-                throw new ArgumentNullException(nameof(hubContext));
+            ArgumentNullException.ThrowIfNull(botAgentService);
+            ArgumentNullException.ThrowIfNull(hubContext);
                 
             // Validate tenant context if provided
             if (tenantContext != null && tenantContext.HasTenant)
@@ -74,11 +76,11 @@ namespace OpenAutomate.API.Extensions
                 // Ensure operation is only performed for the current tenant
                 if (tenantContext.CurrentTenantId != tenantId)
                 {
-                    logger?.LogWarning($"Attempted cross-tenant notification: Current tenant {tenantContext.CurrentTenantId}, requested tenant {tenantId}");
+                    logger?.LogWarning(LogMessages.CrossTenantNotification, tenantContext.CurrentTenantId, tenantId);
                     throw new UnauthorizedAccessException("Attempted cross-tenant notification");
                 }
                 
-                logger?.LogDebug($"Sending notification to tenant {tenantId}: {notificationType}");
+                logger?.LogDebug(LogMessages.SendingNotification, tenantId, notificationType);
             }
                 
             // Send notification to all clients in the tenant group

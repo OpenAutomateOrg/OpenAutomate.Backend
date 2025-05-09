@@ -11,11 +11,11 @@ namespace OpenAutomate.Core.Dto.BotAgent
         /// The type of notification to broadcast
         /// </summary>
         [Required]
-        public string NotificationType { get; set; }
+        public required string NotificationType { get; set; }
         
         /// <summary>
         /// Data payload for the notification
         /// </summary>
-        public object Data { get; set; }
+        public object? Data { get; set; }
     }
 } 

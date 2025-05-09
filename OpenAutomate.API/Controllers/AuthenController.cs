@@ -20,16 +20,22 @@ namespace OpenAutomate.API.Controllers
     {
         private readonly IUserService _userService;
         private readonly ILogger<AuthenController> _logger;
+        private readonly ITenantContext _tenantContext;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AuthenController"/> class
         /// </summary>
         /// <param name="userService">The user service for authentication operations</param>
         /// <param name="logger">The logger for recording authentication events</param>
-        public AuthenController(IUserService userService, ILogger<AuthenController> logger)
+        /// <param name="tenantContext">The tenant context for current tenant information</param>
+        public AuthenController(
+            IUserService userService, 
+            ILogger<AuthenController> logger,
+            ITenantContext tenantContext)
         {
             _userService = userService;
             _logger = logger;
+            _tenantContext = tenantContext;
         }
 
         /// <summary>
@@ -90,6 +96,10 @@ namespace OpenAutomate.API.Controllers
             {
                 _logger.LogInformation("Login attempt for user: {Email}", request.Email);
                 var ipAddress = GetIpAddress();
+                
+                // Set default tenant if not already set
+                EnsureDefaultTenant();
+                
                 var response = await _userService.AuthenticateAsync(request, ipAddress);
                 
                 // Set refresh token in cookie
@@ -135,10 +145,13 @@ namespace OpenAutomate.API.Controllers
                     return BadRequest(new { message = "Refresh token is required" });
                 }
 
+                // Set default tenant if not already set
+                EnsureDefaultTenant();
+                
                 // Get client IP for tracking
                 var ipAddress = GetIpAddress();
                 _logger.LogInformation("Processing refresh token request with token: {Token}, Client IP: {IpAddress}", 
-                    refreshToken.Substring(0, 10), ipAddress);
+                    refreshToken.Substring(0, Math.Min(10, refreshToken.Length)), ipAddress);
                 
                 // Attempt to refresh the token
                 var response = await _userService.RefreshTokenAsync(refreshToken, ipAddress);
@@ -194,6 +207,9 @@ namespace OpenAutomate.API.Controllers
                     return BadRequest(new { message = "Token is required" });
                 }
 
+                // Set default tenant if not already set
+                EnsureDefaultTenant();
+                
                 var ipAddress = GetIpAddress();
                 var success = await _userService.RevokeTokenAsync(token, ipAddress, request.Reason);
                 
@@ -237,6 +253,9 @@ namespace OpenAutomate.API.Controllers
                     return Unauthorized(new { message = "User not authenticated" });
                 }
 
+                // Ensure tenant context is set properly
+                EnsureDefaultTenant();
+                
                 // Convert the user entity to a DTO directly without making another DB call
                 var userResponse = _userService.MapToResponse(user);
 
@@ -274,7 +293,7 @@ namespace OpenAutomate.API.Controllers
                 };
 
                 _logger.LogDebug("Setting refresh token cookie. Token: {TokenPreview}, SameSite: {SameSite}, Secure: {Secure}, Expires: {Expires}", 
-                    token.Substring(0, 10), cookieOptions.SameSite, cookieOptions.Secure, cookieOptions.Expires);
+                    token.Substring(0, Math.Min(10, token.Length)), cookieOptions.SameSite, cookieOptions.Secure, cookieOptions.Expires);
                     
                 // Clear any existing cookie first to ensure we're not having duplicates
                 Response.Cookies.Delete("refreshToken");
@@ -316,6 +335,24 @@ namespace OpenAutomate.API.Controllers
         public string GetForwardedForHeader([FromHeader(Name = "X-Forwarded-For")] string forwardedFor = null)
         {
             return forwardedFor;
+        }
+        
+        /// <summary>
+        /// Ensures a default tenant is set in the tenant context for authentication operations
+        /// </summary>
+        /// <remarks>
+        /// Authentication operations do not rely on tenant-specific data
+        /// but services may require a valid tenant context
+        /// </remarks>
+        private void EnsureDefaultTenant()
+        {
+            if (!_tenantContext.HasTenant)
+            {
+                // Use the system tenant for authentication operations
+                // This is a special tenant ID used for system-wide operations
+                _tenantContext.SetTenant(Guid.Parse("00000000-0000-0000-0000-000000000001"));
+                _logger.LogDebug("Set default system tenant context for authentication operation");
+            }
         }
 
         #endregion

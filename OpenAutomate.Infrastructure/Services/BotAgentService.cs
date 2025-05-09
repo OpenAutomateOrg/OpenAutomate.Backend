@@ -152,23 +152,5 @@ namespace OpenAutomate.Infrastructure.Services
                 IsActive = botAgent.IsActive
             };
         }
-        
-        /// <summary>
-        /// Maps an Asset entity to an AssetResponseDto
-        /// </summary>
-        /// <param name="asset">The Asset entity</param>
-        /// <returns>DTO representation of the Asset</returns>
-        private AssetResponseDto MapToAssetResponseDto(Asset asset)
-        {
-            return new AssetResponseDto
-            {
-                Id = asset.Id,
-                Name = asset.Name,
-                Key = asset.Key,
-                Value = asset.Value,
-                Description = asset.Description,
-                IsEncrypted = asset.IsEncrypted
-            };
-        }
     }
 } 

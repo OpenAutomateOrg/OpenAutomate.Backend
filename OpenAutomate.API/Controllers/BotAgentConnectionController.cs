@@ -26,6 +26,24 @@ namespace OpenAutomate.API.Controllers
         private readonly ILogger<BotAgentConnectionController> _logger;
         private readonly ITenantContext _tenantContext;
         
+        // Standardized log message templates
+        private static class LogMessages
+        {
+            public const string NoTenantContext = "Attempt to connect bot agent without valid tenant context";
+            public const string InvalidMachineKey = "Connection attempt with invalid machine key: {MachineKey} for tenant {TenantId}";
+            public const string AgentConnected = "Bot agent connected: {MachineName} with key {MachineKey} for tenant {TenantId}";
+            public const string NoTenantContextForCommand = "Attempt to send command without valid tenant context";
+            public const string NonExistentBotAgent = "Attempt to send command to non-existent bot agent: {BotAgentId}";
+            public const string OfflineBotAgent = "Attempt to send command to offline bot agent: {BotAgentId}";
+            public const string CommandSent = "Command {CommandType} sent to bot agent {BotAgentId} for tenant {TenantId}";
+            public const string CommandError = "Error sending command to bot agent {BotAgentId}";
+            public const string NoTenantContextForStatus = "Attempt to get bot agent status without valid tenant context";
+            public const string StatusError = "Error getting status for bot agent {BotAgentId}";
+            public const string NoTenantContextForBroadcast = "Attempt to broadcast notification without valid tenant context";
+            public const string NotificationBroadcast = "Notification '{NotificationType}' broadcast to tenant {TenantId}";
+            public const string BroadcastError = "Error broadcasting notification";
+        }
+        
         /// <summary>
         /// Initializes a new instance of the <see cref="BotAgentConnectionController"/> class
         /// </summary>
@@ -59,7 +77,7 @@ namespace OpenAutomate.API.Controllers
                 // Ensure tenant context is properly set
                 if (!_tenantContext.HasTenant)
                 {
-                    _logger.LogWarning("Attempt to connect bot agent without valid tenant context");
+                    _logger.LogWarning(LogMessages.NoTenantContext);
                     return BadRequest(new { error = "Invalid tenant context" });
                 }
                 
@@ -69,14 +87,16 @@ namespace OpenAutomate.API.Controllers
                 
                 if (botAgent == null)
                 {
-                    _logger.LogWarning($"Connection attempt with invalid machine key: {connectionRequest.MachineKey} for tenant {_tenantContext.CurrentTenantId}");
+                    _logger.LogWarning(LogMessages.InvalidMachineKey, 
+                        connectionRequest.MachineKey, _tenantContext.CurrentTenantId);
                     return Unauthorized(new { error = "Invalid machine key for this tenant" });
                 }
                 
                 // Get the tenant from the route data
                 var tenant = RouteData.Values["tenant"]?.ToString();
                 
-                _logger.LogInformation($"Bot agent connected: {connectionRequest.MachineName} with key {connectionRequest.MachineKey} for tenant {_tenantContext.CurrentTenantId}");
+                _logger.LogInformation(LogMessages.AgentConnected, 
+                    connectionRequest.MachineName, connectionRequest.MachineKey, _tenantContext.CurrentTenantId);
                 
                 // Return the connection details
                 return Ok(new
@@ -111,7 +131,7 @@ namespace OpenAutomate.API.Controllers
                 // Ensure tenant context is properly set
                 if (!_tenantContext.HasTenant)
                 {
-                    _logger.LogWarning("Attempt to send command without valid tenant context");
+                    _logger.LogWarning(LogMessages.NoTenantContextForCommand);
                     return BadRequest(new { error = "Invalid tenant context" });
                 }
                 
@@ -119,7 +139,7 @@ namespace OpenAutomate.API.Controllers
                 var botAgent = await _botAgentService.GetBotAgentByIdAsync(id);
                 if (botAgent == null)
                 {
-                    _logger.LogWarning($"Attempt to send command to non-existent bot agent: {id}");
+                    _logger.LogWarning(LogMessages.NonExistentBotAgent, id);
                     return NotFound(new { error = "Bot agent not found" });
                 }
                 
@@ -127,7 +147,7 @@ namespace OpenAutomate.API.Controllers
                 
                 if (botAgent.Status != "Online")
                 {
-                    _logger.LogWarning($"Attempt to send command to offline bot agent: {id}");
+                    _logger.LogWarning(LogMessages.OfflineBotAgent, id);
                     return BadRequest(new { error = "Bot agent is not online" });
                 }
                 
@@ -139,13 +159,14 @@ namespace OpenAutomate.API.Controllers
                     command.Payload,
                     _logger);
                 
-                _logger.LogInformation($"Command {command.CommandType} sent to bot agent {id} for tenant {_tenantContext.CurrentTenantId}");
+                _logger.LogInformation(LogMessages.CommandSent, 
+                    command.CommandType, id, _tenantContext.CurrentTenantId);
                     
                 return Ok(new { success = true, message = $"Command {command.CommandType} sent to bot agent {id}" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error sending command to bot agent {id}");
+                _logger.LogError(ex, LogMessages.CommandError, id);
                 return StatusCode(500, new { error = "Error sending command", message = ex.Message });
             }
         }
@@ -165,7 +186,7 @@ namespace OpenAutomate.API.Controllers
                 // Ensure tenant context is properly set
                 if (!_tenantContext.HasTenant)
                 {
-                    _logger.LogWarning("Attempt to get bot agent status without valid tenant context");
+                    _logger.LogWarning(LogMessages.NoTenantContextForStatus);
                     return BadRequest(new { error = "Invalid tenant context" });
                 }
                 
@@ -186,7 +207,7 @@ namespace OpenAutomate.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error getting status for bot agent {id}");
+                _logger.LogError(ex, LogMessages.StatusError, id);
                 return StatusCode(500, new { error = "Error getting bot agent status", message = ex.Message });
             }
         }
@@ -206,7 +227,7 @@ namespace OpenAutomate.API.Controllers
                 // Ensure tenant context is properly set
                 if (!_tenantContext.HasTenant)
                 {
-                    _logger.LogWarning("Attempt to broadcast notification without valid tenant context");
+                    _logger.LogWarning(LogMessages.NoTenantContextForBroadcast);
                     return BadRequest(new { error = "Invalid tenant context" });
                 }
                 
@@ -224,13 +245,14 @@ namespace OpenAutomate.API.Controllers
                     _tenantContext,
                     _logger);
                 
-                _logger.LogInformation($"Notification '{notification.NotificationType}' broadcast to tenant {_tenantContext.CurrentTenantId}");
+                _logger.LogInformation(LogMessages.NotificationBroadcast, 
+                    notification.NotificationType, _tenantContext.CurrentTenantId);
                 
                 return Ok(new { success = true, message = $"Notification broadcast to tenant" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error broadcasting notification");
+                _logger.LogError(ex, LogMessages.BroadcastError);
                 return StatusCode(500, new { error = "Error broadcasting notification", message = ex.Message });
             }
         }

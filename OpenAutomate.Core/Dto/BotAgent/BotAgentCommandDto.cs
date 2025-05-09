@@ -11,11 +11,11 @@ namespace OpenAutomate.Core.Dto.BotAgent
         /// The type of command to execute
         /// </summary>
         [Required]
-        public string CommandType { get; set; }
+        public required string CommandType { get; set; }
         
         /// <summary>
         /// Additional data for the command
         /// </summary>
-        public object Payload { get; set; }
+        public object? Payload { get; set; }
     }
 } 
