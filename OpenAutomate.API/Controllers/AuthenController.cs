@@ -230,17 +230,8 @@ namespace OpenAutomate.API.Controllers
                     return BadRequest(new { message = "Refresh token is required" });
                 }
 
-                try
-                {
-                    // Set default tenant if not already set
-                    EnsureDefaultTenant();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, LogMessages.TenantContextError, ex.Message);
-                    throw new InvalidOperationException("Unable to establish tenant context for token refresh", ex);
-                }
-                
+                EnsureDefaultTenant();
+
                 // Get client IP for tracking
                 var ipAddress = GetIpAddress();
                 string tokenPreview = refreshToken.Length > 10 ? 
@@ -315,19 +306,13 @@ namespace OpenAutomate.API.Controllers
                     return BadRequest(new { message = "Token is required" });
                 }
 
-                try
-                {
-                    // Set default tenant if not already set
-                    EnsureDefaultTenant();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, LogMessages.TenantContextError, ex.Message);
-                    throw new InvalidOperationException("Unable to establish tenant context for token revocation", ex);
-                }
-                
+                EnsureDefaultTenant();
+
                 var ipAddress = GetIpAddress();
-                var success = await _userService.RevokeTokenAsync(token, ipAddress, request?.Reason);
+                var success = await _userService.RevokeTokenAsync(
+                    token, 
+                    ipAddress, 
+                    request?.Reason ?? string.Empty);
                 
                 if (!success)
                 {
@@ -369,17 +354,8 @@ namespace OpenAutomate.API.Controllers
                     return Unauthorized(new { message = "User not authenticated" });
                 }
 
-                try
-                {
-                    // Ensure tenant context is set properly
-                    EnsureDefaultTenant();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, LogMessages.TenantContextError, ex.Message);
-                    throw new InvalidOperationException("Unable to establish tenant context for user profile retrieval", ex);
-                }
-                
+                EnsureDefaultTenant();
+
                 // Convert the user entity to a DTO directly without making another DB call
                 var userResponse = _userService.MapToResponse(user);
 
@@ -469,9 +445,9 @@ namespace OpenAutomate.API.Controllers
         /// Uses model binding to retrieve the X-Forwarded-For header
         /// </summary>
         [NonAction]
-        public string GetForwardedForHeader([FromHeader(Name = "X-Forwarded-For")] string forwardedFor = null)
+        public string GetForwardedForHeader([FromHeader(Name = "X-Forwarded-For")] string? forwardedFor = null)
         {
-            return forwardedFor;
+            return forwardedFor ?? string.Empty;
         }
         
         /// <summary>

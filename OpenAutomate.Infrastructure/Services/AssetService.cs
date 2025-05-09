@@ -30,11 +30,6 @@ namespace OpenAutomate.Infrastructure.Services
             public const string AssetKeyExists = "Asset with key '{Key}' already exists for tenant {TenantId}";
             public const string AssetCreated = "Asset created: {Id}, Key: {Key}, Tenant: {TenantId}";
             public const string AssetCreationError = "Error creating asset: {Message}";
-            public const string AssetsRetrievalError = "Error getting all assets: {Message}";
-            public const string AssetByIdError = "Error getting asset by ID {Id}: {Message}";
-            public const string AssetByKeyError = "Error getting asset by key {Key}: {Message}";
-            public const string AssetNotFound = "Asset with ID {Id} not found for tenant {TenantId}";
-            public const string EncryptionError = "Error encrypting/decrypting value: {Message}";
         }
         
         /// <summary>
@@ -155,7 +150,7 @@ namespace OpenAutomate.Infrastructure.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting all assets: {Message}", ex.Message);
-                throw;
+                throw new ServiceException($"Error retrieving assets for tenant {_tenantContext.CurrentTenantId}", ex);
             }
         }
         
@@ -180,7 +175,7 @@ namespace OpenAutomate.Infrastructure.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting asset by ID {Id}: {Message}", id, ex.Message);
-                throw;
+                throw new ServiceException($"Error retrieving asset with ID {id} for tenant {_tenantContext.CurrentTenantId}", ex);
             }
         }
         
@@ -205,7 +200,7 @@ namespace OpenAutomate.Infrastructure.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting asset by key {Key}: {Message}", key, ex.Message);
-                throw;
+                throw new ServiceException($"Error retrieving asset with key '{key}' for tenant {_tenantContext.CurrentTenantId}", ex);
             }
         }
         
@@ -237,10 +232,15 @@ namespace OpenAutomate.Infrastructure.Services
                 // Return the updated asset
                 return MapToResponseDto(asset);
             }
+            catch (KeyNotFoundException)
+            {
+                // Rethrow KeyNotFoundException as it already has proper context
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating asset with ID {Id}: {Message}", id, ex.Message);
-                throw;
+                throw new ServiceException($"Error updating asset with ID {id} for tenant {_tenantContext.CurrentTenantId}", ex);
             }
         }
         
@@ -275,7 +275,7 @@ namespace OpenAutomate.Infrastructure.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting asset with ID {Id}: {Message}", id, ex.Message);
-                throw;
+                throw new ServiceException($"Error deleting asset with ID {id} for tenant {_tenantContext.CurrentTenantId}", ex);
             }
         }
         

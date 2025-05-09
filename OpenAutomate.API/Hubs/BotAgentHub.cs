@@ -168,7 +168,7 @@ namespace OpenAutomate.API.Hubs
         /// </summary>
         /// <param name="status">Current status of the bot agent</param>
         /// <param name="executionId">Optional execution ID if the status is related to a specific execution</param>
-        public async Task SendStatusUpdate(string status, string executionId = null)
+        public async Task SendStatusUpdate(string status, string? executionId = null)
         {
             var botAgent = await GetBotAgentFromContext();
             if (botAgent == null) return;
