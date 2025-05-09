@@ -279,5 +279,39 @@ namespace OpenAutomate.Infrastructure.Services
         }
 
         #endregion
+
+        public async Task<UserResponse> UpdateUserInfoAsync(Guid userId, UpdateUserInfoRequest request)
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(userId);
+            if (user == null)
+                throw new ServiceException($"User with ID {userId} not found");
+
+            user.FirstName = request.FirstName;
+            user.LastName = request.LastName;
+            _unitOfWork.Users.Update(user);
+            await _unitOfWork.CompleteAsync();
+            _logger.LogInformation("User info updated for user: {UserId}", userId);
+            return MapToResponse(user);
+        }
+
+        public async Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(userId);
+            if (user == null)
+                throw new ServiceException($"User with ID {userId} not found");
+
+            // Verify current password
+            if (!VerifyPasswordHash(request.CurrentPassword, user.PasswordHash ?? string.Empty, user.PasswordSalt ?? string.Empty))
+                throw new ServiceException("Current password is incorrect");
+
+            // Set new password
+            CreatePasswordHash(request.NewPassword, out string newHash, out string newSalt);
+            user.PasswordHash = newHash;
+            user.PasswordSalt = newSalt;
+            _unitOfWork.Users.Update(user);
+            await _unitOfWork.CompleteAsync();
+            _logger.LogInformation("Password changed for user: {UserId}", userId);
+            return true;
+        }
     }
 } 

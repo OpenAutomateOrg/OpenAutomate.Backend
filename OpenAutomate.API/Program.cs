@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using System.Reflection;
 using System.IO;
+using OpenAutomate.API.Hubs;
 
 namespace OpenAutomate.API
 {
@@ -89,6 +90,14 @@ namespace OpenAutomate.API
             // Add controllers
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
+
+            // Add SignalR services
+            builder.Services.AddSignalR(options => 
+            {
+                options.EnableDetailedErrors = true;
+                options.KeepAliveInterval = TimeSpan.FromMinutes(1);
+                options.ClientTimeoutInterval = TimeSpan.FromMinutes(2);
+            });
         }
         
         private static void ConfigureCors(WebApplicationBuilder builder)
@@ -115,8 +124,10 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
             builder.Services.AddScoped<ITokenService, TokenService>();
             builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IAdminService, AdminService>();
             builder.Services.AddScoped<IOrganizationUnitService, OrganizationUnitService>();
             builder.Services.AddScoped<IBotAgentService, BotAgentService>();
+            builder.Services.AddScoped<IAssetService, AssetService>();
             builder.Services.AddScoped<IEmailService, AwsSesEmailService>();
             builder.Services.AddScoped<IAuthorizationManager, AuthorizationManager>();
             
@@ -285,7 +296,11 @@ namespace OpenAutomate.API
             app.UseTenantResolution();
             app.UseAuthorization();
             
+            // Map controller endpoints
             app.MapControllers();
+
+            // Map SignalR hub with tenant slug in the path
+            app.MapHub<BotAgentHub>("/{tenant}/hubs/botagent");
         }
         
         private static void ApplyDatabaseMigrations(WebApplication app)

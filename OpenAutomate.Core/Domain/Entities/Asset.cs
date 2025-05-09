@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
 using OpenAutomate.Core.Domain.Base;
+using OpenAutomate.Core.Dto.Asset;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
@@ -58,5 +59,11 @@ namespace OpenAutomate.Core.Domain.Entities
         /// </summary>
         [JsonIgnore]
         public virtual ICollection<AssetBotAgent> AssetBotAgents { get; set; } = new List<AssetBotAgent>();
+
+        /// <summary>
+        /// Gets the asset type based on encryption status
+        /// </summary>
+        [NotMapped]
+        public AssetType Type => IsEncrypted ? AssetType.Secret : AssetType.String;
     }   
 } 

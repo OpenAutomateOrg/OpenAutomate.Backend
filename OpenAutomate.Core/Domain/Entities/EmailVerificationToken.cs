@@ -1,4 +1,4 @@
-using OpenAutomate.Core.Domain.Base;
+﻿using OpenAutomate.Core.Domain.Base;
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -11,6 +11,7 @@ namespace OpenAutomate.Core.Domain.Entities
         public EmailVerificationToken()
         {
             Token = string.Empty;
+            ExpiresAt = DateTime.MinValue;
         }
         
         [Required]

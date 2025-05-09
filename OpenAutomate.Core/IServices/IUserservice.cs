@@ -35,5 +35,23 @@ namespace OpenAutomate.Core.IServices
         /// <param name="user">The User entity to map</param>
         /// <returns>A UserResponse DTO with the user's information</returns>
         UserResponse MapToResponse(User user);
+
+        /// <summary>
+        /// Updates the user's first name and last name
+        /// </summary>
+        /// <param name="userId">The ID of the user to update</param>
+        /// <param name="request">The update request containing new first name and last name</param>
+        /// <returns>The updated user information</returns>
+        /// <exception cref="ServiceException">Thrown when user is not found or update fails</exception>
+        Task<UserResponse> UpdateUserInfoAsync(Guid userId, UpdateUserInfoRequest request);
+
+        /// <summary>
+        /// Changes the user's password after verifying the current password
+        /// </summary>
+        /// <param name="userId">The ID of the user changing their password</param>
+        /// <param name="request">The password change request containing current password and new password</param>
+        /// <returns>True if password was changed successfully</returns>
+        /// <exception cref="ServiceException">Thrown when user is not found, current password is incorrect, or change fails</exception>
+        Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordRequest request);
     }
 }
