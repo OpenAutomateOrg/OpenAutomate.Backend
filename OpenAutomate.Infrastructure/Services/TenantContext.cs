@@ -5,7 +5,7 @@ namespace OpenAutomate.Infrastructure.Services
 {
     /// <summary>
     /// Implementation of ITenantContext that retrieves the current tenant from HttpContext
-    /// </summary>
+    /// </summary> 
     public class TenantContext : ITenantContext
     {
         private Guid? _currentTenantId;

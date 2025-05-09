@@ -11,7 +11,7 @@ using OpenAutomate.Core.Constants;
 namespace OpenAutomate.API.Controllers
 {
     /// <summary>
-    /// Controller for Bot Agent management operations
+    /// Controller for Bot Agent CRUD management operations
     /// </summary>
     [ApiController]
     [Route("{tenant}/api/agents")]
