@@ -42,8 +42,6 @@ namespace OpenAutomate.API.Controllers
             public const string NoTenantContextForBroadcast = "Attempt to broadcast notification without valid tenant context";
             public const string NotificationBroadcast = "Notification '{NotificationType}' broadcast to tenant {TenantId}";
             public const string BroadcastError = "Error broadcasting notification";
-            public const string PayloadValidationError = "Invalid command payload for command type: {CommandType}";
-            public const string DataValidationError = "Invalid notification data for notification type: {NotificationType}";
         }
         
         /// <summary>

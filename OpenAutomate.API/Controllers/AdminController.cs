@@ -23,10 +23,21 @@ namespace OpenAutomate.API.Controllers
         }
 
         /// <summary>
-        /// Retrieves detailed information for a specific user by their ID. Only accessible by administrators.
+        /// Gets a list of all users in the system. Only accessible by administrators.
+        /// </summary>
+        [HttpGet("user/get-all")]
+        [ProducesResponseType(typeof(IEnumerable<UserResponse>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            var users = await _adminService.GetAllUsersAsync();
+            return Ok(users);
+        }
+
+        /// <summary>
+        /// Gets detailed information for a specific user by their ID. Only accessible by administrators.
         /// </summary>
         /// <param name="userId">The ID of the user to retrieve.</param>
-        [HttpGet("{userId}")]
+        [HttpGet("user/detail/{userId}")]
         [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -42,7 +53,7 @@ namespace OpenAutomate.API.Controllers
         /// </summary>
         /// <param name="userId">The ID of the user to update.</param>
         /// <param name="request">The new first and last name information.</param>
-        [HttpPut("user-detail/{userId}")]
+        [HttpPut("user/update-detail/{userId}")]
         [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -72,7 +83,7 @@ namespace OpenAutomate.API.Controllers
         /// </summary>
         /// <param name="userId">The ID of the user whose password will be changed.</param>
         /// <param name="request">The new password information.</param>
-        [HttpPost("change-password/{userId}")]
+        [HttpPost("user/change-password/{userId}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -103,6 +114,17 @@ namespace OpenAutomate.API.Controllers
                 _logger.LogError(ex, "Error changing password by admin for user: {UserId}", userId);
                 return StatusCode(500, new { message = "An error occurred while processing your request." });
             }
+        }
+
+        /// <summary>
+        /// Gets a list of all Organization Unit in the system. Only accessible by administrators.
+        /// </summary>
+        [HttpGet("organization-unit/get-all")]
+        [ProducesResponseType(typeof(IEnumerable<UserResponse>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAllOrganizationUnit()
+        {
+            var ous = await _adminService.GetAllOrganizationUnitsAsync();
+            return Ok(ous);
         }
     }
 }
