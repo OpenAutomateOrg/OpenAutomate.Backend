@@ -30,6 +30,7 @@ namespace OpenAutomate.API.Hubs
             public const string CommandSent = "Command sent to bot agent {BotAgentId}: {Command}";
             public const string DisconnectionError = "Error during bot agent disconnection: {Message}";
             public const string QueryNullReference = "HTTP context or query parameter is null during disconnection";
+            public const string KeepAliveReceived = "Keep-alive received from bot agent: {BotAgentName} ({BotAgentId})";
         }
         
         public BotAgentHub(
@@ -191,6 +192,23 @@ namespace OpenAutomate.API.Hubs
             // Cast dynamic botAgent to avoid extension method issues
             string botAgentName = botAgent.Name?.ToString() ?? "Unknown";
             _logger.LogDebug(LogMessages.BotStatusUpdate, botAgentName, status);
+        }
+        
+        /// <summary>
+        /// Lightweight method for bot agent to keep the connection alive without sending status updates
+        /// </summary>
+        public async Task KeepAlive()
+        {
+            var botAgent = await GetBotAgentFromContext();
+            if (botAgent == null) return;
+            
+            // Just update the heartbeat timestamp
+            botAgent.LastHeartbeat = DateTime.UtcNow;
+            await _unitOfWork.CompleteAsync();
+            
+            // Log at trace level to avoid excessive logging
+            string botAgentName = botAgent.Name?.ToString() ?? "Unknown";
+            _logger.LogTrace(LogMessages.KeepAliveReceived, botAgentName, botAgent.Id);
         }
         
         /// <summary>
