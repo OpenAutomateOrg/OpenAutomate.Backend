@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Domain.IRepository;
+using OpenAutomate.Core.Dto.OrganizationUnit;
 using OpenAutomate.Core.Dto.UserDto;
 using OpenAutomate.Core.Exceptions;
 using OpenAutomate.Core.IServices;
@@ -22,6 +23,12 @@ namespace OpenAutomate.Infrastructure.Services
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
+        }
+
+        public async Task<IEnumerable<UserResponse>> GetAllUsersAsync()
+        {
+            var users = await _unitOfWork.Users.GetAllAsync();
+            return users.Select(u => MapToResponse(u));
         }
 
         public async Task<UserResponse> GetUserByIdAsync(Guid userId)
@@ -78,6 +85,20 @@ namespace OpenAutomate.Infrastructure.Services
             };
         }
 
+        public OrganizationUnitResponseDto MapToOrganizationUnitResponseDto(OrganizationUnit organizationUnit)
+        {
+            return new OrganizationUnitResponseDto
+            {
+                Id = organizationUnit.Id,
+                Name = organizationUnit.Name,
+                Description = organizationUnit.Description,
+                Slug = organizationUnit.Slug,
+                IsActive = organizationUnit.IsActive,
+                CreatedAt = organizationUnit.CreatedAt ?? DateTime.Now,
+                UpdatedAt = organizationUnit.LastModifyAt
+            };
+        }
+
         #region Private Helper Methods
 
         private static void CreatePasswordHash(string password, out string passwordHash, out string passwordSalt)
@@ -92,5 +113,11 @@ namespace OpenAutomate.Infrastructure.Services
         }
 
         #endregion
+
+        public async Task<IEnumerable<OrganizationUnitResponseDto>> GetAllOrganizationUnitsAsync()
+        {
+            var organizationUnits = await _unitOfWork.OrganizationUnits.GetAllAsync();
+            return organizationUnits.Select(MapToOrganizationUnitResponseDto);
+        }
     }
 }

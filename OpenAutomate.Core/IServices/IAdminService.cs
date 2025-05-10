@@ -1,4 +1,5 @@
 ﻿using OpenAutomate.Core.Domain.Entities;
+using OpenAutomate.Core.Dto.OrganizationUnit;
 using OpenAutomate.Core.Dto.UserDto;
 using System;
 using System.Collections.Generic;
@@ -10,6 +11,7 @@ namespace OpenAutomate.Core.IServices
 {
     public interface IAdminService
     {
+        Task<IEnumerable<UserResponse>> GetAllUsersAsync();
         Task<UserResponse> GetUserByIdAsync(Guid userId);
 
         /// <summary>
@@ -34,5 +36,7 @@ namespace OpenAutomate.Core.IServices
         /// <param name="user">The User entity to map</param>
         /// <returns>A UserResponse DTO with the user's information</returns>
         UserResponse MapToResponse(User user);
+
+        Task<IEnumerable<OrganizationUnitResponseDto>> GetAllOrganizationUnitsAsync();
     }
 }
