@@ -38,7 +38,7 @@ namespace OpenAutomate.API.Controllers
         /// <summary>
         /// Creates a new Asset
         /// </summary>
-        /// <param name="dto">The Asset creation data</param>
+        /// <param name="dto">The Asset creation data (Key, Value, etc.)</param>
         /// <returns>The created Asset</returns>
         [HttpPost]
         [RequirePermission(Resources.AssetResource, Permissions.Create)]

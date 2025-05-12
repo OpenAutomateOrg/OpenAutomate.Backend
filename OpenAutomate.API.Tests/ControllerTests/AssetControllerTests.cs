@@ -48,7 +48,6 @@ namespace OpenAutomate.API.Tests.ControllerTests
                 new AssetListResponseDto
                 {
                     Id = Guid.NewGuid(),
-                    Name = "Test Asset 1",
                     Key = "test-asset-1",
                     Description = "Test description 1",
                     Type = AssetType.String,
@@ -59,7 +58,6 @@ namespace OpenAutomate.API.Tests.ControllerTests
                 new AssetListResponseDto
                 {
                     Id = Guid.NewGuid(),
-                    Name = "Test Asset 2",
                     Key = "test-asset-2",
                     Description = "Test description 2",
                     Type = AssetType.Secret,
@@ -113,7 +111,6 @@ namespace OpenAutomate.API.Tests.ControllerTests
             // Arrange
             var createDto = new CreateAssetDto
             {
-                Name = "New Asset",
                 Key = "new-asset",
                 Value = "asset-value",
                 Description = "New asset description",
@@ -123,7 +120,6 @@ namespace OpenAutomate.API.Tests.ControllerTests
             var createdAsset = new AssetResponseDto
             {
                 Id = Guid.NewGuid(),
-                Name = createDto.Name,
                 Key = createDto.Key,
                 Value = createDto.Value,
                 Description = createDto.Description,
@@ -147,7 +143,6 @@ namespace OpenAutomate.API.Tests.ControllerTests
             Assert.NotNull(createdAtActionResult.Value);
             var returnedAsset = Assert.IsType<AssetResponseDto>(createdAtActionResult.Value);
             Assert.Equal(createdAsset.Id, returnedAsset.Id);
-            Assert.Equal(createDto.Name, returnedAsset.Name);
             Assert.Equal(createDto.Key, returnedAsset.Key);
         }
         
@@ -157,7 +152,6 @@ namespace OpenAutomate.API.Tests.ControllerTests
             // Arrange
             var createDto = new CreateAssetDto
             {
-                Name = "Invalid Asset",
                 Key = "invalid-asset",
                 Value = "value"
             };
@@ -182,7 +176,6 @@ namespace OpenAutomate.API.Tests.ControllerTests
             // Arrange
             var createDto = new CreateAssetDto
             {
-                Name = "Test Asset",
                 Key = "test-asset",
                 Value = "value",
                 Type = AssetType.String

@@ -8,13 +8,6 @@ namespace OpenAutomate.Core.Dto.Asset
     public class UpdateAssetDto
     {
         /// <summary>
-        /// The display name of the Asset
-        /// </summary>
-        [Required]
-        [StringLength(100, MinimumLength = 1)]
-        public string Name { get; set; } = string.Empty;
-        
-        /// <summary>
         /// The value of the Asset
         /// </summary>
         [Required]
@@ -25,5 +18,13 @@ namespace OpenAutomate.Core.Dto.Asset
         /// </summary>
         [StringLength(500)]
         public string Description { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The unique key used to reference this Asset
+        /// </summary>
+        [Required]
+        [StringLength(50, MinimumLength = 1)]
+        [RegularExpression(@"^[a-zA-Z0-9_\-.]+$", ErrorMessage = "Key can only contain letters, numbers, underscores, hyphens, and periods")]
+        public string Key { get; set; } = string.Empty;
     }
 } 
