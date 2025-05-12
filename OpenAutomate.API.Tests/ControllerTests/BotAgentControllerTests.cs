@@ -10,7 +10,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OpenAutomate.API.Tests.Controllers
+namespace OpenAutomate.API.Tests.ControllerTests
 {
     public class BotAgentControllerTests
     {

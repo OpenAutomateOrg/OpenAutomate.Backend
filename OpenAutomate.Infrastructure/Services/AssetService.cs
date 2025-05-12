@@ -24,6 +24,9 @@ namespace OpenAutomate.Infrastructure.Services
         private readonly ITenantContext _tenantContext;
         private readonly ILogger<AssetService> _logger;
         
+        // WARNING: Do NOT use hardcoded keys in production. Store securely in configuration or a secret manager.
+        private static readonly byte[] EncryptionKey = Encoding.UTF8.GetBytes("12345678901234567890123456789012"); // 32 bytes for AES-256
+        
         // Standardized log message templates
         private static class LogMessages
         {
@@ -67,7 +70,6 @@ namespace OpenAutomate.Infrastructure.Services
                 // Create the new asset
                 var asset = new Asset
                 {
-                    Name = dto.Name,
                     Key = dto.Key,
                     Description = dto.Description,
                     Value = dto.Type == AssetType.Secret ? EncryptValue(dto.Value) : dto.Value,
@@ -137,7 +139,6 @@ namespace OpenAutomate.Infrastructure.Services
                 return assets.Select(a => new AssetListResponseDto
                 {
                     Id = a.Id,
-                    Name = a.Name,
                     Key = a.Key,
                     Description = a.Description,
                     Type = a.IsEncrypted ? AssetType.Secret : AssetType.String,
@@ -220,7 +221,7 @@ namespace OpenAutomate.Infrastructure.Services
                 }
                 
                 // Update the asset
-                asset.Name = dto.Name;
+                asset.Key = dto.Key;
                 asset.Description = dto.Description;
                 asset.Value = asset.IsEncrypted ? EncryptValue(dto.Value) : dto.Value;
                 asset.LastModifyAt = DateTime.UtcNow;
@@ -476,10 +477,9 @@ namespace OpenAutomate.Infrastructure.Services
             return new AssetResponseDto
             {
                 Id = asset.Id,
-                Name = asset.Name,
                 Key = asset.Key,
-                Description = asset.Description,
                 Value = asset.IsEncrypted ? DecryptValue(asset.Value) : asset.Value,
+                Description = asset.Description,
                 IsEncrypted = asset.IsEncrypted,
                 Type = asset.IsEncrypted ? AssetType.Secret : AssetType.String,
                 CreatedAt = asset.CreatedAt ?? DateTime.UtcNow,
@@ -494,13 +494,10 @@ namespace OpenAutomate.Infrastructure.Services
         {
             try
             {
-                // Simple encryption for demo purposes
-                // In a production environment, use a more secure approach with proper key management
                 using (var aes = Aes.Create())
                 {
-                    aes.Key = Encoding.UTF8.GetBytes("YourEncryptionKey12345678901234567890");
-                    aes.IV = new byte[16]; // Using a zero IV for simplicity - not secure for production
-                    
+                    aes.Key = EncryptionKey;
+                    aes.IV = new byte[16]; // WARNING: Use a random IV in production and store it with the ciphertext
                     using (var encryptor = aes.CreateEncryptor())
                     {
                         byte[] valueBytes = Encoding.UTF8.GetBytes(value);
@@ -511,7 +508,6 @@ namespace OpenAutomate.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                // We can't use _logger here since the method is static
                 throw new AssetEncryptionException("Error encrypting asset value", ex);
             }
         }
@@ -525,9 +521,8 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 using (var aes = Aes.Create())
                 {
-                    aes.Key = Encoding.UTF8.GetBytes("YourEncryptionKey12345678901234567890");
-                    aes.IV = new byte[16]; // Using a zero IV for simplicity - not secure for production
-                    
+                    aes.Key = EncryptionKey;
+                    aes.IV = new byte[16]; // WARNING: Use the same IV as used for encryption in production
                     using (var decryptor = aes.CreateDecryptor())
                     {
                         byte[] encryptedBytes = Convert.FromBase64String(encryptedValue);
@@ -538,7 +533,6 @@ namespace OpenAutomate.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                // We can't use _logger here since the method is static
                 throw new AssetEncryptionException("Error decrypting asset value", ex);
             }
         }

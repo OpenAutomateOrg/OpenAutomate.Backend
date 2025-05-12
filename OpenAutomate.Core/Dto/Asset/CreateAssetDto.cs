@@ -10,13 +10,6 @@ namespace OpenAutomate.Core.Dto.Asset
     public class CreateAssetDto
     {
         /// <summary>
-        /// The display name of the Asset
-        /// </summary>
-        [Required]
-        [StringLength(100, MinimumLength = 1)]
-        public string Name { get; set; } = string.Empty;
-        
-        /// <summary>
         /// The unique key used to reference this Asset
         /// </summary>
         [Required]

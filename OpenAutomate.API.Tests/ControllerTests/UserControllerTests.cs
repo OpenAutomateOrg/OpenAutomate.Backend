@@ -12,7 +12,7 @@ using OpenAutomate.Core.Exceptions;
 using Xunit;
 using System.Collections.Generic;
 
-namespace OpenAutomate.API.Tests
+namespace OpenAutomate.API.Tests.ControllerTests
 {
     public class UserControllerTests
     {
