@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using System.Reflection;
 using System.IO;
 using OpenAutomate.API.Hubs;
+using Microsoft.AspNetCore.OData;
 
 namespace OpenAutomate.API
 {
@@ -86,8 +87,19 @@ namespace OpenAutomate.API
             // Register application services
             RegisterApplicationServices(builder);
             
-            // Add controllers
-            builder.Services.AddControllers();
+            // Add controllers with OData support
+            builder.Services.AddControllers()
+                .AddOData(options => 
+                    options.Select()
+                           .Filter()
+                           .OrderBy()
+                           .Expand()
+                           .Count()
+                           .SetMaxTop(100));
+                           
+            // Register OData model
+            builder.Services.AddSingleton(provider => ODataExtensions.GetEdmModel());
+            
             builder.Services.AddEndpointsApiExplorer();
 
             // Add SignalR services with optimized connection settings
@@ -266,12 +278,20 @@ namespace OpenAutomate.API
             {
                 app.UseSwagger();
                 app.UseSwaggerUI();
+                // Add OData route debugging in development
+                app.UseODataRouteDebug();
             }
             
             // Apply CORS policy globally
             app.UseCors();
             
             app.UseHttpsRedirection();
+            
+            // Enable OData query capabilities
+            app.UseODataQueryRequest();
+            
+            // Add routing
+            app.UseRouting();
             
             // Add authentication and authorization middleware
             app.UseAuthentication();
