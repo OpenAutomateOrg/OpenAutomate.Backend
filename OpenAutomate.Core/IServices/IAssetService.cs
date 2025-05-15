@@ -83,5 +83,20 @@ namespace OpenAutomate.Core.IServices
         /// <param name="botAgentId">The Bot Agent ID</param>
         /// <returns>True if revoked successfully</returns>
         Task<bool> RevokeBotAgentAsync(Guid assetId, Guid botAgentId);
+        
+        /// <summary>
+        /// Gets an Asset value by key for a Bot Agent using machine key authentication
+        /// </summary>
+        /// <param name="key">The Asset key</param>
+        /// <param name="machineKey">The Bot Agent machine key</param>
+        /// <returns>The Asset value if authorized, null otherwise</returns>
+        Task<string?> GetAssetValueForBotAgentAsync(string key, string machineKey);
+        
+        /// <summary>
+        /// Gets all Assets accessible by a Bot Agent using machine key authentication
+        /// </summary>
+        /// <param name="machineKey">The Bot Agent machine key</param>
+        /// <returns>Collection of accessible Assets</returns>
+        Task<IEnumerable<AssetListResponseDto>?> GetAccessibleAssetsForBotAgentAsync(string machineKey);
     }
 } 
