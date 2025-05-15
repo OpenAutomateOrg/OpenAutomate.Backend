@@ -443,17 +443,30 @@ namespace OpenAutomate.Infrastructure.Services
                     
                 if (asset == null)
                 {
-                    throw new KeyNotFoundException($"Asset with ID {assetId} not found");
+                    return false;
+                }
+                
+                // Check if bot agent exists and belongs to the tenant
+                var botAgent = await _context.BotAgents
+                    .Where(b => b.Id == botAgentId && b.OrganizationUnitId == _tenantContext.CurrentTenantId)
+                    .FirstOrDefaultAsync();
+                    
+                if (botAgent == null)
+                {
+                    return false;
                 }
                 
                 // Find the relationship
                 var relationship = await _context.AssetBotAgents
-                    .Where(a => a.AssetId == assetId && a.BotAgentId == botAgentId)
+                    .Where(ab => 
+                        ab.AssetId == assetId && 
+                        ab.BotAgentId == botAgentId && 
+                        ab.OrganizationUnitId == _tenantContext.CurrentTenantId)
                     .FirstOrDefaultAsync();
                     
                 if (relationship == null)
                 {
-                    return false; // Relationship doesn't exist
+                    return false;
                 }
                 
                 // Remove the relationship
@@ -466,7 +479,113 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 _logger.LogError(ex, "Error revoking bot agent {BotAgentId} for asset {AssetId}: {Message}", 
                     botAgentId, assetId, ex.Message);
+                throw new ServiceException($"Error revoking bot agent {botAgentId} for asset {assetId}", ex);
+            }
+        }
+        
+        /// <inheritdoc />
+        public async Task<string?> GetAssetValueForBotAgentAsync(string key, string machineKey)
+        {
+            try
+            {
+                // Find bot agent by machine key
+                var botAgent = await _context.BotAgents
+                    .FirstOrDefaultAsync(b => b.MachineKey == machineKey);
+                    
+                if (botAgent == null)
+                {
+                    _logger.LogWarning("Bot agent with machine key not found when requesting asset '{Key}'", key);
+                    return null;
+                }
+                
+                // Find asset by key in the same tenant as the bot agent
+                var asset = await _context.Assets
+                    .FirstOrDefaultAsync(a => 
+                        a.Key == key && 
+                        a.OrganizationUnitId == botAgent.OrganizationUnitId);
+                        
+                if (asset == null)
+                {
+                    _logger.LogWarning("Asset with key '{Key}' not found for bot agent tenant", key);
+                    return null;
+                }
+                
+                // Check if bot agent is authorized to access this asset
+                var isAuthorized = await _context.AssetBotAgents
+                    .AnyAsync(aba => 
+                        aba.AssetId == asset.Id && 
+                        aba.BotAgentId == botAgent.Id);
+                        
+                if (!isAuthorized)
+                {
+                    _logger.LogWarning("Bot agent {BotAgentId} not authorized to access asset '{Key}'", 
+                        botAgent.Id, key);
+                    throw new UnauthorizedAccessException($"Bot agent not authorized to access asset '{key}'");
+                }
+                
+                // Log access for audit purposes
+                _logger.LogInformation("Bot agent {BotAgentName} ({BotAgentId}) accessed asset '{Key}'", 
+                    botAgent.Name, botAgent.Id, key);
+                
+                // Return decrypted value if needed
+                return asset.IsEncrypted ? DecryptValue(asset.Value) : asset.Value;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Rethrow unauthorized exceptions for proper handling
                 throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving asset value for key '{Key}' with machine key: {Message}", 
+                    key, ex.Message);
+                throw new ServiceException($"Error retrieving asset value for key '{key}'", ex);
+            }
+        }
+        
+        /// <inheritdoc />
+        public async Task<IEnumerable<AssetListResponseDto>?> GetAccessibleAssetsForBotAgentAsync(string machineKey)
+        {
+            try
+            {
+                // Find bot agent by machine key
+                var botAgent = await _context.BotAgents
+                    .FirstOrDefaultAsync(b => b.MachineKey == machineKey);
+                    
+                if (botAgent == null)
+                {
+                    _logger.LogWarning("Bot agent with machine key not found when requesting accessible assets");
+                    return null;
+                }
+                
+                // Find all assets accessible by this bot agent
+                var assetIds = await _context.AssetBotAgents
+                    .Where(aba => aba.BotAgentId == botAgent.Id)
+                    .Select(aba => aba.AssetId)
+                    .ToListAsync();
+                    
+                var assets = await _context.Assets
+                    .Where(a => 
+                        assetIds.Contains(a.Id) && 
+                        a.OrganizationUnitId == botAgent.OrganizationUnitId)
+                    .ToListAsync();
+                    
+                // Return asset list DTOs (without values)
+                return assets.Select(a => new AssetListResponseDto
+                {
+                    Id = a.Id,
+                    Key = a.Key,
+                    Description = a.Description,
+                    Type = a.IsEncrypted ? AssetType.Secret : AssetType.String,
+                    IsEncrypted = a.IsEncrypted,
+                    CreatedAt = a.CreatedAt ?? DateTime.UtcNow,
+                    LastModifiedAt = a.LastModifyAt
+                }).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving accessible assets with machine key: {Message}", ex.Message);
+                throw new ServiceException("Error retrieving accessible assets for bot agent", ex);
             }
         }
         
