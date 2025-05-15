@@ -14,12 +14,6 @@ namespace OpenAutomate.Core.Domain.Entities
     public class Asset : BaseEntity, ITenantEntity
     {
         /// <summary>
-        /// The display name for the Asset
-        /// </summary>
-        [Required]
-        public string Name { get; set; } = string.Empty;
-        
-        /// <summary>
         /// The unique key used to reference this Asset
         /// </summary>
         [Required]

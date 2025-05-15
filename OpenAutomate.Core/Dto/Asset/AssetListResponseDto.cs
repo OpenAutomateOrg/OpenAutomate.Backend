@@ -13,11 +13,6 @@ namespace OpenAutomate.Core.Dto.Asset
         public Guid Id { get; set; }
         
         /// <summary>
-        /// The display name of the Asset
-        /// </summary>
-        public string Name { get; set; } = string.Empty;
-        
-        /// <summary>
         /// The unique key used to reference this Asset
         /// </summary>
         public string Key { get; set; } = string.Empty;
