@@ -1,5 +1,6 @@
 ﻿using Xunit;
 using OpenAutomate.Core.Domain.Entities;
+using OpenAutomate.Core.Dto.Asset;
 using System;
 
 namespace OpenAutomate.Core.Tests.DomainTests
@@ -22,19 +23,7 @@ namespace OpenAutomate.Core.Tests.DomainTests
             Assert.NotNull(asset.AssetBotAgents);
             Assert.Empty(asset.AssetBotAgents);
         }
-        [Fact]
-        public void Asset_SetName_NameIsSet()
-        {
-            // Arrange
-            var asset = new Asset();
-            var name = "Test Asset";
-
-            // Act
-
-
-            // Assert
-
-        }
+      
         [Fact]
         public void Asset_SetKey_KeyIsSet()
         {
@@ -60,6 +49,46 @@ namespace OpenAutomate.Core.Tests.DomainTests
 
             // Assert
             Assert.Equal(value, asset.Value);
+        }
+        [Fact]
+        public void Asset_SetDescription_DescriptionIsSet()
+        {
+            // Arrange
+            var asset = new Asset();
+            var description = "Test description";
+
+            // Act
+            asset.Description = description;
+
+            // Assert
+            Assert.Equal(description, asset.Description);
+        }
+        [Fact]
+        public void Asset_SetIsEncrypted_ChangesType()
+        {
+            // Arrange
+            var asset = new Asset();
+
+            // Act & Assert
+            Assert.True(asset.IsEncrypted);
+            Assert.Equal(AssetType.Secret, asset.Type);
+
+            asset.IsEncrypted = false;
+            Assert.False(asset.IsEncrypted);
+            Assert.Equal(AssetType.String, asset.Type);
+        }
+        [Fact]
+        public void Asset_SetOrganizationUnitId_OrganizationUnitIdIsSet()
+        {
+            // Arrange
+            var orgUnitId = Guid.NewGuid();
+            var asset = new Asset();
+
+            // Act
+            asset.OrganizationUnitId = orgUnitId;
+
+            // Assert
+            Assert.Equal(orgUnitId, asset.OrganizationUnitId);
         }
         [Fact]
         public void Asset_LinkOrganizationUnit_OrganizationUnitIsLinked()
@@ -91,18 +120,5 @@ namespace OpenAutomate.Core.Tests.DomainTests
             Assert.Contains(assetBotAgent, asset.AssetBotAgents);
             Assert.Single(asset.AssetBotAgents);
         }
-        [Fact]
-        public void Asset_SetIsEncrypted_IsEncryptedIsSet()
-        {
-            // Arrange
-            var asset = new Asset();
-
-            // Act
-            asset.IsEncrypted = false;
-
-            // Assert
-            Assert.False(asset.IsEncrypted);
-        }
-
     }
 }
