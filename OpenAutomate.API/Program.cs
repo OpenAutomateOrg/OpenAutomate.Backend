@@ -12,9 +12,10 @@ using OpenAutomate.Infrastructure.Repositories;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Domain.IRepository;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.Google;
 using System.Reflection;
 using System.IO;
+using OpenAutomate.API.Hubs;
+using Microsoft.AspNetCore.OData;
 
 namespace OpenAutomate.API
 {
@@ -86,9 +87,41 @@ namespace OpenAutomate.API
             // Register application services
             RegisterApplicationServices(builder);
             
-            // Add controllers
-            builder.Services.AddControllers();
+            // Add controllers with OData support
+            builder.Services.AddControllers()
+                .AddOData(options => 
+                    options.Select()
+                           .Filter()
+                           .OrderBy()
+                           .Expand()
+                           .Count()
+                           .SetMaxTop(100));
+                           
+            // Register OData model
+            builder.Services.AddSingleton(provider => ODataExtensions.GetEdmModel());
+            
             builder.Services.AddEndpointsApiExplorer();
+
+            // Add SignalR services with optimized connection settings
+            builder.Services.AddSignalR(options => 
+            {
+                // Enable detailed errors only in development
+                options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+                
+                // Increase keepalive interval to reduce network traffic
+                // This matches the client-side timing in BotAgentSignalRClient
+                options.KeepAliveInterval = TimeSpan.FromMinutes(2);
+                
+                // Set client timeout to be longer than the keepalive interval
+                // to prevent premature disconnections
+                options.ClientTimeoutInterval = TimeSpan.FromMinutes(5);
+                
+                // Set maximum message size (default is 32KB)
+                options.MaximumReceiveMessageSize = 64 * 1024; // 64KB
+                
+                // Reduce streaming buffer capacity for more efficient memory usage
+                options.StreamBufferCapacity = 8;
+            });
         }
         
         private static void ConfigureCors(WebApplicationBuilder builder)
@@ -115,8 +148,10 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
             builder.Services.AddScoped<ITokenService, TokenService>();
             builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IAdminService, AdminService>();
             builder.Services.AddScoped<IOrganizationUnitService, OrganizationUnitService>();
             builder.Services.AddScoped<IBotAgentService, BotAgentService>();
+            builder.Services.AddScoped<IAssetService, AssetService>();
             builder.Services.AddScoped<IEmailService, AwsSesEmailService>();
             builder.Services.AddScoped<IAuthorizationManager, AuthorizationManager>();
             
@@ -133,10 +168,6 @@ namespace OpenAutomate.API
                 .GetSection("Jwt")
                 .Get<JwtSettings>();
                 
-            // Get Google auth credentials
-            var googleClientId = builder.Configuration["AppSettings:GoogleAuth:ClientId"];
-            var googleClientSecret = builder.Configuration["AppSettings:GoogleAuth:ClientSecret"];
-            
             // Setup the authentication service
             var authBuilder = builder.Services.AddAuthentication(options =>
             {
@@ -153,16 +184,6 @@ namespace OpenAutomate.API
             
             // Configure cookie authentication
             ConfigureCookieAuthentication(authBuilder);
-            
-            // Conditionally add Google authentication
-            if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientSecret))
-            {
-                ConfigureGoogleAuthentication(authBuilder, googleClientId, googleClientSecret);
-            }
-            else
-            {
-                Console.WriteLine("Google authentication not registered. Missing ClientId or ClientSecret.");
-            }
         }
         
         private static void ConfigureJwtAuthentication(
@@ -212,23 +233,8 @@ namespace OpenAutomate.API
                 options.AccessDeniedPath = "/access-denied";
             });
         }
-        
-        private static void ConfigureGoogleAuthentication(
-            Microsoft.AspNetCore.Authentication.AuthenticationBuilder authBuilder,
-            string clientId,
-            string clientSecret)
-        {
-            authBuilder.AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
-            {
-                options.ClientId = clientId;
-                options.ClientSecret = clientSecret;
-                options.CallbackPath = "/signin-google";
-                options.SaveTokens = true;
-            });
-            
-            Console.WriteLine("Google authentication registered successfully.");
-        }
-        
+    
+     
         private static void ConfigureSwagger(WebApplicationBuilder builder)
         {
             builder.Services.AddSwaggerGen(options =>
@@ -272,6 +278,8 @@ namespace OpenAutomate.API
             {
                 app.UseSwagger();
                 app.UseSwaggerUI();
+                // Add OData route debugging in development
+                app.UseODataRouteDebug();
             }
             
             // Apply CORS policy globally
@@ -279,13 +287,23 @@ namespace OpenAutomate.API
             
             app.UseHttpsRedirection();
             
+            // Enable OData query capabilities
+            app.UseODataQueryRequest();
+            
+            // Add routing
+            app.UseRouting();
+            
             // Add authentication and authorization middleware
             app.UseAuthentication();
             app.UseJwtAuthentication();
             app.UseTenantResolution();
             app.UseAuthorization();
             
+            // Map controller endpoints
             app.MapControllers();
+
+            // Map SignalR hub with tenant slug in the path
+            app.MapHub<BotAgentHub>("/{tenant}/hubs/botagent");
         }
         
         private static void ApplyDatabaseMigrations(WebApplication app)

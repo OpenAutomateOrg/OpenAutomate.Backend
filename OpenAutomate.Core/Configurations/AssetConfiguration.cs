@@ -11,11 +11,7 @@ namespace OpenAutomate.Core.Configurations
             builder.ToTable("Assets");
             
             builder.HasKey(a => a.Id);
-            
-            builder.Property(a => a.Name)
-                .IsRequired()
-                .HasMaxLength(100);
-                
+              
             builder.Property(a => a.Key)
                 .IsRequired()
                 .HasMaxLength(100);

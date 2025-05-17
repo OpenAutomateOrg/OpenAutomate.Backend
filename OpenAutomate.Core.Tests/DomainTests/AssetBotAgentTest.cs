@@ -23,7 +23,7 @@ namespace OpenAutomate.Core.Tests.DomainTests
         public void AssetBotAgent_LinkAsset_AssetIsLinked()
         {
             // Arrange
-            var asset = new Asset { Name = "Test Asset", Key = "test-key", Value = "test-value" };
+            var asset = new Asset { Key = "test-key", Value = "test-value" };
             var assetBotAgent = new AssetBotAgent { Asset = asset };
 
             // Act
@@ -31,7 +31,6 @@ namespace OpenAutomate.Core.Tests.DomainTests
 
             // Assert
             Assert.NotNull(linkedAsset);
-            Assert.Equal("Test Asset", linkedAsset.Name);
             Assert.Equal("test-key", linkedAsset.Key);
             Assert.Equal("test-value", linkedAsset.Value);
         }

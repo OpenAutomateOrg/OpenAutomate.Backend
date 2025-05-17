@@ -105,121 +105,9 @@ namespace OpenAutomate.Infrastructure.Services
             
             return MapToResponseDto(botAgent);
         }
+
+
         
-        /// <inheritdoc />
-        public async Task<BotAgentResponseDto> ValidateAndConnectBotAgentAsync(
-            BotAgentConnectionRequest request, 
-            string tenantSlug)
-        {
-            // Lookup tenant by slug
-            var tenant = await _unitOfWork.OrganizationUnits
-                .GetFirstOrDefaultAsync(ou => ou.Slug == tenantSlug && ou.IsActive);
-                
-            if (tenant == null)
-            {
-                throw new ApplicationException($"Tenant '{tenantSlug}' not found or inactive");
-            }
-            
-            // Find Bot Agent by machine key within tenant
-            var botAgent = await _unitOfWork.BotAgents
-                .GetFirstOrDefaultAsync(ba => 
-                    ba.MachineKey == request.MachineKey && 
-                    ba.OrganizationUnitId == tenant.Id &&
-                    ba.IsActive);
-                    
-            if (botAgent == null)
-            {
-                throw new UnauthorizedAccessException("Invalid machine key or Bot Agent is inactive");
-            }
-            
-            // Update Bot Agent information
-            botAgent.Status = "Online";
-            botAgent.LastConnected = DateTime.UtcNow;
-            
-            _unitOfWork.BotAgents.Update(botAgent);
-            await _unitOfWork.CompleteAsync();
-            
-            _logger.LogInformation("Bot Agent {BotAgentId} successfully connected from {MachineName}", 
-                botAgent.Id, request.MachineName);
-                
-            return MapToResponseDto(botAgent);
-        }
-        
-        /// <inheritdoc />
-        public async Task UpdateBotAgentStatusAsync(BotAgentStatusUpdateRequest request, string tenantSlug)
-        {
-            // Lookup tenant by slug
-            var tenant = await _unitOfWork.OrganizationUnits
-                .GetFirstOrDefaultAsync(ou => ou.Slug == tenantSlug && ou.IsActive);
-                
-            if (tenant == null)
-            {
-                throw new ApplicationException($"Tenant '{tenantSlug}' not found or inactive");
-            }
-            
-            // Find Bot Agent by machine key within tenant
-            var botAgent = await _unitOfWork.BotAgents
-                .GetFirstOrDefaultAsync(ba => 
-                    ba.MachineKey == request.MachineKey && 
-                    ba.OrganizationUnitId == tenant.Id &&
-                    ba.IsActive);
-                    
-            if (botAgent == null)
-            {
-                throw new UnauthorizedAccessException("Invalid machine key or Bot Agent is inactive");
-            }
-            
-            // Update Bot Agent status
-            botAgent.Status = request.Status;
-            botAgent.LastConnected = request.Timestamp;
-            
-            _unitOfWork.BotAgents.Update(botAgent);
-            await _unitOfWork.CompleteAsync();
-            
-            _logger.LogInformation("Bot Agent {BotAgentId} status updated to {Status}", 
-                botAgent.Id, request.Status);
-        }
-        
-        /// <inheritdoc />
-        public async Task<IEnumerable<AssetResponseDto>> GetAssetsForBotAgentAsync(string machineKey, string tenantSlug)
-        {
-            // Lookup tenant by slug
-            var tenant = await _unitOfWork.OrganizationUnits
-                .GetFirstOrDefaultAsync(ou => ou.Slug == tenantSlug && ou.IsActive);
-                
-            if (tenant == null)
-            {
-                throw new ApplicationException($"Tenant '{tenantSlug}' not found or inactive");
-            }
-            
-            // Find Bot Agent by machine key within tenant
-            var botAgent = await _unitOfWork.BotAgents
-                .GetFirstOrDefaultAsync(ba => 
-                    ba.MachineKey == machineKey && 
-                    ba.OrganizationUnitId == tenant.Id &&
-                    ba.IsActive,
-                    ba => ba.AssetBotAgents);
-                    
-            if (botAgent == null)
-            {
-                throw new UnauthorizedAccessException("Invalid machine key or Bot Agent is inactive");
-            }
-            
-            // Get associated assets
-            if (botAgent.AssetBotAgents == null || !botAgent.AssetBotAgents.Any())
-            {
-                return Enumerable.Empty<AssetResponseDto>();
-            }
-            
-            var assetIds = botAgent.AssetBotAgents.Select(aba => aba.AssetId).ToList();
-            
-            var assets = await _unitOfWork.Assets.GetAllAsync(
-                a => assetIds.Contains(a.Id) && a.OrganizationUnitId == tenant.Id);
-                
-            return assets.Select(MapToAssetResponseDto);
-        }
-        
-        /// <inheritdoc />
         public async Task DeactivateBotAgentAsync(Guid id)
         {
             var botAgent = await _unitOfWork.BotAgents.GetByIdAsync(id);
@@ -262,24 +150,6 @@ namespace OpenAutomate.Infrastructure.Services
                 Status = botAgent.Status,
                 LastConnected = botAgent.LastConnected,
                 IsActive = botAgent.IsActive
-            };
-        }
-        
-        /// <summary>
-        /// Maps an Asset entity to an AssetResponseDto
-        /// </summary>
-        /// <param name="asset">The Asset entity</param>
-        /// <returns>DTO representation of the Asset</returns>
-        private AssetResponseDto MapToAssetResponseDto(Asset asset)
-        {
-            return new AssetResponseDto
-            {
-                Id = asset.Id,
-                Name = asset.Name,
-                Key = asset.Key,
-                Value = asset.Value,
-                Description = asset.Description,
-                IsEncrypted = asset.IsEncrypted
             };
         }
     }
