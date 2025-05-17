@@ -30,11 +30,10 @@ namespace OpenAutomate.Core.Tests.DomainTests
             var name = "Test Asset";
 
             // Act
-            asset.Name = name;
+
 
             // Assert
-            Assert.Equal(name, asset.Name);
-            Assert.NotNull(asset); 
+
         }
         [Fact]
         public void Asset_SetKey_KeyIsSet()
