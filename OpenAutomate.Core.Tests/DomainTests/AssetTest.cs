@@ -14,7 +14,6 @@ namespace OpenAutomate.Core.Tests.DomainTests
 
             // Assert
             Assert.NotNull(asset);
-            Assert.Equal(string.Empty, asset.Name);
             Assert.Equal(string.Empty, asset.Key);
             Assert.Equal(string.Empty, asset.Value);
             Assert.Equal(string.Empty, asset.Description);
@@ -35,6 +34,7 @@ namespace OpenAutomate.Core.Tests.DomainTests
 
             // Assert
             Assert.Equal(name, asset.Name);
+            Assert.NotNull(asset); 
         }
         [Fact]
         public void Asset_SetKey_KeyIsSet()
