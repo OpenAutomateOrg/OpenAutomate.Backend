@@ -21,7 +21,6 @@ namespace OpenAutomate.API.Hubs
         // Standardized log message templates
         private static class LogMessages
         {
-            public const string MissingMachineKey = "Connection attempt with missing machine key";
             public const string NoTenantContext = "Connection attempt without valid tenant context";
             public const string ProcessingConnection = "Processing connection for machine key {MachineKey} in tenant {TenantId}";
             public const string InvalidMachineKey = "Connection attempt with invalid machine key: {MachineKey} for tenant {TenantId}";

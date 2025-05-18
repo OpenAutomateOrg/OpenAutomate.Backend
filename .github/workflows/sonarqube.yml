@@ -85,7 +85,7 @@ jobs:
           # Create a directory for the results
           mkdir -p ./TestResults
           
-          # Run Core tests first
+          # Run Core tests
           dotnet test OpenAutomate.Core.Tests/OpenAutomate.Core.Tests.csproj \
             --configuration Release \
             --no-build \
@@ -93,11 +93,41 @@ jobs:
             --results-directory:./TestResults \
             /p:CollectCoverage=true \
             /p:CoverletOutputFormat=opencover \
-            /p:CoverletOutput=./TestResults/coverage.opencover.xml
-            
-          # Copy the coverage file to use it for SonarQube
-          cp -f ./OpenAutomate.Core.Tests/TestResults/coverage.opencover.xml ./TestResults/ || true
+            /p:CoverletOutput=./TestResults/core.coverage.opencover.xml
           
+          # Run API tests
+          dotnet test OpenAutomate.API.Tests/OpenAutomate.API.Tests.csproj \
+            --configuration Release \
+            --no-build \
+            --logger:trx \
+            --results-directory:./TestResults \
+            /p:CollectCoverage=true \
+            /p:CoverletOutputFormat=opencover \
+            /p:CoverletOutput=./TestResults/api.coverage.opencover.xml
+          
+          # Run Infrastructure tests
+          dotnet test OpenAutomate.Infrastructure.Tests/OpenAutomate.Infrastructure.Tests.csproj \
+            --configuration Release \
+            --no-build \
+            --logger:trx \
+            --results-directory:./TestResults \
+            /p:CollectCoverage=true \
+            /p:CoverletOutputFormat=opencover \
+            /p:CoverletOutput=./TestResults/infrastructure.coverage.opencover.xml
+          
+          # Install reportgenerator for merging reports
+          dotnet tool install -g dotnet-reportgenerator-globaltool
+          
+          # Merge all coverage reports into one
+          reportgenerator \
+            -reports:./TestResults/*.coverage.opencover.xml \
+            -targetdir:./TestResults/CoverageReport \
+            -reporttypes:Opencover \
+            -assemblyfilters:"+OpenAutomate.API;+OpenAutomate.Core;+OpenAutomate.Infrastructure"
+          
+          # Copy the merged report to the location SonarQube expects
+          cp -f ./TestResults/CoverageReport/Opencover.xml ./TestResults/coverage.opencover.xml || true
+            
       # List coverage files for debugging
       - name: List coverage files
         run: |
@@ -107,17 +137,17 @@ jobs:
           
       # Optional: Install ReportGenerator to create HTML coverage report
       - name: Install ReportGenerator
-        run: dotnet tool install -g dotnet-reportgenerator-globaltool
+        run: dotnet tool install -g dotnet-reportgenerator-globaltool || true
         
       # Generate HTML coverage report (only if coverage file exists)
       - name: Generate coverage report
         run: |
           if [ -f "./TestResults/coverage.opencover.xml" ]; then
-            reportgenerator -reports:./TestResults/coverage.opencover.xml -targetdir:./TestResults/CoverageReport -reporttypes:Html
+            reportgenerator -reports:./TestResults/coverage.opencover.xml -targetdir:./TestResults/CoverageReport/Html -reporttypes:Html
           else
             echo "Coverage file not found, skipping report generation"
             # Create empty directory to avoid upload failure
-            mkdir -p ./TestResults/CoverageReport
+            mkdir -p ./TestResults/CoverageReport/Html
           fi
 
       # Upload HTML report as artifact
@@ -125,7 +155,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report-html
-          path: ./TestResults/CoverageReport
+          path: ./TestResults/CoverageReport/Html
           retention-days: 5
 
       # Step 10: End SonarQube analysis
