@@ -19,6 +19,7 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
         private readonly Guid _tenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
         private readonly Guid _otherTenantId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
+
         // Custom tenant context for testing
         private class TestTenantContext : ITenantContext
         {
@@ -43,6 +44,7 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
             _tenantContext = new TestTenantContext { CurrentTenantId = _tenantId };
         }
 
+
         private ApplicationDbContext GetInMemoryDbContext(string? dbName = null)
         {
             // Create a unique database name for each test if not provided
@@ -64,10 +66,12 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
             using var context = GetInMemoryDbContext(dbName);
             var repo = new Repository<Asset>(context);
 
+
             var asset = new Asset
             {
                 Key = "key1",
                 Value = "val1",
+
                 OrganizationUnitId = _tenantId,
                 Description = "Test asset"
             };
@@ -76,11 +80,15 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
             await repo.AddAsync(asset);
             await context.SaveChangesAsync();
 
+
+
             // Assert - Use a new context to verify data was saved
             using var assertContext = GetInMemoryDbContext(dbName);
             var saved = await assertContext.Assets
                 .Where(a => a.Key == "key1")
                 .FirstOrDefaultAsync();
+
+
 
             Assert.NotNull(saved);
             Assert.Equal("val1", saved.Value);
@@ -95,11 +103,13 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
             var repo = new Repository<Asset>(context);
 
             // Act & Assert
+
 #pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type
             await Assert.ThrowsAsync<ArgumentNullException>(async () =>
                 await repo.AddAsync(null));
 #pragma warning restore CS8625
         }
+
 
         [Fact]
         public async Task GetByIdAsync_ExistingAsset_ReturnsAsset()
@@ -107,6 +117,7 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
             // Arrange
             var dbName = Guid.NewGuid().ToString();
             using var context = GetInMemoryDbContext(dbName);
+
 
             var assetId = Guid.NewGuid();
             var asset = new Asset
@@ -165,10 +176,12 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
             using var updateContext = GetInMemoryDbContext(dbName);
             var repo = new Repository<Asset>(updateContext);
 
+
             // Get the entity to update
             var assetToUpdate = await updateContext.Assets
                 .Where(a => a.Key == "key3")
                 .FirstAsync();
+
 
             // Modify and update
             assetToUpdate.Value = "updated";
@@ -181,9 +194,11 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
                 .Where(a => a.Key == "key3")
                 .FirstOrDefaultAsync();
 
+
             Assert.NotNull(updated);
             Assert.Equal("updated", updated.Value);
         }
+
 
         [Fact]
         public async Task Remove_ExistingAsset_RemovesFromDatabase()
@@ -432,6 +447,7 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
                 OrganizationUnitId = _tenantId
             };
 
+
             await context.AssetBotAgents.AddAsync(assetBotAgent);
             await context.SaveChangesAsync();
 
@@ -588,10 +604,12 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
             await updateContext.SaveChangesAsync();
 
             // Assert
+
             using var assertContext = GetInMemoryDbContext(dbName);
             var updatedAssets = await assertContext.Assets
                 .OrderBy(a => a.Key)
                 .ToListAsync();
+
 
             Assert.Equal(3, updatedAssets.Count);
             Assert.Equal("new1", updatedAssets[0].Value);
@@ -605,10 +623,13 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
             // Arrange
             var dbName = Guid.NewGuid().ToString();
 
+
+
             // Add data for the current tenant
             using (var context = GetInMemoryDbContext(dbName))
             {
                 await context.Assets.AddAsync(new Asset
+
                 {
                     Key = "tenant1",
                     Value = "val1",
@@ -617,12 +638,14 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
                 await context.SaveChangesAsync();
             }
 
+
             // Add data for a different tenant
             var otherTenantContext = new TestTenantContext { CurrentTenantId = _otherTenantId };
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: dbName)
                 .EnableSensitiveDataLogging()
                 .Options;
+
 
             using (var otherDbContext = new ApplicationDbContext(options, otherTenantContext))
             {
@@ -653,6 +676,8 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
             var dbName = Guid.NewGuid().ToString();
             using var context = GetInMemoryDbContext(dbName);
 
+
+
             await context.Assets.AddRangeAsync(new[]
             {
                 new Asset { Key = "key1", Value = "val1", OrganizationUnitId = _tenantId },
@@ -660,7 +685,9 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
                 new Asset { Key = "key3", Value = "val3", OrganizationUnitId = _tenantId }
             });
 
+
             await context.SaveChangesAsync();
+
 
             // Act
             using var queryContext = GetInMemoryDbContext(dbName);
