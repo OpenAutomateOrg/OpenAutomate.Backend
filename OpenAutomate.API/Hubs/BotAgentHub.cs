@@ -49,7 +49,22 @@ namespace OpenAutomate.API.Hubs
         public override async Task OnConnectedAsync()
         {
             var httpContext = Context.GetHttpContext();
+            
+            // Get machine key from query string or header (for Vercel compatibility)
             var machineKey = httpContext?.Request.Query["machineKey"].ToString();
+            
+            // If not in query string, try from header (set by JWT middleware for Vercel)
+            if (string.IsNullOrEmpty(machineKey) && httpContext?.Request.Headers.ContainsKey("X-MachineKey") == true)
+            {
+                machineKey = httpContext.Request.Headers["X-MachineKey"].ToString();
+            }
+
+            // Log connection attempt for debugging
+            _logger.LogDebug("SignalR connection attempt from {ConnectionId}", Context.ConnectionId);
+            if (httpContext != null)
+            {
+                _logger.LogDebug("Connection query string: {QueryString}", httpContext.Request.QueryString);
+            }
 
             // Tenant context is already set by the TenantResolutionMiddleware
             if (!_tenantContext.HasTenant)
@@ -79,6 +94,7 @@ namespace OpenAutomate.API.Hubs
                 // Update bot agent status
                 botAgent.Status = AgentStatus.Available;
                 botAgent.LastHeartbeat = DateTime.UtcNow;
+                botAgent.LastConnected = DateTime.UtcNow;
                 await _unitOfWork.CompleteAsync();
                 // Notify frontend clients about bot agent status change
                 await Clients.Group($"tenant-{_tenantContext.CurrentTenantId}").SendAsync("BotStatusUpdate", 
@@ -124,7 +140,14 @@ namespace OpenAutomate.API.Hubs
                     return;
                 }
                 
+                // Get machine key from query string or header (for Vercel compatibility)
                 var machineKey = httpContext.Request.Query["machineKey"].ToString();
+                
+                // If not in query string, try from header
+                if (string.IsNullOrEmpty(machineKey) && httpContext.Request.Headers.ContainsKey("X-MachineKey"))
+                {
+                    machineKey = httpContext.Request.Headers["X-MachineKey"].ToString();
+                }
                 
                 if (!string.IsNullOrEmpty(machineKey))
                 {
@@ -248,7 +271,14 @@ namespace OpenAutomate.API.Hubs
                 return null;
             }
             
+            // Get machine key from query string or header
             var machineKey = httpContext.Request.Query["machineKey"].ToString();
+            
+            // If not in query string, try from header
+            if (string.IsNullOrEmpty(machineKey) && httpContext.Request.Headers.ContainsKey("X-MachineKey"))
+            {
+                machineKey = httpContext.Request.Headers["X-MachineKey"].ToString();
+            }
             
             if (string.IsNullOrEmpty(machineKey))
                 return null;
