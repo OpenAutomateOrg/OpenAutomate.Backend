@@ -206,6 +206,17 @@ namespace OpenAutomate.API
                 
                 options.Events = new JwtBearerEvents
                 {
+                    OnMessageReceived = context =>
+                    {
+                        // Support SignalR: allow JWT via access_token query string for hub endpoints
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+                        if (!string.IsNullOrEmpty(accessToken) && path.Value != null && path.Value.Contains("/hubs/botagent"))
+                        {
+                            context.Token = accessToken;
+                        }
+                        return Task.CompletedTask;
+                    },
                     OnAuthenticationFailed = context =>
                     {
                         if (context.Exception.GetType() == typeof(SecurityTokenExpiredException))
@@ -302,7 +313,7 @@ namespace OpenAutomate.API
             // Map controller endpoints
             app.MapControllers();
 
-            // Map SignalR hub with tenant slug in the path
+            // Map SignalR hubs with tenant slug in the path
             app.MapHub<BotAgentHub>("/{tenant}/hubs/botagent");
         }
         
