@@ -167,7 +167,7 @@ namespace OpenAutomate.API.Controllers
                 
                 // EF Core global filters ensure the bot agent belongs to the current tenant
                 
-                if (botAgent.Status != "Online")
+                if (botAgent.Status != "Available" && botAgent.Status != "Busy")
                 {
                     _logger.LogWarning(LogMessages.OfflineBotAgent, id);
                     return BadRequest(new { error = "Bot agent is not online" });
