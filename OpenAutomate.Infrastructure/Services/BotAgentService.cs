@@ -21,6 +21,11 @@ namespace OpenAutomate.Infrastructure.Services
         private readonly ITenantContext _tenantContext;
         private readonly ILogger<BotAgentService> _logger;
         
+        // Status constants - should match the ones in Core.Constants.AgentStatus
+        private const string STATUS_AVAILABLE = "Available";
+        private const string STATUS_BUSY = "Busy";
+        private const string STATUS_DISCONNECTED = "Disconnected";
+        
         /// <summary>
         /// Initializes a new instance of the <see cref="BotAgentService"/> class
         /// </summary>
@@ -49,7 +54,7 @@ namespace OpenAutomate.Infrastructure.Services
                 Name = dto.Name,
                 MachineName = dto.MachineName,
                 MachineKey = machineKey,
-                Status = "Disconnected",
+                Status = STATUS_DISCONNECTED,
                 LastConnected = DateTime.UtcNow,
                 IsActive = true,
                 OrganizationUnitId = _tenantContext.CurrentTenantId
@@ -96,7 +101,7 @@ namespace OpenAutomate.Infrastructure.Services
             
             // Generate a new machine key
             botAgent.MachineKey = GenerateSecureMachineKey();
-            botAgent.Status = "Pending"; // Reset status as new key requires reconnection
+            botAgent.Status = STATUS_DISCONNECTED; // Reset status as new key requires reconnection
             
             _unitOfWork.BotAgents.Update(botAgent);
             await _unitOfWork.CompleteAsync();
@@ -117,7 +122,7 @@ namespace OpenAutomate.Infrastructure.Services
             }
             
             botAgent.IsActive = false;
-            botAgent.Status = "Deactivated";
+            botAgent.Status = STATUS_DISCONNECTED;
             
             _unitOfWork.BotAgents.Update(botAgent);
             await _unitOfWork.CompleteAsync();

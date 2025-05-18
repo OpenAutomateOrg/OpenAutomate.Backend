@@ -85,7 +85,7 @@ jobs:
           # Create a directory for the results
           mkdir -p ./TestResults
           
-          # Run Core tests first
+          # Run Core tests
           dotnet test OpenAutomate.Core.Tests/OpenAutomate.Core.Tests.csproj \
             --configuration Release \
             --no-build \
@@ -93,11 +93,66 @@ jobs:
             --results-directory:./TestResults \
             /p:CollectCoverage=true \
             /p:CoverletOutputFormat=opencover \
-            /p:CoverletOutput=./TestResults/coverage.opencover.xml
-            
-          # Copy the coverage file to use it for SonarQube
-          cp -f ./OpenAutomate.Core.Tests/TestResults/coverage.opencover.xml ./TestResults/ || true
+            /p:CoverletOutput=./TestResults/core.coverage.opencover.xml
+
+          # Run API tests
+          dotnet test OpenAutomate.API.Tests/OpenAutomate.API.Tests.csproj \
+            --configuration Release \
+            --no-build \
+            --logger:trx \
+            --results-directory:./TestResults \
+            /p:CollectCoverage=true \
+            /p:CoverletOutputFormat=opencover \
+            /p:CoverletOutput=./TestResults/api.coverage.opencover.xml
           
+          # Run Infrastructure tests
+          dotnet test OpenAutomate.Infrastructure.Tests/OpenAutomate.Infrastructure.Tests.csproj \
+            --configuration Release \
+            --no-build \
+            --logger:trx \
+            --results-directory:./TestResults \
+            /p:CollectCoverage=true \
+            /p:CoverletOutputFormat=opencover \
+            /p:CoverletOutput=./TestResults/infrastructure.coverage.opencover.xml
+          
+          # Check if coverage files were created
+          echo "Listing coverage files in TestResults directory:"
+          ls -la ./TestResults/*.opencover.xml || echo "No coverage files found in ./TestResults"
+          
+          # Check for coverage files in test project directories
+          echo "Looking for coverage files in test project directories:"
+          find . -name "*.opencover.xml" -type f
+          
+          # Copy coverage files if they're in project directories
+          if [ ! -f "./TestResults/core.coverage.opencover.xml" ] && [ -f "./OpenAutomate.Core.Tests/TestResults/core.coverage.opencover.xml" ]; then
+            cp ./OpenAutomate.Core.Tests/TestResults/core.coverage.opencover.xml ./TestResults/
+          fi
+          
+          if [ ! -f "./TestResults/api.coverage.opencover.xml" ] && [ -f "./OpenAutomate.API.Tests/TestResults/api.coverage.opencover.xml" ]; then
+            cp ./OpenAutomate.API.Tests/TestResults/api.coverage.opencover.xml ./TestResults/
+          fi
+          
+          if [ ! -f "./TestResults/infrastructure.coverage.opencover.xml" ] && [ -f "./OpenAutomate.Infrastructure.Tests/TestResults/infrastructure.coverage.opencover.xml" ]; then
+            cp ./OpenAutomate.Infrastructure.Tests/TestResults/infrastructure.coverage.opencover.xml ./TestResults/
+          fi
+          
+          # Install reportgenerator for merging reports
+          dotnet tool install -g dotnet-reportgenerator-globaltool || true
+          
+          # List files again after copying
+          echo "Files available for merging:"
+          ls -la ./TestResults/*.opencover.xml || echo "Still no coverage files found"
+          
+          # Merge all coverage reports into one
+          reportgenerator \
+            -reports:"./TestResults/*.coverage.opencover.xml" \
+            -targetdir:"./TestResults/CoverageReport" \
+            -reporttypes:Opencover \
+            -assemblyfilters:"+OpenAutomate.API;+OpenAutomate.Core;+OpenAutomate.Infrastructure"
+          
+          # Copy the merged report to the location SonarQube expects
+          cp -f ./TestResults/CoverageReport/Opencover.xml ./TestResults/coverage.opencover.xml || true
+            
       # List coverage files for debugging
       - name: List coverage files
         run: |
@@ -105,19 +160,24 @@ jobs:
           find . -name "*.opencover.xml" -type f
           echo "=== End of coverage files ==="
           
-      # Optional: Install ReportGenerator to create HTML coverage report
-      - name: Install ReportGenerator
-        run: dotnet tool install -g dotnet-reportgenerator-globaltool
-        
       # Generate HTML coverage report (only if coverage file exists)
       - name: Generate coverage report
         run: |
           if [ -f "./TestResults/coverage.opencover.xml" ]; then
-            reportgenerator -reports:./TestResults/coverage.opencover.xml -targetdir:./TestResults/CoverageReport -reporttypes:Html
+            reportgenerator -reports:./TestResults/coverage.opencover.xml -targetdir:./TestResults/CoverageReport/Html -reporttypes:Html
+          elif [ -f "./TestResults/CoverageReport/Opencover.xml" ]; then
+            reportgenerator -reports:./TestResults/CoverageReport/Opencover.xml -targetdir:./TestResults/CoverageReport/Html -reporttypes:Html
           else
-            echo "Coverage file not found, skipping report generation"
-            # Create empty directory to avoid upload failure
-            mkdir -p ./TestResults/CoverageReport
+            echo "Coverage file not found, searching for any coverage files to use"
+            COVERAGE_FILES=$(find . -name "*.opencover.xml" -type f | head -1)
+            if [ -n "$COVERAGE_FILES" ]; then
+              echo "Using found coverage file: $COVERAGE_FILES"
+              reportgenerator -reports:"$COVERAGE_FILES" -targetdir:./TestResults/CoverageReport/Html -reporttypes:Html
+            else
+              echo "No coverage files found anywhere, skipping report generation"
+              # Create empty directory to avoid upload failure
+              mkdir -p ./TestResults/CoverageReport/Html
+            fi
           fi
 
       # Upload HTML report as artifact
@@ -125,7 +185,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report-html
-          path: ./TestResults/CoverageReport
+          path: ./TestResults/CoverageReport/Html
           retention-days: 5
 
       # Step 10: End SonarQube analysis

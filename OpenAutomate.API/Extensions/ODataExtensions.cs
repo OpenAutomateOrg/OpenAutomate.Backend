@@ -1,5 +1,6 @@
 using Microsoft.OData.Edm;
 using Microsoft.OData.ModelBuilder;
+using OpenAutomate.Core.Dto.Asset;
 using OpenAutomate.Core.Dto.BotAgent;
 using OpenAutomate.Core.Dto.OrganizationUnit;
 using OpenAutomate.Core.Dto.UserDto;
@@ -22,6 +23,7 @@ namespace OpenAutomate.API.Extensions
             // Register entity sets based on DTOs
             builder.EntitySet<BotAgentResponseDto>("BotAgents");
             builder.EntitySet<UserResponse>("Users");
+            builder.EntitySet<AssetResponseDto>("Assets");
             
             return builder.GetEdmModel();
         }
