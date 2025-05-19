@@ -66,8 +66,8 @@ jobs:
             /d:sonar.login="$SONAR_TOKEN" \
             /d:sonar.cs.opencover.reportsPaths="./TestResults/coverage.opencover.xml,./TestResults/**/*.opencover.xml,**/TestResults/**/*.opencover.xml" \
             /d:sonar.cs.vstest.reportsPaths="./TestResults/**/*.trx" \
-            /d:sonar.coverage.exclusions="**/*Tests*.cs,**/obj/**/*,**/*.designer.cs,**/Migrations/**" \
-            /d:sonar.exclusions="**/bin/**/*,**/obj/**/*" \
+            /d:sonar.coverage.exclusions="**/*Tests*.cs,**/*.Tests/**,**/*Tests*/**,**/obj/**/*,**/*.designer.cs,**/Migrations/**" \
+            /d:sonar.exclusions="**/bin/**/*,**/obj/**/*,**/*.Tests/**/*,**/*Tests*/**/*" \
             /d:sonar.cpd.exclusions="**/Migrations/**/*" \
             /d:sonar.verbose=true
 
@@ -93,7 +93,9 @@ jobs:
             --results-directory:./TestResults \
             /p:CollectCoverage=true \
             /p:CoverletOutputFormat=opencover \
-            /p:CoverletOutput=./TestResults/
+            /p:CoverletOutput=./TestResults/ \
+            /p:Include="[OpenAutomate.Core]*" \
+            /p:Exclude="[*Tests*]*,[*Test*]*"
 
           # Run API tests
           dotnet test OpenAutomate.API.Tests/OpenAutomate.API.Tests.csproj \
@@ -104,6 +106,8 @@ jobs:
             /p:CollectCoverage=true \
             /p:CoverletOutputFormat=opencover \
             /p:CoverletOutput=./TestResults/ \
+            /p:Include="[OpenAutomate.API]*" \
+            /p:Exclude="[*Tests*]*,[*Test*]*" \
             /p:MergeWith="./TestResults/coverage.opencover.xml"
           
           # Run Infrastructure tests
@@ -115,6 +119,8 @@ jobs:
             /p:CollectCoverage=true \
             /p:CoverletOutputFormat=opencover \
             /p:CoverletOutput=./TestResults/ \
+            /p:Include="[OpenAutomate.Infrastructure]*" \
+            /p:Exclude="[*Tests*]*,[*Test*]*" \
             /p:MergeWith="./TestResults/coverage.opencover.xml"
           
           # Check if coverage files were created
@@ -134,7 +140,9 @@ jobs:
             reportgenerator \
               -reports:"./TestResults/*.opencover.xml" \
               -targetdir:"./TestResults/CoverageReport" \
-              -reporttypes:Opencover
+              -reporttypes:Opencover \
+              -assemblyfilters:"+OpenAutomate.API;+OpenAutomate.Core;+OpenAutomate.Infrastructure;-*.Tests;-*Test*" \
+              -classfilters:"-*Test*;-*Tests*"
             
             # Copy the merged report to the expected location
             cp -f ./TestResults/CoverageReport/Opencover.xml ./TestResults/coverage.opencover.xml || true
@@ -160,11 +168,19 @@ jobs:
           # Look for the main coverage file first
           if [ -f "./TestResults/coverage.opencover.xml" ]; then
             echo "Using main coverage file: ./TestResults/coverage.opencover.xml"
-            reportgenerator -reports:./TestResults/coverage.opencover.xml -targetdir:./TestResults/CoverageReport/Html -reporttypes:Html
+            reportgenerator -reports:./TestResults/coverage.opencover.xml \
+              -targetdir:./TestResults/CoverageReport/Html \
+              -reporttypes:Html \
+              -assemblyfilters:"+OpenAutomate.API;+OpenAutomate.Core;+OpenAutomate.Infrastructure;-*.Tests;-*Test*" \
+              -classfilters:"-*Test*;-*Tests*"
           # Then check for the merged coverage file
           elif [ -f "./TestResults/CoverageReport/Opencover.xml" ]; then
             echo "Using merged coverage file: ./TestResults/CoverageReport/Opencover.xml"
-            reportgenerator -reports:./TestResults/CoverageReport/Opencover.xml -targetdir:./TestResults/CoverageReport/Html -reporttypes:Html
+            reportgenerator -reports:./TestResults/CoverageReport/Opencover.xml \
+              -targetdir:./TestResults/CoverageReport/Html \
+              -reporttypes:Html \
+              -assemblyfilters:"+OpenAutomate.API;+OpenAutomate.Core;+OpenAutomate.Infrastructure;-*.Tests;-*Test*" \
+              -classfilters:"-*Test*;-*Tests*"
           # If neither exists, find any available coverage file
           else
             echo "No primary coverage files found, searching for any coverage files"
@@ -173,7 +189,11 @@ jobs:
               echo "Using found coverage file: $COVERAGE_FILES"
               # Copy this file to the expected location for SonarQube
               cp "$COVERAGE_FILES" ./TestResults/coverage.opencover.xml
-              reportgenerator -reports:"$COVERAGE_FILES" -targetdir:./TestResults/CoverageReport/Html -reporttypes:Html
+              reportgenerator -reports:"$COVERAGE_FILES" \
+                -targetdir:./TestResults/CoverageReport/Html \
+                -reporttypes:Html \
+                -assemblyfilters:"+OpenAutomate.API;+OpenAutomate.Core;+OpenAutomate.Infrastructure;-*.Tests;-*Test*" \
+                -classfilters:"-*Test*;-*Tests*"
             else
               echo "No coverage files found anywhere, skipping report generation"
               # Create empty directory to avoid upload failure
