@@ -174,6 +174,51 @@ namespace OpenAutomate.Infrastructure.Services
 </body>
 </html>";
         }
+
+        public async Task<string> GetResetPasswordEmailTemplateAsync(string userName, string resetLink, int tokenValidityHours)
+        {
+            return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='UTF-8'>
+    <title>Reset Your Password</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ text-align: center; margin-bottom: 30px; }}
+        .logo {{ max-width: 150px; height: auto; }}
+        .button {{ display: inline-block; background-color: #3498db; color: white; text-decoration: none; padding: 12px 24px; border-radius: 4px; font-weight: bold; }}
+        .footer {{ margin-top: 40px; font-size: 12px; color: #999; text-align: center; }}
+    </style>
+</head>
+<body>
+    <div class='header'>
+        <img src='{_configuration["AppUrl"]}/logo.png' alt='OpenAutomate Logo' class='logo'>
+        <h1>Reset Your Password</h1>
+    </div>
+    
+    <p>Hello {userName},</p>
+    
+    <p>We received a request to reset your password for your OpenAutomate account. To reset your password, please click the button below:</p>
+    
+    <p style='text-align: center; margin: 30px 0;'>
+        <a href='{resetLink}' class='button'>Reset My Password</a>
+    </p>
+    
+    <p>This password reset link will expire in {tokenValidityHours} hours.</p>
+    
+    <p>If you did not request a password reset, please ignore this email or contact support if you have concerns about your account security.</p>
+    
+    <p>If you're having trouble clicking the button, copy and paste the URL below into your web browser:</p>
+    <p style='word-break: break-all;'>{resetLink}</p>
+    
+    <div class='footer'>
+        <p>&copy; {DateTime.UtcNow.Year} OpenAutomate. All rights reserved.</p>
+        <p>This is an automated message, please do not reply to this email.</p>
+    </div>
+</body>
+</html>";
+        }
     }
 }
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously 

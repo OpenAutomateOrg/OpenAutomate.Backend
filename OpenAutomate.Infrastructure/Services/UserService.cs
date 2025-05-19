@@ -20,17 +20,20 @@ namespace OpenAutomate.Infrastructure.Services
         private readonly ITokenService _tokenService;
         private readonly ILogger<UserService> _logger;
         private readonly INotificationService _notificationService;
+        private readonly IConfiguration _configuration;
 
         public UserService(
             IUnitOfWork unitOfWork,
             ITokenService tokenService,
             INotificationService notificationService,
-            ILogger<UserService> logger)
+            ILogger<UserService> logger,
+            IConfiguration configuration)
         {
             _unitOfWork = unitOfWork;
             _tokenService = tokenService;
             _notificationService = notificationService;
             _logger = logger;
+            _configuration = configuration;
         }
 
         public async Task<AuthenticationResponse> AuthenticateAsync(AuthenticationRequest request, string ipAddress)
@@ -312,6 +315,83 @@ namespace OpenAutomate.Infrastructure.Services
             await _unitOfWork.CompleteAsync();
             _logger.LogInformation("Password changed for user: {UserId}", userId);
             return true;
+        }
+
+        public async Task<bool> ForgotPasswordAsync(string email)
+        {
+            try
+            {
+                _logger.LogInformation("Processing forgot password request for email: {Email}", email);
+                
+                // Find user by email
+                var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+                if (user == null)
+                {
+                    // Do not reveal that email doesn't exist (security best practice)
+                    _logger.LogWarning("Forgot password request for non-existent email: {Email}", email);
+                    return true;
+                }
+                
+                // Generate a new verification token using the same token service/entity as email verification
+                var token = await _tokenService.GenerateEmailVerificationTokenAsync(user.Id);
+                
+                // Create the reset password link
+                var baseUrl = _configuration["FrontendUrl"];
+                var resetLink = $"{baseUrl}/reset-password?email={user.Email}&token={token}";
+                
+                // Send reset password email using the notification service
+                await _notificationService.SendResetPasswordEmailAsync(user.Email, resetLink);
+                
+                _logger.LogInformation("Reset password email sent successfully to: {Email}", email);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing forgot password request for {Email}: {Message}", email, ex.Message);
+                return false;
+            }
+        }
+        
+        public async Task<bool> ResetPasswordAsync(string email, string token, string newPassword)
+        {
+            try
+            {
+                _logger.LogInformation("Processing password reset for email: {Email}", email);
+                
+                // Find user by email
+                var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+                if (user == null)
+                {
+                    _logger.LogWarning("Password reset attempt for non-existent email: {Email}", email);
+                    return false;
+                }
+                
+                // Find the token and validate it using token service
+                var userId = await _tokenService.ValidateEmailVerificationTokenAsync(token);
+                if (userId == null || userId != user.Id)
+                {
+                    _logger.LogWarning("Invalid or expired token used for password reset. Email: {Email}", email);
+                    return false;
+                }
+                
+                // Create new password hash
+                CreatePasswordHash(newPassword, out string passwordHash, out string passwordSalt);
+                
+                // Update user's password
+                user.PasswordHash = passwordHash;
+                user.PasswordSalt = passwordSalt;
+                
+                _unitOfWork.Users.Update(user);
+                await _unitOfWork.CompleteAsync();
+                
+                _logger.LogInformation("Password reset successful for user: {Email}", email);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing password reset for {Email}: {Message}", email, ex.Message);
+                return false;
+            }
         }
     }
 } 

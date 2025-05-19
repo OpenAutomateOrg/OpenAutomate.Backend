@@ -131,5 +131,37 @@ namespace OpenAutomate.Infrastructure.Services
                 throw;
             }
         }
+
+        public async Task SendResetPasswordEmailAsync(string email, string resetLink)
+        {
+            try
+            {
+                // Find user by email to get their name
+                var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+                
+                if (user == null)
+                {
+                    _logger.LogWarning("Failed to send reset password email: User not found with email {Email}", email);
+                    throw new Exception($"User not found with email {email}");
+                }
+                
+                string name = $"{user.FirstName} {user.LastName}";
+                
+                // Get email template
+                var emailContent = await _emailTemplateService.GetResetPasswordEmailTemplateAsync(
+                    name, resetLink, 1); // 1 hour validity
+                
+                // Send email
+                string subject = "Reset Your Password - OpenAutomate";
+                await _emailService.SendEmailAsync(email, subject, emailContent);
+                
+                _logger.LogInformation("Reset password email sent to: {Email}", email);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send reset password email to: {Email}", email);
+                throw;
+            }
+        }
     }
 } 
