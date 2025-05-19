@@ -64,7 +64,7 @@ jobs:
             /n:"$SONAR_PROJECT_NAME" \
             /d:sonar.host.url="$SONAR_HOST_URL" \
             /d:sonar.login="$SONAR_TOKEN" \
-            /d:sonar.cs.opencover.reportsPaths="./TestResults/*.opencover.xml,**/TestResults/**/*.opencover.xml" \
+            /d:sonar.cs.opencover.reportsPaths="./TestResults/*.opencover.xml,**/*.opencover.xml" \
             /d:sonar.cs.vstest.reportsPaths="./TestResults/**/*.trx" \
             /d:sonar.coverage.exclusions="**/*Tests*.cs,**/*.Tests/**,**/*Tests*/**,**/obj/**/*,**/*.designer.cs,**/Migrations/**" \
             /d:sonar.exclusions="**/bin/**/*,**/obj/**/*,**/*.Tests/**/*,**/*Tests*/**/*" \
@@ -123,16 +123,16 @@ jobs:
           echo "Copying coverage files from test project directories to TestResults"
           mkdir -p ./TestResults
           
-          if [ -f "./OpenAutomate.Core.Tests/TestResults/coverage.opencover.xml" ]; then
-            cp ./OpenAutomate.Core.Tests/TestResults/coverage.opencover.xml ./TestResults/core.coverage.opencover.xml
+          if [ -f "./OpenAutomate.Core.Tests/coverage.opencover.xml" ]; then
+            cp ./OpenAutomate.Core.Tests/coverage.opencover.xml ./TestResults/core.coverage.opencover.xml
           fi
           
-          if [ -f "./OpenAutomate.API.Tests/TestResults/api.coverage.opencover.xml" ]; then
-            cp ./OpenAutomate.API.Tests/TestResults/api.coverage.opencover.xml ./TestResults/api.coverage.opencover.xml
+          if [ -f "./OpenAutomate.API.Tests/coverage.opencover.xml" ]; then
+            cp ./OpenAutomate.API.Tests/coverage.opencover.xml ./TestResults/api.coverage.opencover.xml
           fi
           
-          if [ -f "./OpenAutomate.Infrastructure.Tests/TestResults/infrastructure.coverage.opencover.xml" ]; then
-            cp ./OpenAutomate.Infrastructure.Tests/TestResults/infrastructure.coverage.opencover.xml ./TestResults/infrastructure.coverage.opencover.xml
+          if [ -f "./OpenAutomate.Infrastructure.Tests/coverage.opencover.xml" ]; then
+            cp ./OpenAutomate.Infrastructure.Tests/coverage.opencover.xml ./TestResults/infrastructure.coverage.opencover.xml
           fi
           
           # List files in TestResults directory after copying
@@ -161,7 +161,10 @@ jobs:
       - name: List coverage files
         run: |
           echo "=== Checking coverage files ==="
-          find . -name "*.opencover.xml" -type f
+          echo "In TestResults directory:"
+          find ./TestResults -name "*.opencover.xml" -type f || echo "No coverage files in TestResults"
+          echo "In test project directories:"
+          find ./OpenAutomate.*.Tests -name "*.opencover.xml" -type f || echo "No coverage files in test projects"
           echo "=== End of coverage files ==="
           
       # Generate HTML coverage report (only if coverage file exists)
@@ -205,13 +208,14 @@ jobs:
             cp "./TestResults/CoverageReport/Opencover.xml" "./TestResults/coverage.opencover.xml"
           else
             echo "Looking for any coverage files to use"
+            # First check TestResults directory
             COVERAGE_FILES=$(find ./TestResults -name "*.opencover.xml" | head -1)
             if [ -n "$COVERAGE_FILES" ]; then
               echo "Using coverage file: $COVERAGE_FILES"
               cp "$COVERAGE_FILES" "./TestResults/coverage.opencover.xml"
             else
-              echo "Looking in test project directories"
-              COVERAGE_FILES=$(find . -name "*.opencover.xml" | head -1)
+              # Then check test project root directories
+              COVERAGE_FILES=$(find ./OpenAutomate.*.Tests -name "*.opencover.xml" | head -1)
               if [ -n "$COVERAGE_FILES" ]; then
                 echo "Found coverage file in project directory: $COVERAGE_FILES"
                 cp "$COVERAGE_FILES" "./TestResults/coverage.opencover.xml"
