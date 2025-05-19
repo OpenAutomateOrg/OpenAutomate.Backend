@@ -64,8 +64,8 @@ jobs:
             /n:"$SONAR_PROJECT_NAME" \
             /d:sonar.host.url="$SONAR_HOST_URL" \
             /d:sonar.login="$SONAR_TOKEN" \
-            /d:sonar.cs.opencover.reportsPaths="./TestResults/coverage.opencover.xml,**/TestResults/coverage.opencover.xml" \
-            /d:sonar.cs.vstest.reportsPaths="./TestResults/*.trx" \
+            /d:sonar.cs.opencover.reportsPaths="./TestResults/coverage.opencover.xml,./TestResults/**/*.opencover.xml,**/TestResults/**/*.opencover.xml" \
+            /d:sonar.cs.vstest.reportsPaths="./TestResults/**/*.trx" \
             /d:sonar.coverage.exclusions="**/*Tests*.cs,**/obj/**/*,**/*.designer.cs,**/Migrations/**" \
             /d:sonar.exclusions="**/bin/**/*,**/obj/**/*" \
             /d:sonar.cpd.exclusions="**/Migrations/**/*" \
@@ -93,7 +93,7 @@ jobs:
             --results-directory:./TestResults \
             /p:CollectCoverage=true \
             /p:CoverletOutputFormat=opencover \
-            /p:CoverletOutput=./TestResults/core.coverage.opencover.xml
+            /p:CoverletOutput=./TestResults/
 
           # Run API tests
           dotnet test OpenAutomate.API.Tests/OpenAutomate.API.Tests.csproj \
@@ -103,7 +103,8 @@ jobs:
             --results-directory:./TestResults \
             /p:CollectCoverage=true \
             /p:CoverletOutputFormat=opencover \
-            /p:CoverletOutput=./TestResults/api.coverage.opencover.xml
+            /p:CoverletOutput=./TestResults/ \
+            /p:MergeWith="./TestResults/coverage.opencover.xml"
           
           # Run Infrastructure tests
           dotnet test OpenAutomate.Infrastructure.Tests/OpenAutomate.Infrastructure.Tests.csproj \
@@ -113,46 +114,39 @@ jobs:
             --results-directory:./TestResults \
             /p:CollectCoverage=true \
             /p:CoverletOutputFormat=opencover \
-            /p:CoverletOutput=./TestResults/infrastructure.coverage.opencover.xml
+            /p:CoverletOutput=./TestResults/ \
+            /p:MergeWith="./TestResults/coverage.opencover.xml"
           
           # Check if coverage files were created
           echo "Listing coverage files in TestResults directory:"
-          ls -la ./TestResults/*.opencover.xml || echo "No coverage files found in ./TestResults"
+          ls -la ./TestResults/coverage*.xml || echo "No coverage files found in ./TestResults"
           
           # Check for coverage files in test project directories
           echo "Looking for coverage files in test project directories:"
           find . -name "*.opencover.xml" -type f
           
-          # Copy coverage files if they're in project directories
-          if [ ! -f "./TestResults/core.coverage.opencover.xml" ] && [ -f "./OpenAutomate.Core.Tests/TestResults/core.coverage.opencover.xml" ]; then
-            cp ./OpenAutomate.Core.Tests/TestResults/core.coverage.opencover.xml ./TestResults/
-          fi
-          
-          if [ ! -f "./TestResults/api.coverage.opencover.xml" ] && [ -f "./OpenAutomate.API.Tests/TestResults/api.coverage.opencover.xml" ]; then
-            cp ./OpenAutomate.API.Tests/TestResults/api.coverage.opencover.xml ./TestResults/
-          fi
-          
-          if [ ! -f "./TestResults/infrastructure.coverage.opencover.xml" ] && [ -f "./OpenAutomate.Infrastructure.Tests/TestResults/infrastructure.coverage.opencover.xml" ]; then
-            cp ./OpenAutomate.Infrastructure.Tests/TestResults/infrastructure.coverage.opencover.xml ./TestResults/
-          fi
-          
           # Install reportgenerator for merging reports
           dotnet tool install -g dotnet-reportgenerator-globaltool || true
           
-          # List files again after copying
-          echo "Files available for merging:"
-          ls -la ./TestResults/*.opencover.xml || echo "Still no coverage files found"
-          
-          # Merge all coverage reports into one
-          reportgenerator \
-            -reports:"./TestResults/*.coverage.opencover.xml" \
-            -targetdir:"./TestResults/CoverageReport" \
-            -reporttypes:Opencover \
-            -assemblyfilters:"+OpenAutomate.API;+OpenAutomate.Core;+OpenAutomate.Infrastructure"
-          
-          # Copy the merged report to the location SonarQube expects
-          cp -f ./TestResults/CoverageReport/Opencover.xml ./TestResults/coverage.opencover.xml || true
+          # Merge all coverage reports into one if multiple files exist
+          if [ $(find ./TestResults -name "*.opencover.xml" | wc -l) -gt 1 ]; then
+            echo "Multiple coverage files found, merging them"
+            reportgenerator \
+              -reports:"./TestResults/*.opencover.xml" \
+              -targetdir:"./TestResults/CoverageReport" \
+              -reporttypes:Opencover
             
+            # Copy the merged report to the expected location
+            cp -f ./TestResults/CoverageReport/Opencover.xml ./TestResults/coverage.opencover.xml || true
+          elif [ $(find ./TestResults -name "*.opencover.xml" | wc -l) -eq 1 ]; then
+            # If only one file exists, copy it to the expected location
+            COVERAGE_FILE=$(find ./TestResults -name "*.opencover.xml" | head -1)
+            echo "Single coverage file found: $COVERAGE_FILE"
+            cp -f "$COVERAGE_FILE" ./TestResults/coverage.opencover.xml
+          else
+            echo "No coverage files found in TestResults directory!"
+          fi
+
       # List coverage files for debugging
       - name: List coverage files
         run: |
@@ -163,21 +157,34 @@ jobs:
       # Generate HTML coverage report (only if coverage file exists)
       - name: Generate coverage report
         run: |
+          # Look for the main coverage file first
           if [ -f "./TestResults/coverage.opencover.xml" ]; then
+            echo "Using main coverage file: ./TestResults/coverage.opencover.xml"
             reportgenerator -reports:./TestResults/coverage.opencover.xml -targetdir:./TestResults/CoverageReport/Html -reporttypes:Html
+          # Then check for the merged coverage file
           elif [ -f "./TestResults/CoverageReport/Opencover.xml" ]; then
+            echo "Using merged coverage file: ./TestResults/CoverageReport/Opencover.xml"
             reportgenerator -reports:./TestResults/CoverageReport/Opencover.xml -targetdir:./TestResults/CoverageReport/Html -reporttypes:Html
+          # If neither exists, find any available coverage file
           else
-            echo "Coverage file not found, searching for any coverage files to use"
+            echo "No primary coverage files found, searching for any coverage files"
             COVERAGE_FILES=$(find . -name "*.opencover.xml" -type f | head -1)
             if [ -n "$COVERAGE_FILES" ]; then
               echo "Using found coverage file: $COVERAGE_FILES"
+              # Copy this file to the expected location for SonarQube
+              cp "$COVERAGE_FILES" ./TestResults/coverage.opencover.xml
               reportgenerator -reports:"$COVERAGE_FILES" -targetdir:./TestResults/CoverageReport/Html -reporttypes:Html
             else
               echo "No coverage files found anywhere, skipping report generation"
               # Create empty directory to avoid upload failure
               mkdir -p ./TestResults/CoverageReport/Html
             fi
+          fi
+          
+          # Debug: Display coverage file contents to verify it's valid XML
+          if [ -f "./TestResults/coverage.opencover.xml" ]; then
+            echo "Validating coverage file format:"
+            head -n 20 "./TestResults/coverage.opencover.xml"
           fi
 
       # Upload HTML report as artifact
@@ -190,6 +197,23 @@ jobs:
 
       # Step 10: End SonarQube analysis
       - name: End SonarQube analysis
-        run: dotnet sonarscanner end /d:sonar.login="$SONAR_TOKEN"
+        run: |
+          # Make sure coverage file is where SonarQube expects it
+          if [ -f "./TestResults/coverage.opencover.xml" ]; then
+            echo "Coverage file found at expected location"
+          else
+            echo "Looking for coverage files to copy to the expected location"
+            COVERAGE_FILE=$(find . -name "*.opencover.xml" -type f | head -1)
+            if [ -n "$COVERAGE_FILE" ]; then
+              echo "Copying $COVERAGE_FILE to ./TestResults/coverage.opencover.xml"
+              mkdir -p ./TestResults
+              cp "$COVERAGE_FILE" ./TestResults/coverage.opencover.xml
+            else
+              echo "WARNING: No coverage files found"
+            fi
+          fi
+          
+          # End SonarQube analysis
+          dotnet sonarscanner end /d:sonar.login="$SONAR_TOKEN"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed for PR decoration
