@@ -121,6 +121,16 @@ namespace OpenAutomate.API
                 
                 // Reduce streaming buffer capacity for more efficient memory usage
                 options.StreamBufferCapacity = 8;
+
+                // Add enhanced logging for connections
+                if (builder.Environment.IsDevelopment())
+                {
+                    options.HandshakeTimeout = TimeSpan.FromSeconds(30);
+                }
+            })
+            // Add diagnostics to help debug connection issues
+            .AddJsonProtocol(options => {
+                options.PayloadSerializerOptions.PropertyNamingPolicy = null;
             });
         }
         
@@ -210,11 +220,25 @@ namespace OpenAutomate.API
                     {
                         // Support SignalR: allow JWT via access_token query string for hub endpoints
                         var accessToken = context.Request.Query["access_token"];
+                        var machineKey = context.Request.Query["machineKey"];
                         var path = context.HttpContext.Request.Path;
-                        if (!string.IsNullOrEmpty(accessToken) && path.Value != null && path.Value.Contains("/hubs/botagent"))
+                        
+                        // Check if it's a SignalR hub request
+                        if (path.Value != null && path.Value.Contains("/hubs/botagent"))
                         {
-                            context.Token = accessToken;
+                            // If access_token is provided, use it for JWT auth
+                            if (!string.IsNullOrEmpty(accessToken))
+                            {
+                                context.Token = accessToken;
+                            }
+                            
+                            // If machineKey is provided, flag it for Hub to handle auth
+                            if (!string.IsNullOrEmpty(machineKey))
+                            {
+                                context.HttpContext.Request.Headers["X-MachineKey"] = machineKey;
+                            }
                         }
+                        
                         return Task.CompletedTask;
                     },
                     OnAuthenticationFailed = context =>
@@ -223,6 +247,7 @@ namespace OpenAutomate.API
                         {
                             context.Response.Headers.Add("Token-Expired", "true");
                         }
+                        
                         return Task.CompletedTask;
                     }
                 };
@@ -314,6 +339,7 @@ namespace OpenAutomate.API
             app.MapControllers();
 
             // Map SignalR hubs with tenant slug in the path
+            // Configure to support both JWT and machine key auth
             app.MapHub<BotAgentHub>("/{tenant}/hubs/botagent");
         }
         
