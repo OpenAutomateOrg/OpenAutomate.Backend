@@ -44,21 +44,52 @@ namespace OpenAutomate.API.Hubs
         }
         
         /// <summary>
+        /// Extracts the machine key from various possible sources in the request
+        /// </summary>
+        private string GetMachineKeyFromRequest()
+        {
+            var httpContext = Context.GetHttpContext();
+            if (httpContext == null)
+            {
+                return string.Empty;
+            }
+            
+            // Try from query string first (primary method)
+            var machineKey = httpContext.Request.Query["machineKey"].ToString();
+            if (!string.IsNullOrEmpty(machineKey))
+            {
+                return machineKey;
+            }
+            
+            // Try custom header (used by our agent)
+            if (httpContext.Request.Headers.ContainsKey("X-Machine-Key"))
+            {
+                return httpContext.Request.Headers["X-Machine-Key"].ToString();
+            }
+            
+            // Try Authorization header (could be a token containing the machine key)
+            if (httpContext.Request.Headers.ContainsKey("Authorization"))
+            {
+                var auth = httpContext.Request.Headers["Authorization"].ToString();
+                if (!string.IsNullOrEmpty(auth) && auth.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    return auth.Substring("Bearer ".Length).Trim();
+                }
+            }
+            
+            return string.Empty;
+        }
+        
+        /// <summary>
         /// Handles connection of a bot agent
         /// </summary>
         public override async Task OnConnectedAsync()
         {
             var httpContext = Context.GetHttpContext();
             
-            // Get machine key from query string or header (for Vercel compatibility)
-            var machineKey = httpContext?.Request.Query["machineKey"].ToString();
+            // Get machine key from any available source
+            var machineKey = GetMachineKeyFromRequest();
             
-            // If not in query string, try from header (set by JWT middleware for Vercel)
-            if (string.IsNullOrEmpty(machineKey) && httpContext?.Request.Headers.ContainsKey("X-MachineKey") == true)
-            {
-                machineKey = httpContext.Request.Headers["X-MachineKey"].ToString();
-            }
-
             // Log connection attempt for debugging
             _logger.LogDebug("SignalR connection attempt from {ConnectionId}", Context.ConnectionId);
             if (httpContext != null)
@@ -133,21 +164,8 @@ namespace OpenAutomate.API.Hubs
         {
             try
             {
-                var httpContext = Context.GetHttpContext();
-                if (httpContext == null)
-                {
-                    _logger.LogWarning(LogMessages.QueryNullReference);
-                    return;
-                }
-                
-                // Get machine key from query string or header (for Vercel compatibility)
-                var machineKey = httpContext.Request.Query["machineKey"].ToString();
-                
-                // If not in query string, try from header
-                if (string.IsNullOrEmpty(machineKey) && httpContext.Request.Headers.ContainsKey("X-MachineKey"))
-                {
-                    machineKey = httpContext.Request.Headers["X-MachineKey"].ToString();
-                }
+                // Get machine key from any available source
+                var machineKey = GetMachineKeyFromRequest();
                 
                 if (!string.IsNullOrEmpty(machineKey))
                 {
@@ -264,21 +282,8 @@ namespace OpenAutomate.API.Hubs
         /// <returns>The bot agent or null if not found</returns>
         private async Task<BotAgent?> GetBotAgentFromContext()
         {
-            var httpContext = Context.GetHttpContext();
-            if (httpContext == null)
-            {
-                _logger.LogWarning(LogMessages.QueryNullReference);
-                return null;
-            }
-            
-            // Get machine key from query string or header
-            var machineKey = httpContext.Request.Query["machineKey"].ToString();
-            
-            // If not in query string, try from header
-            if (string.IsNullOrEmpty(machineKey) && httpContext.Request.Headers.ContainsKey("X-MachineKey"))
-            {
-                machineKey = httpContext.Request.Headers["X-MachineKey"].ToString();
-            }
+            // Get machine key from any available source
+            var machineKey = GetMachineKeyFromRequest();
             
             if (string.IsNullOrEmpty(machineKey))
                 return null;
