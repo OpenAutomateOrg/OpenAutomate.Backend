@@ -50,20 +50,13 @@ namespace OpenAutomate.API.Hubs
         {
             var httpContext = Context.GetHttpContext();
             
-            // Get machine key from query string or header (for Vercel compatibility)
+            // Get machine key from query string or header
             var machineKey = httpContext?.Request.Query["machineKey"].ToString();
             
-            // If not in query string, try from header (set by JWT middleware for Vercel)
+            // If not in query string, try from header
             if (string.IsNullOrEmpty(machineKey) && httpContext?.Request.Headers.ContainsKey("X-MachineKey") == true)
             {
                 machineKey = httpContext.Request.Headers["X-MachineKey"].ToString();
-            }
-
-            // Log connection attempt for debugging
-            _logger.LogDebug("SignalR connection attempt from {ConnectionId}", Context.ConnectionId);
-            if (httpContext != null)
-            {
-                _logger.LogDebug("Connection query string: {QueryString}", httpContext.Request.QueryString);
             }
 
             // Tenant context is already set by the TenantResolutionMiddleware
@@ -140,7 +133,7 @@ namespace OpenAutomate.API.Hubs
                     return;
                 }
                 
-                // Get machine key from query string or header (for Vercel compatibility)
+                // Get machine key from query string or header
                 var machineKey = httpContext.Request.Query["machineKey"].ToString();
                 
                 // If not in query string, try from header
@@ -172,13 +165,6 @@ namespace OpenAutomate.API.Hubs
                             });
                             
                         _logger.LogInformation(LogMessages.BotAgentDisconnected, botAgent.Name, botAgent.Id);
-                        
-                        // Log the exception if present
-                        if (exception != null)
-                        {
-                            _logger.LogWarning(exception, "Bot agent disconnected with exception: {BotAgentName} ({BotAgentId})", 
-                                botAgent.Name, botAgent.Id);
-                        }
                     }
                 }
                 
@@ -187,7 +173,6 @@ namespace OpenAutomate.API.Hubs
             catch (Exception ex)
             {
                 _logger.LogError(ex, LogMessages.DisconnectionError, ex.Message);
-                // Still call the base method to ensure proper cleanup
                 await base.OnDisconnectedAsync(exception);
             }
         }
@@ -224,7 +209,6 @@ namespace OpenAutomate.API.Hubs
             await Clients.Group($"tenant-{_tenantContext.CurrentTenantId}").SendAsync(
                 "BotStatusUpdate", updateData);
                 
-            // Cast dynamic botAgent to avoid extension method issues
             string botAgentName = botAgent.Name?.ToString() ?? "Unknown";
             _logger.LogDebug(LogMessages.BotStatusUpdate, botAgentName, status);
         }
@@ -241,7 +225,6 @@ namespace OpenAutomate.API.Hubs
             botAgent.LastHeartbeat = DateTime.UtcNow;
             await _unitOfWork.CompleteAsync();
             
-            // Log at trace level to avoid excessive logging
             string botAgentName = botAgent.Name?.ToString() ?? "Unknown";
             _logger.LogTrace(LogMessages.KeepAliveReceived, botAgentName, botAgent.Id);
         }
