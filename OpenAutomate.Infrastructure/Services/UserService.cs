@@ -332,12 +332,12 @@ namespace OpenAutomate.Infrastructure.Services
                     return true;
                 }
                 
-                // Generate a new verification token using the same token service/entity as email verification
-                var token = await _tokenService.GenerateEmailVerificationTokenAsync(user.Id);
+                // Generate a dedicated password reset token
+                var token = await _tokenService.GeneratePasswordResetTokenAsync(user.Id);
                 
-                // Create the reset password link
+                // Create the reset password link - include email in URL for frontend compatibility
                 var baseUrl = _configuration["FrontendUrl"];
-                var resetLink = $"{baseUrl}/reset-password?email={user.Email}&token={token}";
+                var resetLink = $"{baseUrl}/reset-password?email={Uri.EscapeDataString(user.Email)}&token={token}";
                 
                 // Send reset password email using the notification service
                 await _notificationService.SendResetPasswordEmailAsync(user.Email, resetLink);
@@ -366,8 +366,8 @@ namespace OpenAutomate.Infrastructure.Services
                     return false;
                 }
                 
-                // Find the token and validate it using token service
-                var userId = await _tokenService.ValidateEmailVerificationTokenAsync(token);
+                // Find the token and validate it using dedicated password reset token service
+                var userId = await _tokenService.ValidatePasswordResetTokenAsync(token);
                 if (userId == null || userId != user.Id)
                 {
                     _logger.LogWarning("Invalid or expired token used for password reset. Email: {Email}", email);

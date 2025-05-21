@@ -419,5 +419,105 @@ namespace OpenAutomate.Infrastructure.Services
                 return null;
             }
         }
+
+        public async Task<string> GeneratePasswordResetTokenAsync(Guid userId)
+        {
+            try
+            {
+                // Check if user exists
+                var user = await _unitOfWork.Users.GetByIdAsync(userId);
+                if (user == null)
+                {
+                    throw new AuthenticationException($"User with ID {userId} not found");
+                }
+
+                // Remove any existing password reset tokens for this user
+                var existingTokens = await _unitOfWork.PasswordResetTokens
+                    .GetAllAsync(t => t.UserId == userId && !t.IsUsed);
+
+                foreach (var token in existingTokens)
+                {
+                    _unitOfWork.PasswordResetTokens.Remove(token);
+                }
+                await _unitOfWork.CompleteAsync();
+
+                // Generate a new token
+                using var rng = RandomNumberGenerator.Create();
+                var randomBytes = new byte[32];
+                rng.GetBytes(randomBytes);
+                var tokenString = Convert.ToBase64String(randomBytes)
+                    .Replace("/", "_")
+                    .Replace("+", "-")
+                    .Replace("=", "");
+
+                // Create token entity
+                var resetToken = new PasswordResetToken
+                {
+                    UserId = userId,
+                    Token = tokenString,
+                    ExpiresAt = DateTime.UtcNow.AddHours(4), // 4 hour expiration
+                    IsUsed = false
+                };
+
+                // Save to database
+                await _unitOfWork.PasswordResetTokens.AddAsync(resetToken);
+                await _unitOfWork.CompleteAsync();
+
+                return tokenString;
+            }
+            catch (OpenAutomateException)
+            {
+                // Rethrow custom exceptions
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating password reset token: {Message}", ex.Message);
+                throw new ServiceException($"Error generating password reset token: {ex.Message}", ex);
+            }
+        }
+
+        public async Task<Guid?> ValidatePasswordResetTokenAsync(string token)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(token))
+                    return null;
+
+                // Find the token in the database
+                var resetToken = await _unitOfWork.PasswordResetTokens
+                    .GetFirstOrDefaultAsync(t => t.Token == token, t => t.User);
+
+                // Check if token exists
+                if (resetToken == null)
+                    return null;
+
+                // Check if token is already used
+                if (resetToken.IsUsed)
+                    return null;
+
+                // Check if token is expired
+                if (resetToken.IsExpired)
+                    return null;
+
+                // Mark token as used
+                resetToken.IsUsed = true;
+                resetToken.UsedAt = DateTime.UtcNow;
+                _unitOfWork.PasswordResetTokens.Update(resetToken);
+                await _unitOfWork.CompleteAsync();
+
+                return resetToken.UserId;
+            }
+            catch (OpenAutomateException)
+            {
+                // Rethrow custom exceptions
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error validating password reset token: {Message}", ex.Message);
+                return null;
+            }
+        }
     }
 } 

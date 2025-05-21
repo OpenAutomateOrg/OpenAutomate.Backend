@@ -147,9 +147,9 @@ namespace OpenAutomate.Infrastructure.Services
                 
                 string name = $"{user.FirstName} {user.LastName}";
                 
-                // Get email template
+                // Get email template - use 4 hours to match token expiration
                 var emailContent = await _emailTemplateService.GetResetPasswordEmailTemplateAsync(
-                    name, resetLink, 1); // 1 hour validity
+                    name, resetLink, 4); // 4 hour validity
                 
                 // Send email
                 string subject = "Reset Your Password - OpenAutomate";

@@ -53,5 +53,19 @@ namespace OpenAutomate.Core.IServices
         /// <param name="token">The verification token to validate</param>
         /// <returns>The user ID if valid, null otherwise</returns>
         Task<Guid?> ValidateEmailVerificationTokenAsync(string token);
+        
+        /// <summary>
+        /// Generates a password reset token for a user
+        /// </summary>
+        /// <param name="userId">The ID of the user</param>
+        /// <returns>The password reset token string</returns>
+        Task<string> GeneratePasswordResetTokenAsync(Guid userId);
+
+        /// <summary>
+        /// Validates a password reset token and returns the associated user ID if valid
+        /// </summary>
+        /// <param name="token">The password reset token to validate</param>
+        /// <returns>The user ID if valid, null otherwise</returns>
+        Task<Guid?> ValidatePasswordResetTokenAsync(string token);
     }
 }

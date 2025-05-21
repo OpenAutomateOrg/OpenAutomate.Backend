@@ -52,6 +52,7 @@ namespace OpenAutomate.Infrastructure.DbContext
             modelBuilder.ApplyConfiguration(new AssetConfiguration());
             modelBuilder.ApplyConfiguration(new AssetBotAgentConfiguration());
             modelBuilder.ApplyConfiguration(new EmailVerificationTokenConfiguration());
+            modelBuilder.ApplyConfiguration(new PasswordResetTokenConfiguration());
             
             // Configure all tenant entities to use NoAction for OrganizationUnit to prevent cascade cycles
             // This is important because each tenant entity inherits OrganizationUnitId from TenantEntity
@@ -111,5 +112,6 @@ namespace OpenAutomate.Infrastructure.DbContext
         public DbSet<Asset> Assets { get; set; }
         public DbSet<AssetBotAgent> AssetBotAgents { get; set; }
         public DbSet<EmailVerificationToken> EmailVerificationTokens { get; set; }
+        public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
     }
 }

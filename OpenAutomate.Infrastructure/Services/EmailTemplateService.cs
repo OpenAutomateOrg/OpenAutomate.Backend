@@ -69,7 +69,7 @@ namespace OpenAutomate.Infrastructure.Services
     
     <p><a href='{resetLink}'>{resetLink}</a></p>
     
-    <p>This link will expire in 24 hours.</p>";
+    <p>This link will expire in {tokenValidityHours} hours.</p>";
 
             return Task.FromResult(WrapInEmailTemplate("Reset Your Password", "Reset Your Password", content));
         }
