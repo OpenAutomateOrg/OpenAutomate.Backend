@@ -111,14 +111,14 @@ namespace OpenAutomate.Infrastructure.Services
                 // Get email template
                 var emailContent = await _emailTemplateService.GetInvitationEmailTemplateAsync(
                     recipientName,
-                    $"{inviter.FirstName} {inviter.LastName}",
-                    organization.Name,
+                    $"{inviter.FirstName ?? ""} {inviter.LastName ?? ""}",
+                    organization.Name ?? "Organization",
                     invitationLink,
                     168, // 7 days validity
                     isExistingUser);
                 
                 // Send email
-                string subject = $"You've Been Invited to Join {organization.Name} on OpenAutomate";
+                string subject = $"You've Been Invited to Join {organization.Name ?? "Organization"} on OpenAutomate";
                 await _emailService.SendEmailAsync(recipientEmail, subject, emailContent);
                 
                 _logger.LogInformation("Invitation email sent to: {Email} for organization: {OrgId}", 
@@ -137,7 +137,7 @@ namespace OpenAutomate.Infrastructure.Services
             try
             {
                 // Find user by email to get their name
-                var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+                var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == email.ToLower());
                 
                 if (user == null)
                 {
@@ -145,7 +145,7 @@ namespace OpenAutomate.Infrastructure.Services
                     throw new Exception($"User not found with email {email}");
                 }
                 
-                string name = $"{user.FirstName} {user.LastName}";
+                string name = $"{user.FirstName ?? ""} {user.LastName ?? ""}";
                 
                 // Get email template - use 4 hours to match token expiration
                 var emailContent = await _emailTemplateService.GetResetPasswordEmailTemplateAsync(

@@ -324,7 +324,7 @@ namespace OpenAutomate.Infrastructure.Services
                 _logger.LogInformation("Processing forgot password request for email: {Email}", email);
                 
                 // Find user by email
-                var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+                var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == email.ToLower());
                 if (user == null)
                 {
                     // Do not reveal that email doesn't exist (security best practice)
@@ -337,10 +337,10 @@ namespace OpenAutomate.Infrastructure.Services
                 
                 // Create the reset password link - include email in URL for frontend compatibility
                 var baseUrl = _configuration["FrontendUrl"];
-                var resetLink = $"{baseUrl}/reset-password?email={Uri.EscapeDataString(user.Email)}&token={token}";
+                var resetLink = $"{baseUrl}/reset-password?email={Uri.EscapeDataString(user.Email ?? string.Empty)}&token={token}";
                 
                 // Send reset password email using the notification service
-                await _notificationService.SendResetPasswordEmailAsync(user.Email, resetLink);
+                await _notificationService.SendResetPasswordEmailAsync(user.Email ?? string.Empty, resetLink);
                 
                 _logger.LogInformation("Reset password email sent successfully to: {Email}", email);
                 return true;
@@ -359,7 +359,7 @@ namespace OpenAutomate.Infrastructure.Services
                 _logger.LogInformation("Processing password reset for email: {Email}", email);
                 
                 // Find user by email
-                var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
+                var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == email.ToLower());
                 if (user == null)
                 {
                     _logger.LogWarning("Password reset attempt for non-existent email: {Email}", email);
