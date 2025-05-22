@@ -9,6 +9,7 @@ using OpenAutomate.API.Attributes;
 using OpenAutomate.Core.Dto.BotAgent;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Constants;
+using System.Linq;
 
 namespace OpenAutomate.API.Controllers.OData
 {
@@ -25,16 +26,22 @@ namespace OpenAutomate.API.Controllers.OData
     {
         private readonly IBotAgentService _botAgentService;
         private readonly ILogger<BotAgentsController> _logger;
+        private readonly ITenantContext _tenantContext;
         
         /// <summary>
         /// Initializes a new instance of the <see cref="BotAgentsController"/> class
         /// </summary>
         /// <param name="botAgentService">The Bot Agent service</param>
         /// <param name="logger">The logger</param>
-        public BotAgentsController(IBotAgentService botAgentService, ILogger<BotAgentsController> logger)
+        /// <param name="tenantContext">The tenant context</param>
+        public BotAgentsController(
+            IBotAgentService botAgentService, 
+            ILogger<BotAgentsController> logger,
+            ITenantContext tenantContext)
         {
             _botAgentService = botAgentService;
             _logger = logger;
+            _tenantContext = tenantContext;
         }
         
         /// <summary>
@@ -54,6 +61,27 @@ namespace OpenAutomate.API.Controllers.OData
         {
             try
             {
+                // Check if tenant context is available, if not try to resolve from route
+                if (!_tenantContext.HasTenant)
+                {
+                    var tenantSlug = RouteData.Values["tenant"]?.ToString();
+                    if (string.IsNullOrEmpty(tenantSlug))
+                    {
+                        _logger.LogError("Tenant slug not available in route data");
+                        return BadRequest("Tenant not specified");
+                    }
+                    
+                    _logger.LogWarning("Tenant context not set, attempting to resolve from route: {TenantSlug}", tenantSlug);
+                    
+                    // Let the service handle tenant resolution
+                    var tenantResolved = await _botAgentService.ResolveTenantFromSlugAsync(tenantSlug);
+                    if (!tenantResolved)
+                    {
+                        _logger.LogError("Failed to resolve tenant from route: {TenantSlug}", tenantSlug);
+                        return NotFound($"Tenant '{tenantSlug}' not found or inactive");
+                    }
+                }
+                
                 var botAgents = await _botAgentService.GetAllBotAgentsAsync();
                 return Ok(botAgents);
             }
@@ -80,6 +108,27 @@ namespace OpenAutomate.API.Controllers.OData
         {
             try
             {
+                // Check if tenant context is available, if not try to resolve from route
+                if (!_tenantContext.HasTenant)
+                {
+                    var tenantSlug = RouteData.Values["tenant"]?.ToString();
+                    if (string.IsNullOrEmpty(tenantSlug))
+                    {
+                        _logger.LogError("Tenant slug not available in route data");
+                        return BadRequest("Tenant not specified");
+                    }
+                    
+                    _logger.LogWarning("Tenant context not set, attempting to resolve from route: {TenantSlug}", tenantSlug);
+                    
+                    // Let the service handle tenant resolution
+                    var tenantResolved = await _botAgentService.ResolveTenantFromSlugAsync(tenantSlug);
+                    if (!tenantResolved)
+                    {
+                        _logger.LogError("Failed to resolve tenant from route: {TenantSlug}", tenantSlug);
+                        return NotFound($"Tenant '{tenantSlug}' not found or inactive");
+                    }
+                }
+                
                 var botAgent = await _botAgentService.GetBotAgentByIdAsync(key);
                 if (botAgent == null)
                     return NotFound();

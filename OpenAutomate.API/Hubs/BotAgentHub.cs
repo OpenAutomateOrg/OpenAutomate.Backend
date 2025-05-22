@@ -2,10 +2,9 @@ using Microsoft.AspNetCore.SignalR;
 using System;
 using System.Threading.Tasks;
 using OpenAutomate.Core.IServices;
-using OpenAutomate.Core.Domain.IRepository;
 using Microsoft.Extensions.Logging;
 using OpenAutomate.Core.Domain.Entities;
-using OpenAutomate.Core.Constants;
+using OpenAutomate.API.Extensions;
 
 namespace OpenAutomate.API.Hubs
 {
@@ -15,8 +14,8 @@ namespace OpenAutomate.API.Hubs
     public class BotAgentHub : Hub
     {
         private readonly ITenantContext _tenantContext;
-        private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<BotAgentHub> _logger;
+        private readonly IBotAgentService _botAgentService;
         
         // Standardized log message templates
         private static class LogMessages
@@ -31,15 +30,18 @@ namespace OpenAutomate.API.Hubs
             public const string DisconnectionError = "Error during bot agent disconnection: {Message}";
             public const string QueryNullReference = "HTTP context or query parameter is null during disconnection";
             public const string KeepAliveReceived = "Keep-alive received from bot agent: {BotAgentName} ({BotAgentId})";
+            public const string ResolvingTenant = "Resolving tenant from slug: {TenantSlug}";
+            public const string TenantResolved = "Tenant resolved successfully for slug: {TenantSlug}";
+            public const string TenantResolutionFailed = "Failed to resolve tenant from slug: {TenantSlug}";
         }
         
         public BotAgentHub(
             ITenantContext tenantContext, 
-            IUnitOfWork unitOfWork,
+            IBotAgentService botAgentService,
             ILogger<BotAgentHub> logger)
         {
             _tenantContext = tenantContext ?? throw new ArgumentNullException(nameof(tenantContext));
-            _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+            _botAgentService = botAgentService ?? throw new ArgumentNullException(nameof(botAgentService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
         
@@ -49,47 +51,45 @@ namespace OpenAutomate.API.Hubs
         public override async Task OnConnectedAsync()
         {
             var httpContext = Context.GetHttpContext();
-            
-            // Get machine key from query string or header
             var machineKey = httpContext?.Request.Query["machineKey"].ToString();
-            
-            // If not in query string, try from header
             if (string.IsNullOrEmpty(machineKey) && httpContext?.Request.Headers.ContainsKey("X-MachineKey") == true)
             {
                 machineKey = httpContext.Request.Headers["X-MachineKey"].ToString();
             }
-
-            // Tenant context is already set by the TenantResolutionMiddleware
             if (!_tenantContext.HasTenant)
             {
-                _logger.LogWarning(LogMessages.NoTenantContext);
-                Context.Abort();
-                return;
+                var tenantSlug = httpContext?.GetTenantSlug();
+                if (!string.IsNullOrEmpty(tenantSlug))
+                {
+                    _logger.LogInformation(LogMessages.ResolvingTenant, tenantSlug);
+                    var tenantResolved = await _botAgentService.ResolveTenantFromSlugAsync(tenantSlug);
+                    if (!tenantResolved)
+                    {
+                        _logger.LogWarning(LogMessages.TenantResolutionFailed, tenantSlug);
+                        Context.Abort();
+                        return;
+                    }
+                    _logger.LogInformation(LogMessages.TenantResolved, tenantSlug);
+                }
+                else
+                {
+                    _logger.LogWarning(LogMessages.NoTenantContext);
+                    Context.Abort();
+                    return;
+                }
             }
-
-            // Dual authentication logic
             if (!string.IsNullOrEmpty(machineKey))
             {
-                // Agent connection: validate machineKey
                 _logger.LogDebug(LogMessages.ProcessingConnection, machineKey, _tenantContext.CurrentTenantId);
-                var botAgent = await _unitOfWork.BotAgents
-                    .GetFirstOrDefaultAsync(ba => ba.MachineKey == machineKey && ba.OrganizationUnitId == _tenantContext.CurrentTenantId);
+                var botAgent = await _botAgentService.ConnectBotAgentAsync(machineKey);
                 if (botAgent == null)
                 {
                     _logger.LogWarning(LogMessages.InvalidMachineKey, machineKey, _tenantContext.CurrentTenantId);
                     Context.Abort();
                     return;
                 }
-                // Add to bot-specific group for targeted messages
                 await Groups.AddToGroupAsync(Context.ConnectionId, $"bot-{botAgent.Id}");
-                // Add to tenant group for tenant-wide broadcasts
                 await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant-{_tenantContext.CurrentTenantId}");
-                // Update bot agent status
-                botAgent.Status = AgentStatus.Available;
-                botAgent.LastHeartbeat = DateTime.UtcNow;
-                botAgent.LastConnected = DateTime.UtcNow;
-                await _unitOfWork.CompleteAsync();
-                // Notify frontend clients about bot agent status change
                 await Clients.Group($"tenant-{_tenantContext.CurrentTenantId}").SendAsync("BotStatusUpdate", 
                     new { 
                         BotAgentId = botAgent.Id,
@@ -103,18 +103,15 @@ namespace OpenAutomate.API.Hubs
             }
             else if (Context.User?.Identity?.IsAuthenticated == true)
             {
-                // Frontend user connection: must be authenticated
                 await Groups.AddToGroupAsync(Context.ConnectionId, $"tenant-{_tenantContext.CurrentTenantId}");
                 _logger.LogInformation("Frontend user connected to tenant group {TenantId}", _tenantContext.CurrentTenantId);
             }
             else
             {
-                // Not authenticated
                 _logger.LogWarning("Connection attempt without valid machine key or user authentication");
                 Context.Abort();
                 return;
             }
-
             await base.OnConnectedAsync();
         }
         
@@ -132,28 +129,38 @@ namespace OpenAutomate.API.Hubs
                     _logger.LogWarning(LogMessages.QueryNullReference);
                     return;
                 }
-                
-                // Get machine key from query string or header
                 var machineKey = httpContext.Request.Query["machineKey"].ToString();
-                
-                // If not in query string, try from header
                 if (string.IsNullOrEmpty(machineKey) && httpContext.Request.Headers.ContainsKey("X-MachineKey"))
                 {
                     machineKey = httpContext.Request.Headers["X-MachineKey"].ToString();
                 }
-                
+                if (!_tenantContext.HasTenant)
+                {
+                    var tenantSlug = httpContext.GetTenantSlug();
+                    if (!string.IsNullOrEmpty(tenantSlug))
+                    {
+                        _logger.LogInformation(LogMessages.ResolvingTenant, tenantSlug);
+                        var tenantResolved = await _botAgentService.ResolveTenantFromSlugAsync(tenantSlug);
+                        if (!tenantResolved)
+                        {
+                            _logger.LogWarning(LogMessages.TenantResolutionFailed, tenantSlug);
+                            await base.OnDisconnectedAsync(exception);
+                            return;
+                        }
+                        _logger.LogInformation(LogMessages.TenantResolved, tenantSlug);
+                    }
+                    else
+                    {
+                        _logger.LogWarning(LogMessages.NoTenantContext);
+                        await base.OnDisconnectedAsync(exception);
+                        return;
+                    }
+                }
                 if (!string.IsNullOrEmpty(machineKey))
                 {
-                    // Use the tenant context that was set by middleware
-                    var botAgent = await _unitOfWork.BotAgents
-                        .GetFirstOrDefaultAsync(ba => ba.MachineKey == machineKey && ba.OrganizationUnitId == _tenantContext.CurrentTenantId);
-                        
+                    var botAgent = await _botAgentService.DisconnectBotAgentAsync(machineKey);
                     if (botAgent != null)
                     {
-                        botAgent.Status = AgentStatus.Disconnected;
-                        await _unitOfWork.CompleteAsync();
-                        
-                        // Notify frontend clients about bot agent status change
                         await Clients.Group($"tenant-{_tenantContext.CurrentTenantId}").SendAsync("BotStatusUpdate", 
                             new { 
                                 BotAgentId = botAgent.Id,
@@ -163,11 +170,9 @@ namespace OpenAutomate.API.Hubs
                                 ExecutionId = (string?)null,
                                 Timestamp = DateTime.UtcNow
                             });
-                            
                         _logger.LogInformation(LogMessages.BotAgentDisconnected, botAgent.Name, botAgent.Id);
                     }
                 }
-                
                 await base.OnDisconnectedAsync(exception);
             }
             catch (Exception ex)
@@ -184,19 +189,17 @@ namespace OpenAutomate.API.Hubs
         /// <param name="executionId">Optional execution ID if the status is related to a specific execution</param>
         public async Task SendStatusUpdate(string status, string? executionId = null)
         {
-            var botAgent = await GetBotAgentFromContext();
-            if (botAgent == null) return;
-            
-            botAgent.LastHeartbeat = DateTime.UtcNow;
-            
-            // Update status only if it's a valid status value
-            if (status == AgentStatus.Available || status == AgentStatus.Busy || status == AgentStatus.Disconnected)
+            var httpContext = Context.GetHttpContext();
+            var machineKey = httpContext?.Request.Query["machineKey"].ToString();
+            if (string.IsNullOrEmpty(machineKey) && httpContext?.Request.Headers.ContainsKey("X-MachineKey") == true)
             {
-                botAgent.Status = status;
+                machineKey = httpContext.Request.Headers["X-MachineKey"].ToString();
             }
             
-            await _unitOfWork.CompleteAsync();
+            if (string.IsNullOrEmpty(machineKey)) return;
             
+            var botAgent = await _botAgentService.UpdateBotAgentStatusAsync(machineKey, status, executionId);
+            if (botAgent == null) return;
             var updateData = new {
                 BotAgentId = botAgent.Id,
                 BotAgentName = botAgent.Name,
@@ -204,12 +207,9 @@ namespace OpenAutomate.API.Hubs
                 ExecutionId = executionId,
                 Timestamp = DateTime.UtcNow
             };
-            
-            // Notify frontend about status update
             await Clients.Group($"tenant-{_tenantContext.CurrentTenantId}").SendAsync(
                 "BotStatusUpdate", updateData);
-                
-            string botAgentName = botAgent.Name?.ToString() ?? "Unknown";
+            string botAgentName = botAgent.Name ?? "Unknown";
             _logger.LogDebug(LogMessages.BotStatusUpdate, botAgentName, status);
         }
         
@@ -218,14 +218,18 @@ namespace OpenAutomate.API.Hubs
         /// </summary>
         public async Task KeepAlive()
         {
-            var botAgent = await GetBotAgentFromContext();
+            var httpContext = Context.GetHttpContext();
+            var machineKey = httpContext?.Request.Query["machineKey"].ToString();
+            if (string.IsNullOrEmpty(machineKey) && httpContext?.Request.Headers.ContainsKey("X-MachineKey") == true)
+            {
+                machineKey = httpContext.Request.Headers["X-MachineKey"].ToString();
+            }
+            
+            if (string.IsNullOrEmpty(machineKey)) return;
+            
+            var botAgent = await _botAgentService.KeepAliveAsync(machineKey);
             if (botAgent == null) return;
-            
-            // Just update the heartbeat timestamp
-            botAgent.LastHeartbeat = DateTime.UtcNow;
-            await _unitOfWork.CompleteAsync();
-            
-            string botAgentName = botAgent.Name?.ToString() ?? "Unknown";
+            string botAgentName = botAgent.Name ?? "Unknown";
             _logger.LogTrace(LogMessages.KeepAliveReceived, botAgentName, botAgent.Id);
         }
         
@@ -239,35 +243,6 @@ namespace OpenAutomate.API.Hubs
         {
             await Clients.Group($"bot-{botAgentId}").SendAsync("ReceiveCommand", command, payload);
             _logger.LogInformation(LogMessages.CommandSent, botAgentId, command);
-        }
-        
-        /// <summary>
-        /// Helper method to get the bot agent associated with the current connection
-        /// </summary>
-        /// <returns>The bot agent or null if not found</returns>
-        private async Task<BotAgent?> GetBotAgentFromContext()
-        {
-            var httpContext = Context.GetHttpContext();
-            if (httpContext == null)
-            {
-                _logger.LogWarning(LogMessages.QueryNullReference);
-                return null;
-            }
-            
-            // Get machine key from query string or header
-            var machineKey = httpContext.Request.Query["machineKey"].ToString();
-            
-            // If not in query string, try from header
-            if (string.IsNullOrEmpty(machineKey) && httpContext.Request.Headers.ContainsKey("X-MachineKey"))
-            {
-                machineKey = httpContext.Request.Headers["X-MachineKey"].ToString();
-            }
-            
-            if (string.IsNullOrEmpty(machineKey))
-                return null;
-                
-            return await _unitOfWork.BotAgents
-                .GetFirstOrDefaultAsync(ba => ba.MachineKey == machineKey && ba.OrganizationUnitId == _tenantContext.CurrentTenantId);
         }
     }
 } 
