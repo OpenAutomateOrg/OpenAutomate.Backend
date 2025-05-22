@@ -111,7 +111,40 @@ namespace OpenAutomate.Infrastructure.Services
             return MapToResponseDto(botAgent);
         }
 
-
+        /// <inheritdoc />
+        public async Task<bool> ResolveTenantFromSlugAsync(string tenantSlug)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(tenantSlug))
+                {
+                    _logger.LogError("Cannot resolve tenant: tenant slug is null or empty");
+                    return false;
+                }
+                
+                _logger.LogInformation("Attempting to resolve tenant from slug: {TenantSlug}", tenantSlug);
+                
+                var tenant = await _unitOfWork.OrganizationUnits
+                    .GetFirstOrDefaultAsync(o => o.Slug == tenantSlug && o.IsActive);
+                    
+                if (tenant == null)
+                {
+                    _logger.LogWarning("Tenant not found for slug: {TenantSlug}", tenantSlug);
+                    return false;
+                }
+                
+                // Set the tenant ID in the tenant context
+                _tenantContext.SetTenant(tenant.Id);
+                
+                _logger.LogInformation("Tenant resolved successfully: {TenantId}, {TenantName}", tenant.Id, tenant.Name);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error resolving tenant from slug {TenantSlug}: {Message}", tenantSlug, ex.Message);
+                return false;
+            }
+        }
         
         public async Task DeactivateBotAgentAsync(Guid id)
         {
