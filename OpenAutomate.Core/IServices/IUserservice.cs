@@ -53,5 +53,21 @@ namespace OpenAutomate.Core.IServices
         /// <returns>True if password was changed successfully</returns>
         /// <exception cref="ServiceException">Thrown when user is not found, current password is incorrect, or change fails</exception>
         Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordRequest request);
+
+        /// <summary>
+        /// Initiates the forgot password process for a user
+        /// </summary>
+        /// <param name="email">The email of the user requesting password reset</param>
+        /// <returns>True if the reset email was sent successfully, false otherwise</returns>
+        Task<bool> ForgotPasswordAsync(string email);
+
+        /// <summary>
+        /// Resets a user's password using a valid token
+        /// </summary>
+        /// <param name="email">The user's email</param>
+        /// <param name="token">The reset token from the email</param>
+        /// <param name="newPassword">The new password</param>
+        /// <returns>True if password was reset successfully, false otherwise</returns>
+        Task<bool> ResetPasswordAsync(string email, string token, string newPassword);
     }
 }

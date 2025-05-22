@@ -369,6 +369,91 @@ namespace OpenAutomate.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Sends a password reset email to the user
+        /// </summary>
+        /// <param name="request">The forgot password request containing user's email</param>
+        /// <returns>Success message if reset email was sent</returns>
+        /// <response code="200">Reset email sent successfully</response>
+        /// <response code="400">Invalid request</response>
+        /// <response code="500">Server error</response>
+        [HttpPost("forgot-password")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        {
+            try
+            {
+                // Validate request
+                if (request == null || string.IsNullOrWhiteSpace(request.Email))
+                {
+                    return BadRequest(new { message = "Email is required" });
+                }
+
+                // Set default tenant if not already set
+                EnsureDefaultTenant();
+                
+                var result = await _userService.ForgotPasswordAsync(request.Email);
+                
+                // Always return success to prevent email enumeration attacks
+                // This way, attackers can't determine if an email exists in the system
+                return Ok(new { message = "If your email is registered in our system, you will receive password reset instructions." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during forgot password request: {Message}", ex.Message);
+                return StatusCode(500, new { message = "An error occurred while processing your request." });
+            }
+        }
+
+        /// <summary>
+        /// Resets the user's password using a valid token
+        /// </summary>
+        /// <param name="request">The reset password request containing email, token, and new password</param>
+        /// <returns>Success message if password was reset successfully</returns>
+        /// <response code="200">Password reset successful</response>
+        /// <response code="400">Invalid request or token</response>
+        /// <response code="500">Server error</response>
+        [HttpPost("reset-password")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            try
+            {
+                // Validate request
+                if (request == null || string.IsNullOrWhiteSpace(request.Email) || 
+                    string.IsNullOrWhiteSpace(request.Token) || string.IsNullOrWhiteSpace(request.NewPassword))
+                {
+                    return BadRequest(new { message = "Email, token, and new password are required" });
+                }
+
+                if (request.NewPassword != request.ConfirmPassword)
+                {
+                    return BadRequest(new { message = "New password and confirmation do not match" });
+                }
+
+                // Set default tenant if not already set
+                EnsureDefaultTenant();
+                
+                var result = await _userService.ResetPasswordAsync(request.Email, request.Token, request.NewPassword);
+                
+                if (!result)
+                {
+                    return BadRequest(new { message = "Password reset failed. The token may be invalid or expired." });
+                }
+                
+                return Ok(new { message = "Your password has been reset successfully. You can now log in with your new password." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during password reset: {Message}", ex.Message);
+                return StatusCode(500, new { message = "An error occurred while processing your request." });
+            }
+        }
+
         #region Helper Methods
 
         /// <summary>

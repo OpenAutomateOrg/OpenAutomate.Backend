@@ -36,5 +36,13 @@ namespace OpenAutomate.Core.IServices
         /// <returns>A task representing the asynchronous operation</returns>
         Task SendOrganizationInvitationAsync(Guid inviterId, string recipientEmail, 
             string recipientName, Guid organizationId, bool isExistingUser);
+            
+        /// <summary>
+        /// Sends a password reset email to a user
+        /// </summary>
+        /// <param name="email">The user's email address</param>
+        /// <param name="resetLink">The password reset link</param>
+        /// <returns>A task representing the asynchronous operation</returns>
+        Task SendResetPasswordEmailAsync(string email, string resetLink);
     }
 } 
