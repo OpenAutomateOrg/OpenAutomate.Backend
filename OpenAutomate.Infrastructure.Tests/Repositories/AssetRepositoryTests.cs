@@ -35,6 +35,12 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
             {
                 // No-op for tests - we always want a tenant
             }
+
+            public Task<bool> ResolveTenantFromSlugAsync(string tenantSlug)
+            {
+                // For testing purposes, just return true if we have a valid slug
+                return Task.FromResult(!string.IsNullOrEmpty(tenantSlug));
+            }
         }
 
         private readonly TestTenantContext _tenantContext;
