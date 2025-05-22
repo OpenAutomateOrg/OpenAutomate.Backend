@@ -122,7 +122,8 @@ namespace OpenAutomate.API.Middleware
                     sanitized,
                     $"{param}=([^&]+)(&|$)",
                     $"{param}=[REDACTED]$2",
-                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase,
+                    TimeSpan.FromMilliseconds(100));
             }
 
             return sanitized;

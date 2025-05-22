@@ -14,7 +14,7 @@ namespace OpenAutomate.API.Extensions
         /// </summary>
         /// <param name="context">The HttpContext</param>
         /// <returns>The current User or null if not authenticated</returns>
-        public static User GetCurrentUser(this HttpContext context)
+        public static User? GetCurrentUser(this HttpContext context)
         {
             if (context.Items.TryGetValue("User", out var user))
             {
@@ -33,12 +33,12 @@ namespace OpenAutomate.API.Extensions
         /// </summary>
         /// <param name="context">The HTTP context</param>
         /// <returns>The tenant slug or null if not found</returns>
-        public static string GetTenantSlug(this HttpContext context)
+        public static string? GetTenantSlug(this HttpContext context)
         {
-            if (context == null)
+            if (context?.Request?.Path == null)
                 return null;
                 
-            return GetTenantSlugFromPath(context.Request?.Path);
+            return GetTenantSlugFromPath(context.Request.Path);
         }
         
         /// <summary>
@@ -46,7 +46,7 @@ namespace OpenAutomate.API.Extensions
         /// </summary>
         /// <param name="path">The request path</param>
         /// <returns>The tenant slug or null if not found</returns>
-        public static string GetTenantSlugFromPath(string path)
+        public static string? GetTenantSlugFromPath(string? path)
         {
             if (string.IsNullOrEmpty(path))
                 return null;

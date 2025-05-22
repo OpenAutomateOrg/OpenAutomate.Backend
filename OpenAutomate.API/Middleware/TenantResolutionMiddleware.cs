@@ -28,8 +28,8 @@ namespace OpenAutomate.API.Middleware
         public async Task InvokeAsync(HttpContext context, ITenantContext tenantContext)
         {
             // Get the request ID from the RequestLoggingMiddleware if available
-            var requestId = context.Items.ContainsKey("RequestId") 
-                ? context.Items["RequestId"].ToString() 
+            var requestId = context.Items.TryGetValue("RequestId", out var id) 
+                ? id?.ToString() ?? Guid.NewGuid().ToString()
                 : Guid.NewGuid().ToString();
                 
             // Extract tenant slug from URL path
