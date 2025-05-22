@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using OpenAutomate.Core.Domain.IRepository;
 using OpenAutomate.Core.IServices;
 using System.Threading;
+using OpenAutomate.API.Extensions;
 
 namespace OpenAutomate.API.Middleware
 {
@@ -24,38 +25,26 @@ namespace OpenAutomate.API.Middleware
             _logger = logger;
         }
 
-        public async Task InvokeAsync(HttpContext context, IUnitOfWork unitOfWork, ITenantContext tenantContext)
+        public async Task InvokeAsync(HttpContext context, ITenantContext tenantContext)
         {
             // Get the request ID from the RequestLoggingMiddleware if available
             var requestId = context.Items.ContainsKey("RequestId") 
                 ? context.Items["RequestId"].ToString() 
                 : Guid.NewGuid().ToString();
                 
-            // URL format: https://domain.com/{tenantSlug}/api/...
-            var path = context.Request.Path.Value;
+            // Extract tenant slug from URL path
+            var tenantSlug = context.GetTenantSlug();
             
-            if (ShouldProcessPath(path))
+            if (!string.IsNullOrEmpty(tenantSlug))
             {
-                var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-                var potentialTenantSlug = segments[0];
-                
-                // Skip tenant resolution for system endpoints
-                if (IsSystemEndpoint(potentialTenantSlug))
-                {
-                    _logger.LogDebug("[{RequestId}] Skipping tenant resolution for system endpoint: {Path}", 
-                        requestId, path);
-                    await _next(context);
-                    return;
-                }
-                
                 _logger.LogDebug("[{RequestId}] Resolving tenant for slug: {TenantSlug}", 
-                    requestId, potentialTenantSlug);
+                    requestId, tenantSlug);
                 
                 // Store the tenant slug in HttpContext for potential fallback in controllers
-                context.Items["TenantSlug"] = potentialTenantSlug;
+                context.Items["TenantSlug"] = tenantSlug;
                 
                 // Try to resolve tenant
-                if (!await ResolveTenantAsync(context, unitOfWork, tenantContext, potentialTenantSlug, requestId))
+                if (!await ResolveTenantAsync(context, tenantContext, tenantSlug, requestId))
                 {
                     return; // Response has been written, stop processing
                 }
@@ -63,24 +52,14 @@ namespace OpenAutomate.API.Middleware
             else
             {
                 _logger.LogDebug("[{RequestId}] Path does not require tenant resolution: {Path}", 
-                    requestId, path);
+                    requestId, context.Request.Path);
             }
             
             await _next(context);
         }
-
-        private bool ShouldProcessPath(string path)
-        {
-            return path != null && path.Length > 1 && path.Split('/', StringSplitOptions.RemoveEmptyEntries).Length > 0;
-        }
         
-        private bool IsSystemEndpoint(string segment)
-        {
-            return segment == "api" || segment == "admin";
-        }
-        
-        private async Task<bool> ResolveTenantAsync(HttpContext context, IUnitOfWork unitOfWork, 
-            ITenantContext tenantContext, string tenantSlug, string requestId)
+        private async Task<bool> ResolveTenantAsync(HttpContext context, ITenantContext tenantContext, 
+            string tenantSlug, string requestId)
         {
             try
             {
@@ -99,23 +78,13 @@ namespace OpenAutomate.API.Middleware
                         return true;
                     }
                     
-                    // Clear any existing tenant to avoid stale data
-                    tenantContext.ClearTenant();
+                    // Use the tenant context to resolve the tenant
+                    var success = await tenantContext.ResolveTenantFromSlugAsync(tenantSlug);
                     
-                    var tenant = await unitOfWork.OrganizationUnits
-                        .GetFirstOrDefaultAsync(o => o.Slug == tenantSlug && o.IsActive);
-                    
-                    if (tenant != null)
+                    if (success)
                     {
-                        // Store the tenant in HttpContext.Items for later use
-                        context.Items["CurrentTenant"] = tenant;
+                        // Store the slug in HttpContext for future reference
                         context.Items["CurrentTenantSlug"] = tenantSlug;
-                        
-                        // Set the tenant ID in the TenantContext service
-                        tenantContext.SetTenant(tenant.Id);
-                        
-                        _logger.LogDebug("[{RequestId}] Tenant resolved: {TenantId}, {TenantName}, {TenantSlug}", 
-                            requestId, tenant.Id, tenant.Name, tenantSlug);
                         return true;
                     }
                     

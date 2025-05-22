@@ -89,8 +89,8 @@ namespace OpenAutomate.API
                 .GetSection("Database")
                 .Get<DatabaseSettings>();
                 
-            // Register TenantContext as scoped to ensure proper isolation between requests
-            builder.Services.AddScoped<ITenantContext, TenantContext>();
+            // Register TenantContext as singleton to avoid circular dependencies
+            builder.Services.AddSingleton<ITenantContext, TenantContext>();
             
             // Add DbContext
             builder.Services.AddDbContext<ApplicationDbContext>((provider, options) =>

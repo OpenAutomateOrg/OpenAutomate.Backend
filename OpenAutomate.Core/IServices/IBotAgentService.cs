@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using OpenAutomate.Core.Dto.Asset;
 using OpenAutomate.Core.Dto.BotAgent;
+using OpenAutomate.Core.Domain.Entities;
 
 namespace OpenAutomate.Core.IServices
 {
@@ -50,5 +51,35 @@ namespace OpenAutomate.Core.IServices
         /// </summary>
         /// <param name="id">The Bot Agent ID</param>
         Task DeactivateBotAgentAsync(Guid id);
+
+        /// <summary>
+        /// Handles a bot agent connection, updating its status and timestamps
+        /// </summary>
+        /// <param name="machineKey">The machine key of the bot agent</param>
+        /// <returns>The connected BotAgent entity or null if not found</returns>
+        Task<BotAgent?> ConnectBotAgentAsync(string machineKey);
+
+        /// <summary>
+        /// Handles a bot agent disconnection, updating its status
+        /// </summary>
+        /// <param name="machineKey">The machine key of the bot agent</param>
+        /// <returns>The disconnected BotAgent entity or null if not found</returns>
+        Task<BotAgent?> DisconnectBotAgentAsync(string machineKey);
+
+        /// <summary>
+        /// Updates the status and heartbeat of a bot agent
+        /// </summary>
+        /// <param name="machineKey">The machine key of the bot agent</param>
+        /// <param name="status">The new status</param>
+        /// <param name="executionId">Optional execution ID</param>
+        /// <returns>The updated BotAgent entity or null if not found</returns>
+        Task<BotAgent?> UpdateBotAgentStatusAsync(string machineKey, string status, string? executionId = null);
+
+        /// <summary>
+        /// Updates the heartbeat of a bot agent (keep-alive)
+        /// </summary>
+        /// <param name="machineKey">The machine key of the bot agent</param>
+        /// <returns>The updated BotAgent entity or null if not found</returns>
+        Task<BotAgent?> KeepAliveAsync(string machineKey);
     }
 } 
