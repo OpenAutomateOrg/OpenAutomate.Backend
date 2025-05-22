@@ -16,6 +16,7 @@ using System.Reflection;
 using System.IO;
 using OpenAutomate.API.Hubs;
 using Microsoft.AspNetCore.OData;
+using Serilog;
 
 namespace OpenAutomate.API
 {
@@ -27,6 +28,9 @@ namespace OpenAutomate.API
             
             // Add application configuration
             ConfigureAppSettings(builder);
+            
+            // Configure logging
+            ConfigureLogging(builder);
             
             // Add services to the container
             ConfigureServices(builder);
@@ -56,12 +60,25 @@ namespace OpenAutomate.API
             var appSettingsSection = builder.Configuration.GetSection("AppSettings");
             builder.Services.Configure<AppSettings>(options => {
                 appSettingsSection.Bind(options);
-                options.FrontendUrl = builder.Configuration["FrontendUrl"] ?? "http://localhost:3000";
+                options.FrontendUrl = builder.Configuration["FrontendUrl"] ?? "http://localhost:3001";
             });
             builder.Services.Configure<JwtSettings>(appSettingsSection.GetSection("Jwt"));
             builder.Services.Configure<DatabaseSettings>(appSettingsSection.GetSection("Database"));
             builder.Services.Configure<CorsSettings>(appSettingsSection.GetSection("Cors"));
             builder.Services.Configure<EmailSettings>(appSettingsSection.GetSection("EmailSettings"));
+        }
+        
+        private static void ConfigureLogging(WebApplicationBuilder builder)
+        {
+            // Configure Serilog
+            Log.Logger = new LoggerConfiguration()
+                .ReadFrom.Configuration(builder.Configuration)
+                .Enrich.FromLogContext()
+                .CreateLogger();
+
+            // Clear default providers and use Serilog
+            builder.Logging.ClearProviders();
+            builder.Host.UseSerilog();
         }
         
         private static void ConfigureServices(WebApplicationBuilder builder)
@@ -72,8 +89,8 @@ namespace OpenAutomate.API
                 .GetSection("Database")
                 .Get<DatabaseSettings>();
                 
-            // Register TenantContext before ApplicationDbContext
-            builder.Services.AddSingleton<ITenantContext, TenantContext>();
+            // Register TenantContext as scoped to ensure proper isolation between requests
+            builder.Services.AddScoped<ITenantContext, TenantContext>();
             
             // Add DbContext
             builder.Services.AddDbContext<ApplicationDbContext>((provider, options) =>
@@ -309,6 +326,9 @@ namespace OpenAutomate.API
         
         private static void ConfigureMiddleware(WebApplication app)
         {
+            // Add request logging middleware as early as possible in the pipeline
+            app.UseRequestLogging();
+            
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {

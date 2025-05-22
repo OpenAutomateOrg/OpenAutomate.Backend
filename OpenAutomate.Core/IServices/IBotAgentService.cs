@@ -38,8 +38,12 @@ namespace OpenAutomate.Core.IServices
         /// <returns>The updated Bot Agent with new machine key</returns>
         Task<BotAgentResponseDto> RegenerateMachineKeyAsync(Guid id);
         
-       
-        
+        /// <summary>
+        /// Resolves tenant from slug and sets it in the tenant context
+        /// </summary>
+        /// <param name="tenantSlug">The tenant slug to resolve</param>
+        /// <returns>True if tenant was resolved successfully, false otherwise</returns>
+        Task<bool> ResolveTenantFromSlugAsync(string tenantSlug);
         
         /// <summary>
         /// Deactivates a Bot Agent
