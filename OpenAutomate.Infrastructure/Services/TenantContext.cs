@@ -31,12 +31,12 @@ namespace OpenAutomate.Infrastructure.Services
                 try
                 {
                     _lock.EnterReadLock();
-                    if (!_currentTenantId.HasValue)
-                    {
-                        throw new InvalidOperationException("No tenant has been set for the current context.");
-                    }
-                    return _currentTenantId.Value;
+                if (!_currentTenantId.HasValue)
+                {
+                    throw new InvalidOperationException("No tenant has been set for the current context.");
                 }
+                return _currentTenantId.Value;
+            }
                 finally
                 {
                     if (_lock.IsReadLockHeld)
@@ -71,7 +71,7 @@ namespace OpenAutomate.Infrastructure.Services
             try
             {
                 _lock.EnterWriteLock();
-                _currentTenantId = tenantId;
+            _currentTenantId = tenantId;
             }
             finally
             {
@@ -87,7 +87,7 @@ namespace OpenAutomate.Infrastructure.Services
             try
             {
                 _lock.EnterWriteLock();
-                _currentTenantId = null;
+            _currentTenantId = null;
             }
             finally
             {
