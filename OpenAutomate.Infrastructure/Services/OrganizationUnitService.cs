@@ -190,6 +190,13 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 _logger.LogInformation("Retrieving organization units for user {UserId}", userId);
 
+                // First, let's check the overall state of the database
+                var allOrganizationUnits = await _unitOfWork.OrganizationUnits.GetAllAsync();
+                _logger.LogInformation("Total organization units in database: {Count}", allOrganizationUnits.Count());
+
+                var allOrganizationUnitUsers = await _unitOfWork.OrganizationUnitUsers.GetAllAsync();
+                _logger.LogInformation("Total OrganizationUnitUser records in database: {Count}", allOrganizationUnitUsers.Count());
+
                 // Get all organization unit users for this user
                 var organizationUnitUsers = await _unitOfWork.OrganizationUnitUsers
                     .GetAllAsync(ou => ou.UserId == userId);
