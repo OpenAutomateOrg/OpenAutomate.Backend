@@ -17,23 +17,23 @@ namespace OpenAutomate.Domain.IRepository
             _dbSet = _dbContext.Set<TEntity>();
         }
 
-        public async Task<TEntity> GetByIdAsync(int id)
+        public async Task<TEntity?> GetByIdAsync(int id)
         {
             return await _dbSet.FindAsync(id);
         }
 
-        public async Task<TEntity> GetByIdAsync(string id)
+        public async Task<TEntity?> GetByIdAsync(string id)
         {
             return await _dbSet.FindAsync(id);
         }
 
-        public async Task<TEntity> GetByIdAsync(Guid id)
+        public async Task<TEntity?> GetByIdAsync(Guid id)
         {
             return await _dbSet.FindAsync(id);
         }
 
-        public async Task<TEntity> GetFirstOrDefaultAsync(Expression<Func<TEntity, bool>> filter = null,
-            params Expression<Func<TEntity, object>>[] includes)
+        public async Task<TEntity?> GetFirstOrDefaultAsync(Expression<Func<TEntity, bool>>? filter = null,
+            params Expression<Func<TEntity, object>>[]? includes)
         {
             IQueryable<TEntity> query = _dbSet;
             if (includes != null)
@@ -43,9 +43,9 @@ namespace OpenAutomate.Domain.IRepository
             return await query.FirstOrDefaultAsync(filter);
         }
 
-        public async Task<IEnumerable<TEntity>> GetAllAsync(Expression<Func<TEntity, bool>> filter = null,
-            Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null,
-            params Expression<Func<TEntity, object>>[] includes)
+        public async Task<IEnumerable<TEntity>> GetAllAsync(Expression<Func<TEntity, bool>>? filter = null,
+            Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>>? orderBy = null,
+            params Expression<Func<TEntity, object>>[]? includes)
         {
             IQueryable<TEntity> query = _dbSet;
             if (includes != null)
@@ -59,9 +59,9 @@ namespace OpenAutomate.Domain.IRepository
             return await query.ToListAsync();
         }
 
-        public async Task<IEnumerable<TEntity>> GetAllIgnoringFiltersAsync(Expression<Func<TEntity, bool>> filter = null,
-            Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null,
-            params Expression<Func<TEntity, object>>[] includes)
+        public async Task<IEnumerable<TEntity>> GetAllIgnoringFiltersAsync(Expression<Func<TEntity, bool>>? filter = null,
+            Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>>? orderBy = null,
+            params Expression<Func<TEntity, object>>[]? includes)
         {
             IQueryable<TEntity> query = _dbSet.IgnoreQueryFilters();
             if (includes != null)
@@ -121,7 +121,7 @@ namespace OpenAutomate.Domain.IRepository
             await _dbContext.SaveChangesAsync();
         }
 
-        public async Task<TEntity> UpdateOneAsync<TField>(Expression<Func<TEntity, bool>> filter, Expression<Func<TEntity, TField>> field, TField value)
+        public async Task<TEntity?> UpdateOneAsync<TField>(Expression<Func<TEntity, bool>> filter, Expression<Func<TEntity, TField>> field, TField value)
         {
             var entity = await _dbSet.FirstOrDefaultAsync(filter);
 
@@ -140,7 +140,7 @@ namespace OpenAutomate.Domain.IRepository
             return entity;
         }
 
-        private PropertyInfo GetPropertyInfo(Expression<Func<TEntity, object>> expression)
+        private static PropertyInfo? GetPropertyInfo(Expression<Func<TEntity, object>> expression)
         {
             if (expression == null) return null;
 
@@ -155,7 +155,7 @@ namespace OpenAutomate.Domain.IRepository
             return await _dbContext.SaveChangesAsync();
         }
 
-        public async Task<bool> AnyAsync(Expression<Func<TEntity, bool>> filter = null)
+        public async Task<bool> AnyAsync(Expression<Func<TEntity, bool>>? filter = null)
         {
             IQueryable<TEntity> query = _dbSet;
             

@@ -221,25 +221,50 @@ namespace OpenAutomate.Infrastructure.Services
         
         private async Task<string> EnsureUniqueSlugAsync(string baseSlug, Guid? excludeId = null)
         {
-            bool SlugExists(string slug)
+            // Check if base slug is unique
+            bool baseSlugExists;
+            if (excludeId.HasValue)
             {
+                var result = await _unitOfWork.OrganizationUnits
+                    .GetFirstOrDefaultAsync(o => o.Slug == baseSlug && o.Id != excludeId.Value);
+                baseSlugExists = result != null;
+            }
+            else
+            {
+                var result = await _unitOfWork.OrganizationUnits
+                    .GetFirstOrDefaultAsync(o => o.Slug == baseSlug);
+                baseSlugExists = result != null;
+            }
+
+            if (!baseSlugExists)
+                return baseSlug;
+
+            // Find unique slug with counter
+            int counter = 2;
+            string newSlug;
+            bool slugExists;
+
+            do
+            {
+                newSlug = $"{baseSlug}-{counter}";
+                
                 if (excludeId.HasValue)
                 {
-                    return _unitOfWork.OrganizationUnits
-                        .GetFirstOrDefaultAsync(o => o.Slug == slug && o.Id != excludeId.Value)
-                        .GetAwaiter()
-                        .GetResult() != null;
+                    var result = await _unitOfWork.OrganizationUnits
+                        .GetFirstOrDefaultAsync(o => o.Slug == newSlug && o.Id != excludeId.Value);
+                    slugExists = result != null;
                 }
                 else
                 {
-                    return _unitOfWork.OrganizationUnits
-                        .GetFirstOrDefaultAsync(o => o.Slug == slug)
-                        .GetAwaiter()
-                        .GetResult() != null;
+                    var result = await _unitOfWork.OrganizationUnits
+                        .GetFirstOrDefaultAsync(o => o.Slug == newSlug);
+                    slugExists = result != null;
                 }
-            }
-            
-            return SlugGenerator.EnsureUniqueSlug(baseSlug, SlugExists);
+                
+                counter++;
+            } while (slugExists);
+
+            return newSlug;
         }
 
         private OrganizationUnitResponseDto MapToResponseDto(OrganizationUnit organizationUnit)
