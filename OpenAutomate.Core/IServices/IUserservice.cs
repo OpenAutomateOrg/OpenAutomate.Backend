@@ -9,7 +9,7 @@ namespace OpenAutomate.Core.IServices
     {
         Task<AuthenticationResponse> AuthenticateAsync(AuthenticationRequest request, string ipAddress);
         Task<AuthenticationResponse> RefreshTokenAsync(string refreshToken, string ipAddress);
-        Task<bool> RevokeTokenAsync(string token, string ipAddress, string reason = null);
+        Task<bool> RevokeTokenAsync(string token, string ipAddress, string reason = "");
         Task<UserResponse> RegisterAsync(RegistrationRequest request, string ipAddress);
         Task<UserResponse> GetByIdAsync(Guid id);
 
