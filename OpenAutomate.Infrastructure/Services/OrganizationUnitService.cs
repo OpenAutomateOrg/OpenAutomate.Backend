@@ -27,8 +27,6 @@ namespace OpenAutomate.Infrastructure.Services
         {
             try
             {
-                _logger.LogInformation("Starting organization unit creation for user {UserId} with name '{Name}'", userId, dto.Name);
-
                 // Generate slug from name
                 string slug = GenerateSlugFromName(dto.Name);
 
@@ -45,25 +43,13 @@ namespace OpenAutomate.Infrastructure.Services
                 };
 
                 await _unitOfWork.OrganizationUnits.AddAsync(organizationUnit);
-                _logger.LogInformation("Added organization unit {OrganizationUnitId} to unit of work", organizationUnit.Id);
-
-                // Create default authorities for the organization unit (but don't commit yet)
-                var ownerAuthority = await CreateDefaultAuthoritiesInternalAsync(organizationUnit.Id);
-                _logger.LogInformation("Created authorities for organization unit {OrganizationUnitId}, OWNER authority ID: {AuthorityId}", 
-                    organizationUnit.Id, ownerAuthority.Id);
-                
-                // Assign the OWNER authority to the user who created the organization unit (but don't commit yet)
-                await AssignOwnerAuthorityInternalAsync(organizationUnit.Id, userId, ownerAuthority);
-
-                // Commit everything in a single transaction
                 await _unitOfWork.CompleteAsync();
 
-                _logger.LogInformation("Successfully created organization unit {OrganizationUnitId} with user {UserId} as OWNER", 
-                    organizationUnit.Id, userId);
-
-                // Verify the user association was created by querying it
-                var userOrgUnits = await _unitOfWork.OrganizationUnitUsers.GetAllAsync(ou => ou.UserId == userId);
-                _logger.LogInformation("User {UserId} now belongs to {Count} organization units", userId, userOrgUnits.Count());
+                // Create default authorities for the organization unit
+                await CreateDefaultAuthoritiesAsync(organizationUnit.Id);
+                
+                // Assign the OWNER authority to the user who CreatedAtthe organization unit
+                await AssignOwnerAuthorityToUserAsync(organizationUnit.Id, userId);
 
                 // Return response
                 return new OrganizationUnitResponseDto
@@ -188,21 +174,13 @@ namespace OpenAutomate.Infrastructure.Services
         {
             try
             {
-                _logger.LogInformation("Retrieving organization units for user {UserId}", userId);
-
                 // Get all organization unit users for this user
                 var organizationUnitUsers = await _unitOfWork.OrganizationUnitUsers
                     .GetAllAsync(ou => ou.UserId == userId);
                 
-                _logger.LogInformation("Found {Count} OrganizationUnitUser records for user {UserId}", 
-                    organizationUnitUsers.Count(), userId);
-
                 // Extract the organization unit IDs
                 var organizationUnitIds = organizationUnitUsers.Select(ou => ou.OrganizationUnitId).ToList();
                 
-                _logger.LogInformation("Organization unit IDs for user {UserId}: [{OrganizationUnitIds}]", 
-                    userId, string.Join(", ", organizationUnitIds));
-
                 // Get the actual organization units
                 var organizationUnits = new List<OrganizationUnit>();
                 
@@ -212,11 +190,6 @@ namespace OpenAutomate.Infrastructure.Services
                     if (orgUnit != null)
                     {
                         organizationUnits.Add(orgUnit);
-                        _logger.LogDebug("Found organization unit {OrganizationUnitId} with name '{Name}'", ouId, orgUnit.Name);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Organization unit {OrganizationUnitId} not found in database", ouId);
                     }
                 }
                 
@@ -280,7 +253,7 @@ namespace OpenAutomate.Infrastructure.Services
             };
         }
 
-        private async Task<Authority> CreateDefaultAuthoritiesInternalAsync(Guid organizationUnitId)
+        private async Task CreateDefaultAuthoritiesAsync(Guid organizationUnitId)
         {
             // Define the default authority names and their resource permissions
             var defaultAuthorities = new Dictionary<string, Dictionary<string, int>>
@@ -335,10 +308,9 @@ namespace OpenAutomate.Infrastructure.Services
                 }
             };
 
-            // Create all authorities
-            var createdAuthorities = new List<Authority>();
             foreach (var authority in defaultAuthorities)
             {
+                // Create the authority
                 var newAuthority = new Authority
                 {
                     Name = authority.Key,
@@ -346,19 +318,14 @@ namespace OpenAutomate.Infrastructure.Services
                 };
 
                 await _unitOfWork.Authorities.AddAsync(newAuthority);
-                createdAuthorities.Add(newAuthority);
-            }
+                await _unitOfWork.CompleteAsync();
 
-            // Create all authority resources
-            foreach (var authorityData in defaultAuthorities)
-            {
-                var authority = createdAuthorities.First(a => a.Name == authorityData.Key);
-                
-                foreach (var resource in authorityData.Value)
+                // Create the resource permissions for this authority
+                foreach (var resource in authority.Value)
                 {
                     var authorityResource = new AuthorityResource
                     {
-                        AuthorityId = authority.Id,
+                        AuthorityId = newAuthority.Id,
                         OrganizationUnitId = organizationUnitId,
                         ResourceName = resource.Key,
                         Permission = resource.Value
@@ -368,18 +335,24 @@ namespace OpenAutomate.Infrastructure.Services
                 }
             }
 
-            _logger.LogInformation("Prepared default authorities for organization unit {OrganizationUnitId}", organizationUnitId);
-
-            return createdAuthorities.First(a => a.Name == "OWNER");
+            await _unitOfWork.CompleteAsync();
+            _logger.LogInformation("CreatedAtdefault authorities for organization unit {OrganizationUnitId}", organizationUnitId);
         }
 
-        private async Task AssignOwnerAuthorityInternalAsync(Guid organizationUnitId, Guid userId, Authority ownerAuthority)
+        private async Task AssignOwnerAuthorityToUserAsync(Guid organizationUnitId, Guid userId)
         {
             try
             {
-                _logger.LogInformation("Assigning OWNER authority {AuthorityId} to user {UserId} for organization unit {OrganizationUnitId}", 
-                    ownerAuthority.Id, userId, organizationUnitId);
-
+                // Find the OWNER authority for this organization unit
+                var ownerAuthority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(
+                    a => a.OrganizationUnitId == organizationUnitId && a.Name == "OWNER");
+                
+                if (ownerAuthority == null)
+                {
+                    _logger.LogError("OWNER authority not found for organization unit {OrganizationUnitId}", organizationUnitId);
+                    throw new InvalidOperationException($"OWNER authority not found for organization unit {organizationUnitId}");
+                }
+                
                 // Create the user-authority association
                 var userAuthority = new UserAuthority
                 {
@@ -389,8 +362,6 @@ namespace OpenAutomate.Infrastructure.Services
                 };
                 
                 await _unitOfWork.UserAuthorities.AddAsync(userAuthority);
-                _logger.LogInformation("Added UserAuthority record: UserId={UserId}, AuthorityId={AuthorityId}, OrganizationUnitId={OrganizationUnitId}", 
-                    userId, ownerAuthority.Id, organizationUnitId);
                 
                 // Create the direct user-organization association
                 var organizationUnitUser = new OrganizationUnitUser
@@ -400,15 +371,14 @@ namespace OpenAutomate.Infrastructure.Services
                 };
                 
                 await _unitOfWork.OrganizationUnitUsers.AddAsync(organizationUnitUser);
-                _logger.LogInformation("Added OrganizationUnitUser record: UserId={UserId}, OrganizationUnitId={OrganizationUnitId}", 
-                    userId, organizationUnitId);
+                await _unitOfWork.CompleteAsync();
                 
-                _logger.LogInformation("Prepared user {UserId} as OWNER of organization unit {OrganizationUnitId}", 
+                _logger.LogInformation("User {UserId} assigned as OWNER of organization unit {OrganizationUnitId} and added to organization", 
                     userId, organizationUnitId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error preparing OWNER authority assignment for user {UserId} and organization unit {OrganizationUnitId}", 
+                _logger.LogError(ex, "Error assigning OWNER authority to user {UserId} for organization unit {OrganizationUnitId}", 
                     userId, organizationUnitId);
                 throw;
             }
