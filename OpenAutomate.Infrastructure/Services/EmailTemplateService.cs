@@ -9,12 +9,8 @@ namespace OpenAutomate.Infrastructure.Services
 {
     public class EmailTemplateService : IEmailTemplateService
     {
-        private readonly IConfiguration _configuration;
-
-        public EmailTemplateService(
-            IConfiguration configuration)
+        public EmailTemplateService()
         {
-            _configuration = configuration;
         }
 
         #region Public Email Template Methods
