@@ -15,6 +15,14 @@ namespace OpenAutomate.Core.Domain.IRepository
             Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null,
             params Expression<Func<TEntity, object>>[] includes);
 
+        /// <summary>
+        /// Gets all entities matching the filter, bypassing any global query filters (e.g., tenant filtering)
+        /// Use this method for cross-tenant operations like discovering user's organization memberships
+        /// </summary>
+        Task<IEnumerable<TEntity>> GetAllIgnoringFiltersAsync(Expression<Func<TEntity, bool>> filter = null,
+            Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null,
+            params Expression<Func<TEntity, object>>[] includes);
+
         Task<bool> AnyAsync(Expression<Func<TEntity, bool>> filter = null);
 
         Task AddAsync(TEntity entity);

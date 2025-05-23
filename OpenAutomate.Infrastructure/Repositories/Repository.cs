@@ -59,6 +59,22 @@ namespace OpenAutomate.Domain.IRepository
             return await query.ToListAsync();
         }
 
+        public async Task<IEnumerable<TEntity>> GetAllIgnoringFiltersAsync(Expression<Func<TEntity, bool>> filter = null,
+            Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null,
+            params Expression<Func<TEntity, object>>[] includes)
+        {
+            IQueryable<TEntity> query = _dbSet.IgnoreQueryFilters();
+            if (includes != null)
+                foreach (var include in includes)
+                    query = query.Include(include);
+
+            if (filter != null) query = query.Where(filter);
+
+            if (orderBy != null) query = orderBy(query);
+
+            return await query.ToListAsync();
+        }
+
         public async Task AddAsync(TEntity entity)
         {
             await _dbSet.AddAsync(entity);

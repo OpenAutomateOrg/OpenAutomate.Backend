@@ -2,12 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using OpenAutomate.Core.Constants;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Domain.IRepository;
 using OpenAutomate.Core.Dto.OrganizationUnit;
 using OpenAutomate.Core.IServices;
+using OpenAutomate.Infrastructure.DbContext;
 using OpenAutomate.Infrastructure.Utilities;
 
 namespace OpenAutomate.Infrastructure.Services
@@ -46,10 +48,10 @@ namespace OpenAutomate.Infrastructure.Services
                 await _unitOfWork.CompleteAsync();
 
                 // Create default authorities for the organization unit
-                await CreateDefaultAuthoritiesAsync(organizationUnit.Id);
+                var ownerAuthority = await CreateDefaultAuthoritiesAsync(organizationUnit.Id);
                 
                 // Assign the OWNER authority to the user who CreatedAtthe organization unit
-                await AssignOwnerAuthorityToUserAsync(organizationUnit.Id, userId);
+                await AssignOwnerAuthorityToUserAsync(organizationUnit.Id, userId, ownerAuthority);
 
                 // Return response
                 return new OrganizationUnitResponseDto
@@ -175,8 +177,9 @@ namespace OpenAutomate.Infrastructure.Services
             try
             {
                 // Get all organization unit users for this user
-                var organizationUnitUsers = await _unitOfWork.OrganizationUnitUsers
-                    .GetAllAsync(ou => ou.UserId == userId);
+                // NOTE: We bypass tenant filtering here because this endpoint is specifically designed
+                // to discover which organization units a user belongs to across all tenants
+                var organizationUnitUsers = await _unitOfWork.OrganizationUnitUsers.GetAllIgnoringFiltersAsync(ou => ou.UserId == userId);
                 
                 // Extract the organization unit IDs
                 var organizationUnitIds = organizationUnitUsers.Select(ou => ou.OrganizationUnitId).ToList();
@@ -253,7 +256,7 @@ namespace OpenAutomate.Infrastructure.Services
             };
         }
 
-        private async Task CreateDefaultAuthoritiesAsync(Guid organizationUnitId)
+        private async Task<Authority> CreateDefaultAuthoritiesAsync(Guid organizationUnitId)
         {
             // Define the default authority names and their resource permissions
             var defaultAuthorities = new Dictionary<string, Dictionary<string, int>>
@@ -308,6 +311,8 @@ namespace OpenAutomate.Infrastructure.Services
                 }
             };
 
+            Authority ownerAuthority = null;
+
             foreach (var authority in defaultAuthorities)
             {
                 // Create the authority
@@ -319,6 +324,12 @@ namespace OpenAutomate.Infrastructure.Services
 
                 await _unitOfWork.Authorities.AddAsync(newAuthority);
                 await _unitOfWork.CompleteAsync();
+
+                // Keep reference to the OWNER authority
+                if (authority.Key == "OWNER")
+                {
+                    ownerAuthority = newAuthority;
+                }
 
                 // Create the resource permissions for this authority
                 foreach (var resource in authority.Value)
@@ -336,21 +347,19 @@ namespace OpenAutomate.Infrastructure.Services
             }
 
             await _unitOfWork.CompleteAsync();
-            _logger.LogInformation("CreatedAtdefault authorities for organization unit {OrganizationUnitId}", organizationUnitId);
+            _logger.LogInformation("Created default authorities for organization unit {OrganizationUnitId}", organizationUnitId);
+            
+            return ownerAuthority;
         }
 
-        private async Task AssignOwnerAuthorityToUserAsync(Guid organizationUnitId, Guid userId)
+        private async Task AssignOwnerAuthorityToUserAsync(Guid organizationUnitId, Guid userId, Authority ownerAuthority)
         {
             try
             {
-                // Find the OWNER authority for this organization unit
-                var ownerAuthority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(
-                    a => a.OrganizationUnitId == organizationUnitId && a.Name == "OWNER");
-                
                 if (ownerAuthority == null)
                 {
-                    _logger.LogError("OWNER authority not found for organization unit {OrganizationUnitId}", organizationUnitId);
-                    throw new InvalidOperationException($"OWNER authority not found for organization unit {organizationUnitId}");
+                    _logger.LogError("OWNER authority is null for organization unit {OrganizationUnitId}", organizationUnitId);
+                    throw new InvalidOperationException($"OWNER authority is null for organization unit {organizationUnitId}");
                 }
                 
                 // Create the user-authority association
