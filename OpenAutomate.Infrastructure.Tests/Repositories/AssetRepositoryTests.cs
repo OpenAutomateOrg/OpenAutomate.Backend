@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Storage;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Domain.IRepository;
 using OpenAutomate.Core.IServices;
@@ -51,13 +53,16 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
         }
 
 
+        private static readonly InMemoryDatabaseRoot _databaseRoot = new();
+
         private ApplicationDbContext GetInMemoryDbContext(string? dbName = null)
         {
             // Create a unique database name for each test if not provided
             dbName = dbName ?? Guid.NewGuid().ToString();
 
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-                .UseInMemoryDatabase(databaseName: dbName)
+                .UseInMemoryDatabase(databaseName: dbName, _databaseRoot)
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .EnableSensitiveDataLogging()
                 .Options;
 
