@@ -217,5 +217,24 @@ namespace OpenAutomate.Infrastructure.Services
             _logger.LogTrace("Keep-alive received from bot agent: {BotAgentName} ({BotAgentId})", botAgent.Name, botAgent.Id);
             return botAgent;
         }
+
+        public async Task DeleteBotAgentAsync(Guid id)
+        {
+            var botAgent = await _unitOfWork.BotAgents.GetByIdAsync(id);
+            if (botAgent == null || botAgent.OrganizationUnitId != _tenantContext.CurrentTenantId)
+                throw new ApplicationException("Bot Agent not found");
+
+            if (botAgent.Status != "Disconnected")
+                throw new InvalidOperationException("You can only delete an agent when its status is 'Disconnected'.");
+
+            var assetLinks = (await _unitOfWork.AssetBotAgents.GetAllAsync(
+                x => x.BotAgentId == id && x.OrganizationUnitId == _tenantContext.CurrentTenantId)).ToList();
+            _unitOfWork.AssetBotAgents.RemoveRange(assetLinks);
+
+            _unitOfWork.BotAgents.Remove(botAgent);
+            await _unitOfWork.CompleteAsync();
+
+            _logger.LogInformation("Bot Agent deleted: {BotAgentId}", botAgent.Id);
+        }
     }
 } 
