@@ -81,5 +81,11 @@ namespace OpenAutomate.Core.IServices
         /// <param name="machineKey">The machine key of the bot agent</param>
         /// <returns>The updated BotAgent entity or null if not found</returns>
         Task<BotAgent?> KeepAliveAsync(string machineKey);
+
+        /// <summary>
+        /// Deletes a Bot Agent.
+        /// </summary>
+        /// <param name="id">The Bot Agent ID</param>
+        Task DeleteBotAgentAsync(Guid id);
     }
 } 
