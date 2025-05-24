@@ -4,18 +4,26 @@ namespace OpenAutomate.Core.Domain.IRepository
 {
     public interface IRepository<TEntity> where TEntity : class
     {
-        Task<TEntity> GetByIdAsync(int id);
-        Task<TEntity> GetByIdAsync(string id);
-        Task<TEntity> GetByIdAsync(Guid id);
+        Task<TEntity?> GetByIdAsync(int id);
+        Task<TEntity?> GetByIdAsync(string id);
+        Task<TEntity?> GetByIdAsync(Guid id);
 
-        Task<TEntity> GetFirstOrDefaultAsync(Expression<Func<TEntity, bool>> filter = null,
-            params Expression<Func<TEntity, object>>[] includes);
+        Task<TEntity?> GetFirstOrDefaultAsync(Expression<Func<TEntity, bool>>? filter = null,
+            params Expression<Func<TEntity, object>>[]? includes);
 
-        Task<IEnumerable<TEntity>> GetAllAsync(Expression<Func<TEntity, bool>> filter = null,
-            Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null,
-            params Expression<Func<TEntity, object>>[] includes);
+        Task<IEnumerable<TEntity>> GetAllAsync(Expression<Func<TEntity, bool>>? filter = null,
+            Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>>? orderBy = null,
+            params Expression<Func<TEntity, object>>[]? includes);
 
-        Task<bool> AnyAsync(Expression<Func<TEntity, bool>> filter = null);
+        /// <summary>
+        /// Gets all entities matching the filter, bypassing any global query filters (e.g., tenant filtering)
+        /// Use this method for cross-tenant operations like discovering user's organization memberships
+        /// </summary>
+        Task<IEnumerable<TEntity>> GetAllIgnoringFiltersAsync(Expression<Func<TEntity, bool>>? filter = null,
+            Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>>? orderBy = null,
+            params Expression<Func<TEntity, object>>[]? includes);
+
+        Task<bool> AnyAsync(Expression<Func<TEntity, bool>>? filter = null);
 
         Task AddAsync(TEntity entity);
         Task AddRangeAsync(IEnumerable<TEntity> entities);
@@ -26,7 +34,7 @@ namespace OpenAutomate.Core.Domain.IRepository
         Task UpdatePropertyAsync(Expression<Func<TEntity, bool>> predicate,
             Expression<Func<TEntity, object>> propertyExpression, object newValue);
 
-        Task<TEntity> UpdateOneAsync<TField>(Expression<Func<TEntity, bool>> filter, Expression<Func<TEntity, TField>> field,
+        Task<TEntity?> UpdateOneAsync<TField>(Expression<Func<TEntity, bool>> filter, Expression<Func<TEntity, TField>> field,
             TField value);
         Task<int> SaveChangesAsync();
     }

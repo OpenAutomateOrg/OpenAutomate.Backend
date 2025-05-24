@@ -36,5 +36,14 @@ namespace OpenAutomate.Core.IServices
         /// <returns>The HTML email content</returns>
         Task<string> GetInvitationEmailTemplateAsync(string userName, string inviterName, 
             string organizationName, string invitationLink, int tokenValidityHours, bool isExistingUser);
+            
+        /// <summary>
+        /// Gets the password reset email template
+        /// </summary>
+        /// <param name="userName">The user's name</param>
+        /// <param name="resetLink">The password reset link</param>
+        /// <param name="tokenValidityHours">The validity period in hours</param>
+        /// <returns>The HTML email content</returns>
+        Task<string> GetResetPasswordEmailTemplateAsync(string userName, string resetLink, int tokenValidityHours);
     }
 } 

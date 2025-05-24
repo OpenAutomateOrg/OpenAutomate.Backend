@@ -111,14 +111,14 @@ namespace OpenAutomate.Infrastructure.Services
                 // Get email template
                 var emailContent = await _emailTemplateService.GetInvitationEmailTemplateAsync(
                     recipientName,
-                    $"{inviter.FirstName} {inviter.LastName}",
-                    organization.Name,
+                    $"{inviter.FirstName ?? ""} {inviter.LastName ?? ""}",
+                    organization.Name ?? "Organization",
                     invitationLink,
                     168, // 7 days validity
                     isExistingUser);
                 
                 // Send email
-                string subject = $"You've Been Invited to Join {organization.Name} on OpenAutomate";
+                string subject = $"You've Been Invited to Join {organization.Name ?? "Organization"} on OpenAutomate";
                 await _emailService.SendEmailAsync(recipientEmail, subject, emailContent);
                 
                 _logger.LogInformation("Invitation email sent to: {Email} for organization: {OrgId}", 
@@ -128,6 +128,38 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 _logger.LogError(ex, "Failed to send invitation email to: {Email} for organization: {OrgId}", 
                     recipientEmail, organizationId);
+                throw;
+            }
+        }
+
+        public async Task SendResetPasswordEmailAsync(string email, string resetLink)
+        {
+            try
+            {
+                // Find user by email to get their name
+                var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == email.ToLower());
+                
+                if (user == null)
+                {
+                    _logger.LogWarning("Failed to send reset password email: User not found with email {Email}", email);
+                    throw new Exception($"User not found with email {email}");
+                }
+                
+                string name = $"{user.FirstName ?? ""} {user.LastName ?? ""}";
+                
+                // Get email template - use 4 hours to match token expiration
+                var emailContent = await _emailTemplateService.GetResetPasswordEmailTemplateAsync(
+                    name, resetLink, 4); // 4 hour validity
+                
+                // Send email
+                string subject = "Reset Your Password - OpenAutomate";
+                await _emailService.SendEmailAsync(email, subject, emailContent);
+                
+                _logger.LogInformation("Reset password email sent to: {Email}", email);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send reset password email to: {Email}", email);
                 throw;
             }
         }

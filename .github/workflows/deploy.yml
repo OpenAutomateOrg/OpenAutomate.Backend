@@ -1,8 +1,9 @@
-name: Deploy .NET API to Ubuntu
+name: Deploy OpenAutomate Backend
 
 on:
   push:
-    branches: [ main ]
+    branches: [ develop ]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -20,33 +21,26 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
       
-    - name: Ensure JWT package version
-      run: |
-        dotnet add OpenAutomate.API/OpenAutomate.API.csproj package System.IdentityModel.Tokens.Jwt --version 8.0.0
-        dotnet add OpenAutomate.API/OpenAutomate.API.csproj package Microsoft.IdentityModel.Protocols --version 8.0.0
-        dotnet add OpenAutomate.API/OpenAutomate.API.csproj package Microsoft.IdentityModel.Protocols.OpenIdConnect --version 8.0.0
-        dotnet restore
-      
     - name: Build app
       run: dotnet build --configuration Release --no-restore
-
+      
     - name: Publish app
       run: dotnet publish -c Release -o publish --no-restore
-
-    - name: Copy files to server
+      
+    - name: Deploy to server
       uses: appleboy/scp-action@v0.1.4
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_KEY }}
         source: "publish/**"
-        target: "${{ secrets.DEPLOY_PATH }}/app"
+        target: "/var/www/openautomate/backend"
 
-    - name: Restart service on server
+    - name: Restart backend service
       uses: appleboy/ssh-action@v0.1.6
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_KEY }}
         script: |
-          sudo systemctl restart myapi
+          systemctl restart openautomate-backend

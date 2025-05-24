@@ -111,8 +111,14 @@ namespace OpenAutomate.Infrastructure.Services
             return MapToResponseDto(botAgent);
         }
 
-
+        /// <inheritdoc />
+        public async Task<bool> ResolveTenantFromSlugAsync(string tenantSlug)
+        {
+            // Delegate to the tenant context
+            return await _tenantContext.ResolveTenantFromSlugAsync(tenantSlug);
+        }
         
+        /// <inheritdoc />
         public async Task DeactivateBotAgentAsync(Guid id)
         {
             var botAgent = await _unitOfWork.BotAgents.GetByIdAsync(id);
@@ -156,6 +162,79 @@ namespace OpenAutomate.Infrastructure.Services
                 LastConnected = botAgent.LastConnected,
                 IsActive = botAgent.IsActive
             };
+        }
+
+        public async Task<BotAgent?> ConnectBotAgentAsync(string machineKey)
+        {
+            var botAgent = await _unitOfWork.BotAgents
+                .GetFirstOrDefaultAsync(ba => ba.MachineKey == machineKey && ba.OrganizationUnitId == _tenantContext.CurrentTenantId);
+            if (botAgent == null)
+                return null;
+            botAgent.Status = STATUS_AVAILABLE;
+            botAgent.LastHeartbeat = DateTime.UtcNow;
+            botAgent.LastConnected = DateTime.UtcNow;
+            await _unitOfWork.CompleteAsync();
+            _logger.LogInformation("Bot agent connected: {BotAgentName} ({BotAgentId})", botAgent.Name, botAgent.Id);
+            return botAgent;
+        }
+
+        public async Task<BotAgent?> DisconnectBotAgentAsync(string machineKey)
+        {
+            var botAgent = await _unitOfWork.BotAgents
+                .GetFirstOrDefaultAsync(ba => ba.MachineKey == machineKey && ba.OrganizationUnitId == _tenantContext.CurrentTenantId);
+            if (botAgent == null)
+                return null;
+            botAgent.Status = STATUS_DISCONNECTED;
+            await _unitOfWork.CompleteAsync();
+            _logger.LogInformation("Bot agent disconnected: {BotAgentName} ({BotAgentId})", botAgent.Name, botAgent.Id);
+            return botAgent;
+        }
+
+        public async Task<BotAgent?> UpdateBotAgentStatusAsync(string machineKey, string status, string? executionId = null)
+        {
+            var botAgent = await _unitOfWork.BotAgents
+                .GetFirstOrDefaultAsync(ba => ba.MachineKey == machineKey && ba.OrganizationUnitId == _tenantContext.CurrentTenantId);
+            if (botAgent == null)
+                return null;
+            botAgent.LastHeartbeat = DateTime.UtcNow;
+            if (status == STATUS_AVAILABLE || status == STATUS_BUSY || status == STATUS_DISCONNECTED)
+            {
+                botAgent.Status = status;
+            }
+            await _unitOfWork.CompleteAsync();
+            _logger.LogDebug("Bot status update: {BotAgentName} - {Status}", botAgent.Name, status);
+            return botAgent;
+        }
+
+        public async Task<BotAgent?> KeepAliveAsync(string machineKey)
+        {
+            var botAgent = await _unitOfWork.BotAgents
+                .GetFirstOrDefaultAsync(ba => ba.MachineKey == machineKey && ba.OrganizationUnitId == _tenantContext.CurrentTenantId);
+            if (botAgent == null)
+                return null;
+            botAgent.LastHeartbeat = DateTime.UtcNow;
+            await _unitOfWork.CompleteAsync();
+            _logger.LogTrace("Keep-alive received from bot agent: {BotAgentName} ({BotAgentId})", botAgent.Name, botAgent.Id);
+            return botAgent;
+        }
+
+        public async Task DeleteBotAgentAsync(Guid id)
+        {
+            var botAgent = await _unitOfWork.BotAgents.GetByIdAsync(id);
+            if (botAgent == null || botAgent.OrganizationUnitId != _tenantContext.CurrentTenantId)
+                throw new ApplicationException("Bot Agent not found");
+
+            if (botAgent.Status != "Disconnected")
+                throw new InvalidOperationException("You can only delete an agent when its status is 'Disconnected'.");
+
+            var assetLinks = (await _unitOfWork.AssetBotAgents.GetAllAsync(
+                x => x.BotAgentId == id && x.OrganizationUnitId == _tenantContext.CurrentTenantId)).ToList();
+            _unitOfWork.AssetBotAgents.RemoveRange(assetLinks);
+
+            _unitOfWork.BotAgents.Remove(botAgent);
+            await _unitOfWork.CompleteAsync();
+
+            _logger.LogInformation("Bot Agent deleted: {BotAgentId}", botAgent.Id);
         }
     }
 } 

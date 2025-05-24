@@ -101,5 +101,28 @@ namespace OpenAutomate.API.Controllers
             await _botAgentService.DeactivateBotAgentAsync(id);
             return NoContent();
         }
+
+        /// <summary>
+        /// Deletes a Bot Agent.
+        /// </summary>
+        /// <param name="id">The Bot Agent ID</param>
+        [HttpDelete("{id}")]
+        [RequirePermission(Resources.AgentResource, Permissions.Delete)]
+        public async Task<IActionResult> DeleteBotAgent(Guid id)
+        {
+            try
+            {
+                await _botAgentService.DeleteBotAgentAsync(id);
+                return NoContent();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (ApplicationException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+        }
     }
 } 
