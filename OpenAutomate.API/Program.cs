@@ -149,6 +149,12 @@ namespace OpenAutomate.API
             .AddJsonProtocol(options => {
                 options.PayloadSerializerOptions.PropertyNamingPolicy = null;
             });
+
+            // Load email settings from configuration
+            builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("AppSettings:EmailSettings"));
+            
+            // Register email service (sử dụng AwsSesEmailService thay vì SimpleSmtpEmailService)
+            builder.Services.AddScoped<IEmailService, AwsSesEmailService>();
         }
         
         private static void ConfigureCors(WebApplicationBuilder builder)
@@ -179,12 +185,15 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<IOrganizationUnitService, OrganizationUnitService>();
             builder.Services.AddScoped<IBotAgentService, BotAgentService>();
             builder.Services.AddScoped<IAssetService, AssetService>();
-            builder.Services.AddScoped<IEmailService, AwsSesEmailService>();
+            builder.Services.AddScoped<IEmailService, SimpleSmtpEmailService>();
             builder.Services.AddScoped<IAuthorizationManager, AuthorizationManager>();
             
             // Register email verification services
             builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
+            
+            // Register invitation service (đổi thành SimpleInvitationService để test)
+            builder.Services.AddScoped<IInvitationService, SimpleInvitationService>();
         }
         
         private static void ConfigureAuthentication(WebApplicationBuilder builder)
