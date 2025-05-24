@@ -5,6 +5,7 @@ using OpenAutomate.Core.IServices;
 using OpenAutomate.Domain.IRepository;
 using OpenAutomate.Infrastructure.DbContext;
 using OpenAutomate.Infrastructure.Repositories;
+using Microsoft.EntityFrameworkCore.Storage;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -51,13 +52,15 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
         }
 
 
+        private readonly InMemoryDatabaseRoot _dbRoot = new();
+
         private ApplicationDbContext GetInMemoryDbContext(string? dbName = null)
         {
             // Create a unique database name for each test if not provided
             dbName = dbName ?? Guid.NewGuid().ToString();
 
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-                .UseInMemoryDatabase(databaseName: dbName)
+                .UseInMemoryDatabase(dbName, _dbRoot)
                 .EnableSensitiveDataLogging()
                 .Options;
 
