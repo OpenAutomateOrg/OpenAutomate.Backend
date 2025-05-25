@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using OpenAutomate.Core.IServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -110,26 +111,26 @@ namespace OpenAutomate.Infrastructure.Services
                 
                 _logger.LogInformation("Attempting to resolve tenant from slug: {TenantSlug}", tenantSlug);
                 
-                // Use a scoped service to avoid circular dependency
-                using (var scope = _serviceProvider.CreateScope())
+                // Get the current scoped UnitOfWork to avoid creating a new scope
+                // This ensures we use the same DbContext instance that has the tenant filters
+                var unitOfWork = _serviceProvider.GetRequiredService<IUnitOfWork>();
+                
+                // Temporarily bypass tenant filtering to resolve the tenant
+                var tenants = await unitOfWork.OrganizationUnits
+                    .GetAllIgnoringFiltersAsync(o => o.Slug == tenantSlug && o.IsActive);
+                var tenant = tenants.FirstOrDefault();
+                    
+                if (tenant == null)
                 {
-                    var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-                    
-                    var tenant = await unitOfWork.OrganizationUnits
-                        .GetFirstOrDefaultAsync(o => o.Slug == tenantSlug && o.IsActive);
-                        
-                    if (tenant == null)
-                    {
-                        _logger.LogWarning("Tenant not found for slug: {TenantSlug}", tenantSlug);
-                        return false;
-                    }
-                    
-                    // Set the tenant ID in the tenant context
-                    SetTenant(tenant.Id);
-                    
-                    _logger.LogInformation("Tenant resolved successfully: {TenantId}, {TenantName}", tenant.Id, tenant.Name);
-                    return true;
+                    _logger.LogWarning("Tenant not found for slug: {TenantSlug}", tenantSlug);
+                    return false;
                 }
+                
+                // Set the tenant ID in the tenant context
+                SetTenant(tenant.Id);
+                
+                _logger.LogInformation("Tenant resolved successfully: {TenantId}, {TenantName}", tenant.Id, tenant.Name);
+                return true;
             }
             catch (Exception ex)
             {

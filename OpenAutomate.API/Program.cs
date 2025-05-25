@@ -17,6 +17,7 @@ using System.IO;
 using OpenAutomate.API.Hubs;
 using Microsoft.AspNetCore.OData;
 using Serilog;
+using Microsoft.OpenApi.Models;
 
 namespace OpenAutomate.API
 {
@@ -89,8 +90,8 @@ namespace OpenAutomate.API
                 .GetSection("Database")
                 .Get<DatabaseSettings>();
                 
-            // Register TenantContext as singleton to avoid circular dependencies
-            builder.Services.AddSingleton<ITenantContext, TenantContext>();
+            // Register TenantContext as scoped for proper tenant isolation per request
+            builder.Services.AddScoped<ITenantContext, TenantContext>();
             
             // Add DbContext
             builder.Services.AddDbContext<ApplicationDbContext>((provider, options) =>
@@ -106,6 +107,12 @@ namespace OpenAutomate.API
             
             // Add controllers with OData support
             builder.Services.AddControllers()
+                .AddJsonOptions(options =>
+                {
+                    // Configure JSON serialization to use camelCase for property names
+                    options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+                    options.JsonSerializerOptions.DictionaryKeyPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+                })
                 .AddOData(options => 
                     options.Select()
                            .Filter()
@@ -147,7 +154,9 @@ namespace OpenAutomate.API
             })
             // Add diagnostics to help debug connection issues
             .AddJsonProtocol(options => {
-                options.PayloadSerializerOptions.PropertyNamingPolicy = null;
+                // Configure SignalR JSON protocol to use camelCase for consistency
+                options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+                options.PayloadSerializerOptions.DictionaryKeyPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
             });
         }
         
@@ -185,6 +194,12 @@ namespace OpenAutomate.API
             // Register email verification services
             builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
+            
+            // Register AWS configuration and S3 package storage services
+            builder.Services.Configure<AwsSettings>(builder.Configuration.GetSection("AWS"));
+            builder.Services.AddScoped<IPackageStorageService, S3PackageStorageService>();
+            builder.Services.AddScoped<IAutomationPackageService, AutomationPackageService>();
+            builder.Services.AddScoped<IPackageMetadataService, PackageMetadataService>();
         }
         
         private static void ConfigureAuthentication(WebApplicationBuilder builder)
@@ -320,6 +335,13 @@ namespace OpenAutomate.API
                         },
                         Array.Empty<string>()
                     }
+                });
+
+                // Configure file upload support
+                options.MapType<IFormFile>(() => new Microsoft.OpenApi.Models.OpenApiSchema
+                {
+                    Type = "string",
+                    Format = "binary"
                 });
             });
         }
