@@ -3,6 +3,7 @@ using OpenAutomate.Core.IServices;
 using System;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -82,12 +83,10 @@ namespace OpenAutomate.Infrastructure.Services
                 _logger.LogError(ex, "Failed to extract metadata from package: {FileName}", fileName);
                 metadata.ErrorMessage = $"Failed to extract metadata: {ex.Message}";
                 metadata.IsValid = false;
-            }
-
-            return metadata;
+            }            return metadata;
         }
 
-        public async Task<bool> IsValidPackageAsync(Stream fileStream, string fileName)
+        public Task<bool> IsValidPackageAsync(Stream fileStream, string fileName)
         {
             try
             {
@@ -97,28 +96,23 @@ namespace OpenAutomate.Infrastructure.Services
                 // Must be a zip file
                 if (!IsZipFile(fileName))
                 {
-                    return false;
+                    return Task.FromResult(false);
                 }
 
                 using var archive = new ZipArchive(fileStream, ZipArchiveMode.Read, leaveOpen: true);
-                
                 // Check for required files that indicate it's a bot package
                 var hasMainBot = archive.GetEntry("bot.py") != null;
-                var hasFramework = archive.GetEntry("framework/") != null || 
-                                 archive.GetEntry("framework/base_bot.py") != null;
-                var hasRequirements = archive.GetEntry("requirements.txt") != null;
 
                 // At minimum, should have bot.py
-                return hasMainBot;
+                return Task.FromResult(hasMainBot);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Error validating package: {FileName}", fileName);
-                return false;
+                _logger.LogWarning(ex, "Error validating package: {FileName}", fileName);                return Task.FromResult(false);
             }
         }
 
-        private async Task ExtractFromConfigIni(ZipArchiveEntry configEntry, PackageMetadata metadata)
+        private static async Task ExtractFromConfigIni(ZipArchiveEntry configEntry, PackageMetadata metadata)
         {
             using var stream = configEntry.Open();
             using var reader = new StreamReader(stream, Encoding.UTF8);
@@ -132,97 +126,115 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 var trimmedLine = line.Trim();
                 
-                // Skip comments and empty lines
-                if (trimmedLine.StartsWith("#") || trimmedLine.StartsWith(";") || string.IsNullOrEmpty(trimmedLine))
+                if (ShouldSkipLine(trimmedLine))
                     continue;
 
-                // Check for section headers
-                if (trimmedLine.StartsWith("[") && trimmedLine.EndsWith("]"))
-                {
-                    currentSection = trimmedLine.Trim('[', ']').ToLower();
+                if (IsSectionHeader(trimmedLine))
+                {                    currentSection = ExtractSectionName(trimmedLine);
                     continue;
                 }
 
-                // Parse key-value pairs
-                var equalIndex = trimmedLine.IndexOf('=');
-                if (equalIndex > 0)
+                var keyValuePair = ParseKeyValuePair(trimmedLine);
+                if (keyValuePair.HasValue && currentSection == "bot")
                 {
-                    var key = trimmedLine.Substring(0, equalIndex).Trim().ToLower();
-                    var value = trimmedLine.Substring(equalIndex + 1).Trim();
-
-                    // Remove quotes if present
-                    if (value.StartsWith("\"") && value.EndsWith("\""))
-                    {
-                        value = value.Trim('"');
-                    }
-
-                    // Extract metadata based on section and key
-                    if (currentSection == "bot")
-                    {
-                        switch (key)
-                        {
-                            case "name":
-                                metadata.Name = value;
-                                break;
-                            case "description":
-                                metadata.Description = value;
-                                break;
-                            case "version":
-                                metadata.Version = value;
-                                break;
-                            case "author":
-                                metadata.Author = value;
-                                break;
-                        }
-                    }
+                    AssignMetadataValue(metadata, keyValuePair.Value.Key, keyValuePair.Value.Value);
                 }
             }
         }
 
-        private async Task ExtractFromAlternativeSources(ZipArchive archive, PackageMetadata metadata)
+        private static bool ShouldSkipLine(string trimmedLine)
         {
-            // Try to extract from README.md
-            var readmeEntry = archive.GetEntry("README.md");
-            if (readmeEntry != null)
-            {
-                using var stream = readmeEntry.Open();
-                using var reader = new StreamReader(stream, Encoding.UTF8);
-                var content = await reader.ReadToEndAsync();
+            return trimmedLine.StartsWith('#') || trimmedLine.StartsWith(';') || string.IsNullOrEmpty(trimmedLine);
+        }
+
+        private static bool IsSectionHeader(string trimmedLine)
+        {
+            return trimmedLine.StartsWith('[') && trimmedLine.EndsWith(']');
+        }
+
+        private static string ExtractSectionName(string trimmedLine)
+        {
+            return trimmedLine.Trim('[', ']').ToLower();
+        }        private static (string Key, string Value)? ParseKeyValuePair(string trimmedLine)
+        {
+            var equalIndex = trimmedLine.IndexOf('=');
+            if (equalIndex <= 0)
+                return null;
                 
-                // Simple extraction from README - look for title
-                var lines = content.Split('\n');
-                foreach (var line in lines)
-                {
-                    if (line.StartsWith("# ") && string.IsNullOrEmpty(metadata.Name))
-                    {
-                        metadata.Name = line.Substring(2).Trim();
-                        break;
-                    }
-                }
+            var key = trimmedLine.Substring(0, equalIndex).Trim().ToLower();
+            var value = trimmedLine.Substring(equalIndex + 1).Trim();
+
+            // Remove quotes if present
+            if (value.StartsWith('"') && value.EndsWith('"'))
+            {
+                value = value.Trim('"');
             }
 
-            // Try to extract from bot.py comments
-            var botEntry = archive.GetEntry("bot.py");
-            if (botEntry != null)
+            return (key, value);
+        }
+
+        private static void AssignMetadataValue(PackageMetadata metadata, string key, string value)
+        {
+            switch (key)
             {
-                using var stream = botEntry.Open();
-                using var reader = new StreamReader(stream, Encoding.UTF8);
-                var content = await reader.ReadToEndAsync();
-                
-                // Look for docstring or comments with metadata
-                if (content.Contains("\"\"\"") && string.IsNullOrEmpty(metadata.Description))
-                {
-                    var startIndex = content.IndexOf("\"\"\"") + 3;
-                    var endIndex = content.IndexOf("\"\"\"", startIndex);
-                    if (endIndex > startIndex)
-                    {
-                        var docstring = content.Substring(startIndex, endIndex - startIndex).Trim();
-                        if (!string.IsNullOrEmpty(docstring))
-                        {
-                            metadata.Description = docstring.Split('\n')[0].Trim();
-                        }
-                    }
-                }
+                case "name":
+                    metadata.Name = value;
+                    break;
+                case "description":
+                    metadata.Description = value;
+                    break;
+                case "version":
+                    metadata.Version = value;
+                    break;
+                case "author":
+                    metadata.Author = value;
+                    break;
+            }
+        }        private static async Task ExtractFromAlternativeSources(ZipArchive archive, PackageMetadata metadata)
+        {
+            await ExtractFromReadme(archive, metadata);
+            await ExtractFromBotPy(archive, metadata);
+        }
+
+        private static async Task ExtractFromReadme(ZipArchive archive, PackageMetadata metadata)
+        {
+            var readmeEntry = archive.GetEntry("README.md");
+            if (readmeEntry == null || !string.IsNullOrEmpty(metadata.Name))
+                return;
+
+            using var stream = readmeEntry.Open();
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            var content = await reader.ReadToEndAsync();
+              var lines = content.Split('\n');
+            var titleLine = lines.FirstOrDefault(line => line.StartsWith("# "));
+            if (titleLine != null)
+            {
+                metadata.Name = titleLine.Substring(2).Trim();
+            }
+        }
+
+        private static async Task ExtractFromBotPy(ZipArchive archive, PackageMetadata metadata)
+        {
+            var botEntry = archive.GetEntry("bot.py");
+            if (botEntry == null || !string.IsNullOrEmpty(metadata.Description))
+                return;
+
+            using var stream = botEntry.Open();
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            var content = await reader.ReadToEndAsync();
+            
+            if (!content.Contains("\"\"\""))
+                return;
+
+            var startIndex = content.IndexOf("\"\"\"") + 3;
+            var endIndex = content.IndexOf("\"\"\"", startIndex);
+            if (endIndex <= startIndex)
+                return;
+
+            var docstring = content.Substring(startIndex, endIndex - startIndex).Trim();
+            if (!string.IsNullOrEmpty(docstring))
+            {
+                metadata.Description = docstring.Split('\n')[0].Trim();
             }
         }
 
@@ -268,7 +280,7 @@ namespace OpenAutomate.Infrastructure.Services
             }
         }
 
-        private bool IsZipFile(string fileName)
+        private static bool IsZipFile(string fileName)
         {
             var extension = Path.GetExtension(fileName).ToLowerInvariant();
             return extension == ".zip";
