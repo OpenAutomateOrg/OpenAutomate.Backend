@@ -124,5 +124,19 @@ namespace OpenAutomate.API.Controllers
                 return NotFound(new { error = ex.Message });
             }
         }
+
+        /// <summary>
+        /// Updates a Bot Agent's editable fields
+        /// </summary>
+        /// <param name="id">The Bot Agent ID</param>
+        /// <param name="dto">The update data</param>
+        /// <returns>The updated Bot Agent</returns>
+        [HttpPut("{id}")]
+        [RequirePermission(Resources.AgentResource, Permissions.Update)]
+        public async Task<ActionResult<BotAgentResponseDto>> UpdateBotAgent(Guid id, [FromBody] UpdateBotAgentDto dto)
+        {
+            var updatedAgent = await _botAgentService.UpdateBotAgentAsync(id, dto);
+            return Ok(updatedAgent);
+        }
     }
 } 

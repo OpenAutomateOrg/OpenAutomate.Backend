@@ -87,5 +87,13 @@ namespace OpenAutomate.Core.IServices
         /// </summary>
         /// <param name="id">The Bot Agent ID</param>
         Task DeleteBotAgentAsync(Guid id);
+
+        /// <summary>
+        /// Updates a Bot Agent's editable fields
+        /// </summary>
+        /// <param name="id">The Bot Agent ID</param>
+        /// <param name="dto">The update data</param>
+        /// <returns>The updated Bot Agent</returns>
+        Task<BotAgentResponseDto> UpdateBotAgentAsync(Guid id, UpdateBotAgentDto dto);
     }
 } 

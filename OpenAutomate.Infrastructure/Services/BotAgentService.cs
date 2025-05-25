@@ -236,5 +236,25 @@ namespace OpenAutomate.Infrastructure.Services
 
             _logger.LogInformation("Bot Agent deleted: {BotAgentId}", botAgent.Id);
         }
+
+        public async Task<BotAgentResponseDto> UpdateBotAgentAsync(Guid id, UpdateBotAgentDto dto)
+        {
+            var botAgent = await _unitOfWork.BotAgents.GetByIdAsync(id);
+            if (botAgent == null || botAgent.OrganizationUnitId != _tenantContext.CurrentTenantId)
+            {
+                throw new ApplicationException("Bot Agent not found");
+            }
+            if (botAgent.Status != "Disconnected")
+                throw new InvalidOperationException("Agent can only be updated when status is 'Disconnected'.");
+            if (dto.Name != null)
+                botAgent.Name = dto.Name;
+            if (dto.MachineName != null)
+                botAgent.MachineName = dto.MachineName;
+
+            _unitOfWork.BotAgents.Update(botAgent);
+            await _unitOfWork.CompleteAsync();
+            _logger.LogInformation("Bot Agent updated: {BotAgentId}", botAgent.Id);
+            return MapToResponseDto(botAgent);
+        }
     }
 } 
