@@ -26,6 +26,13 @@ namespace OpenAutomate.Core.IServices
         Task<AutomationPackageResponseDto?> GetPackageByIdAsync(Guid id);
 
         /// <summary>
+        /// Gets a package by name
+        /// </summary>
+        /// <param name="name">Package name</param>
+        /// <returns>Package response or null if not found</returns>
+        Task<AutomationPackageResponseDto?> GetPackageByNameAsync(string name);
+
+        /// <summary>
         /// Gets all packages for the current tenant
         /// </summary>
         /// <returns>Collection of package responses</returns>

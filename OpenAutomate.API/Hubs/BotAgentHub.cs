@@ -198,6 +198,28 @@ namespace OpenAutomate.API.Hubs
             
             if (string.IsNullOrEmpty(machineKey)) return;
             
+            // Ensure tenant context is resolved before making service calls
+            if (!_tenantContext.HasTenant)
+            {
+                var tenantSlug = httpContext?.GetTenantSlug();
+                if (!string.IsNullOrEmpty(tenantSlug))
+                {
+                    _logger.LogInformation(LogMessages.ResolvingTenant, tenantSlug);
+                    var tenantResolved = await _botAgentService.ResolveTenantFromSlugAsync(tenantSlug);
+                    if (!tenantResolved)
+                    {
+                        _logger.LogWarning(LogMessages.TenantResolutionFailed, tenantSlug);
+                        return;
+                    }
+                    _logger.LogInformation(LogMessages.TenantResolved, tenantSlug);
+                }
+                else
+                {
+                    _logger.LogWarning(LogMessages.NoTenantContext);
+                    return;
+                }
+            }
+            
             var botAgent = await _botAgentService.UpdateBotAgentStatusAsync(machineKey, status, executionId);
             if (botAgent == null) return;
             var updateData = new {
@@ -226,6 +248,28 @@ namespace OpenAutomate.API.Hubs
             }
             
             if (string.IsNullOrEmpty(machineKey)) return;
+            
+            // Ensure tenant context is resolved before making service calls
+            if (!_tenantContext.HasTenant)
+            {
+                var tenantSlug = httpContext?.GetTenantSlug();
+                if (!string.IsNullOrEmpty(tenantSlug))
+                {
+                    _logger.LogInformation(LogMessages.ResolvingTenant, tenantSlug);
+                    var tenantResolved = await _botAgentService.ResolveTenantFromSlugAsync(tenantSlug);
+                    if (!tenantResolved)
+                    {
+                        _logger.LogWarning(LogMessages.TenantResolutionFailed, tenantSlug);
+                        return;
+                    }
+                    _logger.LogInformation(LogMessages.TenantResolved, tenantSlug);
+                }
+                else
+                {
+                    _logger.LogWarning(LogMessages.NoTenantContext);
+                    return;
+                }
+            }
             
             var botAgent = await _botAgentService.KeepAliveAsync(machineKey);
             if (botAgent == null) return;

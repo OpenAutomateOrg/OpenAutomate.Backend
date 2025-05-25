@@ -100,16 +100,27 @@ namespace OpenAutomate.API.Controllers
                     });
                 }
 
-                // Create the package
-                var createDto = new CreateAutomationPackageDto
+                // Check if a package with this name already exists
+                var existingPackage = await _packageService.GetPackageByNameAsync(packageName);
+                
+                AutomationPackageResponseDto package;
+                if (existingPackage != null)
                 {
-                    Name = packageName,
-                    Description = packageDescription
-                };
+                    // Package exists, use the existing one
+                    package = existingPackage;
+                }
+                else
+                {
+                    // Create new package
+                    var createDto = new CreateAutomationPackageDto
+                    {
+                        Name = packageName,
+                        Description = packageDescription
+                    };
+                    package = await _packageService.CreatePackageAsync(createDto);
+                }
 
-                var package = await _packageService.CreatePackageAsync(createDto);
-
-                // Upload the first version
+                // Upload the version to the package (existing or new)
                 stream.Position = 0; // Reset stream for upload
                 var packageVersion = await _packageService.UploadPackageVersionAsync(
                     package.Id, stream, request.File.FileName, versionNumber);

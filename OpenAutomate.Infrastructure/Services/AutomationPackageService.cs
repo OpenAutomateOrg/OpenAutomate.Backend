@@ -84,6 +84,24 @@ namespace OpenAutomate.Infrastructure.Services
             return responseDto;
         }
 
+        public async Task<AutomationPackageResponseDto?> GetPackageByNameAsync(string name)
+        {
+            var package = await _unitOfWork.AutomationPackages.GetFirstOrDefaultAsync(
+                p => p.Name == name && p.OrganizationUnitId == _tenantContext.CurrentTenantId);
+
+            if (package == null)
+                return null;
+
+            // Load versions for the package
+            var versions = await _unitOfWork.PackageVersions.GetAllAsync(
+                pv => pv.PackageId == package.Id && pv.OrganizationUnitId == _tenantContext.CurrentTenantId);
+
+            var responseDto = MapToResponseDto(package);
+            responseDto.Versions = versions.Select(MapVersionToResponseDto).ToList();
+
+            return responseDto;
+        }
+
         public async Task<IEnumerable<AutomationPackageResponseDto>> GetAllPackagesAsync()
         {
             var packages = await _unitOfWork.AutomationPackages.GetAllAsync(
