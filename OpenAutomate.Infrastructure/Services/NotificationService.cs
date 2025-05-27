@@ -85,48 +85,43 @@ namespace OpenAutomate.Infrastructure.Services
             }
         }
 
-        public async Task SendOrganizationInvitationAsync(Guid inviterId, string recipientEmail, 
-            string recipientName, Guid organizationId, bool isExistingUser)
+        public async Task SendOrganizationInvitationAsync(Guid inviterId, string recipientEmail, Guid organizationId, string invitationToken, DateTime expiresAt, bool isExistingUser)
         {
             try
             {
                 // Get inviter and organization info
                 var inviter = await _unitOfWork.Users.GetByIdAsync(inviterId);
                 var organization = await _unitOfWork.OrganizationUnits.GetByIdAsync(organizationId);
-                
+
                 if (inviter == null || organization == null)
                 {
                     _logger.LogWarning("Failed to send invitation: Inviter or organization not found");
                     throw new Exception("Inviter or organization not found");
                 }
-                
-                // Generate invitation token
-                // This would be implemented in a real invitation service
-                var invitationToken = "sample-invitation-token"; // Placeholder
-                
+
                 // Create invitation link
                 var baseUrl = _configuration["FrontendUrl"];
                 var invitationLink = $"{baseUrl}/invitation?token={invitationToken}";
-                
+
                 // Get email template
                 var emailContent = await _emailTemplateService.GetInvitationEmailTemplateAsync(
-                    recipientName,
+                    recipientEmail,
                     $"{inviter.FirstName ?? ""} {inviter.LastName ?? ""}",
                     organization.Name ?? "Organization",
                     invitationLink,
-                    168, // 7 days validity
+                    (int)(expiresAt - DateTime.UtcNow).TotalHours,
                     isExistingUser);
-                
+
                 // Send email
                 string subject = $"You've Been Invited to Join {organization.Name ?? "Organization"} on OpenAutomate";
                 await _emailService.SendEmailAsync(recipientEmail, subject, emailContent);
-                
-                _logger.LogInformation("Invitation email sent to: {Email} for organization: {OrgId}", 
+
+                _logger.LogInformation("Invitation email sent to: {Email} for organization: {OrgId}",
                     recipientEmail, organizationId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send invitation email to: {Email} for organization: {OrgId}", 
+                _logger.LogError(ex, "Failed to send invitation email to: {Email} for organization: {OrgId}",
                     recipientEmail, organizationId);
                 throw;
             }

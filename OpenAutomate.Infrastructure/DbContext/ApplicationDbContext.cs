@@ -113,5 +113,6 @@ namespace OpenAutomate.Infrastructure.DbContext
         public DbSet<AssetBotAgent> AssetBotAgents { get; set; }
         public DbSet<EmailVerificationToken> EmailVerificationTokens { get; set; }
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+        public DbSet<OrganizationInvitation> OrganizationInvitations { get; set; }
     }
 }
