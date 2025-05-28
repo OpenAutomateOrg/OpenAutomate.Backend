@@ -91,7 +91,7 @@ namespace OpenAutomate.Infrastructure.Services
                 throw new Exception("User not found");
 
             if (!string.Equals(user.Email, invitation.RecipientEmail, StringComparison.OrdinalIgnoreCase))
-                throw new Exception("Bạn không phải là người được mời vào OU này.");
+                throw new Exception("You are not invited to this OU.");
 
             var orgUser = await _unitOfWork.OrganizationUnitUsers
                 .GetFirstOrDefaultAsync(ou => ou.OrganizationUnitId == invitation.OrganizationUnitId && ou.UserId == userId);
