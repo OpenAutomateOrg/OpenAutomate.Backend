@@ -101,7 +101,7 @@ namespace OpenAutomate.Infrastructure.Services
 
                 // Create invitation link
                 var baseUrl = _configuration["FrontendUrl"];
-                var invitationLink = $"{baseUrl}/invitation?token={invitationToken}";
+                var invitationLink = $"{baseUrl}/{organization.Slug}/invitation/accept?token={invitationToken}";
 
                 // Get email template
                 var emailContent = await _emailTemplateService.GetInvitationEmailTemplateAsync(

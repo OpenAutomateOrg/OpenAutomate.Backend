@@ -72,26 +72,26 @@ namespace OpenAutomate.Infrastructure.Services
             };
         }
 
-        public async Task<bool> AcceptInvitationAsync(string token, Guid userId)
+        public async Task<AcceptInvitationResult> AcceptInvitationAsync(string token, Guid userId)
         {
             var invitation = await _unitOfWork.OrganizationInvitations.GetFirstOrDefaultAsync(i => i.Token == token);
             if (invitation == null || invitation.Status != InvitationStatus.Pending)
-                throw new Exception("Invitation not found or no longer valid");
+                return AcceptInvitationResult.InvitationNotFoundOrInvalid;
 
             if (invitation.ExpiresAt < DateTime.UtcNow)
             {
                 invitation.Status = InvitationStatus.Expired;
                 _unitOfWork.OrganizationInvitations.Update(invitation);
                 await _unitOfWork.CompleteAsync();
-                throw new Exception("Invitation has expired");
+                return AcceptInvitationResult.InvitationExpired;
             }
 
             var user = await _unitOfWork.Users.GetByIdAsync(userId);
             if (user == null)
-                throw new Exception("User not found");
+                return AcceptInvitationResult.UserNotFound;
 
             if (!string.Equals(user.Email, invitation.RecipientEmail, StringComparison.OrdinalIgnoreCase))
-                throw new Exception("You are not invited to this OU.");
+                return AcceptInvitationResult.NotInvited;
 
             var orgUser = await _unitOfWork.OrganizationUnitUsers
                 .GetFirstOrDefaultAsync(ou => ou.OrganizationUnitId == invitation.OrganizationUnitId && ou.UserId == userId);
@@ -125,7 +125,20 @@ namespace OpenAutomate.Infrastructure.Services
             _unitOfWork.OrganizationInvitations.Update(invitation);
 
             await _unitOfWork.CompleteAsync();
-            return true;
+            return AcceptInvitationResult.Success;
+        }
+
+        public async Task<OrganizationInvitation?> GetPendingInvitationAsync(Guid organizationId, string email)
+        {
+            return await _unitOfWork.OrganizationInvitations
+                .GetFirstOrDefaultAsync(i => i.OrganizationUnitId == organizationId
+                                          && i.RecipientEmail == email
+                                          && i.Status == InvitationStatus.Pending);
+        }
+
+        public async Task<OrganizationInvitation> GetInvitationByTokenAsync(string token)
+        {
+            return await _unitOfWork.OrganizationInvitations.GetFirstOrDefaultAsync(i => i.Token == token);
         }
     }
 }
