@@ -28,6 +28,15 @@ namespace OpenAutomate.Infrastructure.Services
             if (organization == null)
                 throw new Exception("Organization Unit not found");
 
+            var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email == request.Email);
+            if (user != null)
+            {
+                var isMember = await _unitOfWork.OrganizationUnitUsers
+                    .AnyAsync(ouu => ouu.OrganizationUnitId == organizationId && ouu.UserId == user.Id);
+                if (isMember)
+                    throw new Exception("User is already a member of this organization.");
+            }
+
             var existingInvitation = await _unitOfWork.OrganizationUnitInvitations
                 .GetFirstOrDefaultAsync(i => i.OrganizationUnitId == organizationId
                                           && i.RecipientEmail == request.Email
