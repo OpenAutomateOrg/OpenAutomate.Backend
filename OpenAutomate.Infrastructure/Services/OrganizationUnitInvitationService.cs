@@ -11,12 +11,12 @@ using System.Threading.Tasks;
 
 namespace OpenAutomate.Infrastructure.Services
 {
-    public class OrganizationInvitationService : IOrganizationInvitationService
+    public class OrganizationUnitInvitationService : IOrganizationUnitInvitationService
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly INotificationService _notificationService;
 
-        public OrganizationInvitationService(IUnitOfWork unitOfWork, INotificationService notificationService)
+        public OrganizationUnitInvitationService(IUnitOfWork unitOfWork, INotificationService notificationService)
         {
             _unitOfWork = unitOfWork;
             _notificationService = notificationService;
@@ -26,16 +26,16 @@ namespace OpenAutomate.Infrastructure.Services
         {
             var organization = await _unitOfWork.OrganizationUnits.GetByIdAsync(organizationId);
             if (organization == null)
-                throw new Exception("Organization not found");
+                throw new Exception("Organization Unit not found");
 
-            var existingInvitation = await _unitOfWork.OrganizationInvitations
+            var existingInvitation = await _unitOfWork.OrganizationUnitInvitations
                 .GetFirstOrDefaultAsync(i => i.OrganizationUnitId == organizationId
                                           && i.RecipientEmail == request.Email
                                           && i.Status == InvitationStatus.Pending);
             if (existingInvitation != null)
                 throw new Exception("There is already a pending invitation for this email");
 
-            var invitation = new OrganizationInvitation
+            var invitation = new OrganizationUnitInvitation
             {
                 OrganizationUnitId = organizationId,
                 RecipientEmail = request.Email,
@@ -45,7 +45,7 @@ namespace OpenAutomate.Infrastructure.Services
                 Token = Guid.NewGuid().ToString()
             };
 
-            await _unitOfWork.OrganizationInvitations.AddAsync(invitation);
+            await _unitOfWork.OrganizationUnitInvitations.AddAsync(invitation);
             await _unitOfWork.CompleteAsync();
 
             // Check if email is already registered
@@ -74,14 +74,14 @@ namespace OpenAutomate.Infrastructure.Services
 
         public async Task<AcceptInvitationResult> AcceptInvitationAsync(string token, Guid userId)
         {
-            var invitation = await _unitOfWork.OrganizationInvitations.GetFirstOrDefaultAsync(i => i.Token == token);
+            var invitation = await _unitOfWork.OrganizationUnitInvitations.GetFirstOrDefaultAsync(i => i.Token == token);
             if (invitation == null || invitation.Status != InvitationStatus.Pending)
                 return AcceptInvitationResult.InvitationNotFoundOrInvalid;
 
             if (invitation.ExpiresAt < DateTime.UtcNow)
             {
                 invitation.Status = InvitationStatus.Expired;
-                _unitOfWork.OrganizationInvitations.Update(invitation);
+                _unitOfWork.OrganizationUnitInvitations.Update(invitation);
                 await _unitOfWork.CompleteAsync();
                 return AcceptInvitationResult.InvitationExpired;
             }
@@ -122,23 +122,23 @@ namespace OpenAutomate.Infrastructure.Services
             }
 
             invitation.Status = InvitationStatus.Accepted;
-            _unitOfWork.OrganizationInvitations.Update(invitation);
+            _unitOfWork.OrganizationUnitInvitations.Update(invitation);
 
             await _unitOfWork.CompleteAsync();
             return AcceptInvitationResult.Success;
         }
 
-        public async Task<OrganizationInvitation?> GetPendingInvitationAsync(Guid organizationId, string email)
+        public async Task<OrganizationUnitInvitation?> GetPendingInvitationAsync(Guid organizationId, string email)
         {
-            return await _unitOfWork.OrganizationInvitations
+            return await _unitOfWork.OrganizationUnitInvitations
                 .GetFirstOrDefaultAsync(i => i.OrganizationUnitId == organizationId
                                           && i.RecipientEmail == email
                                           && i.Status == InvitationStatus.Pending);
         }
 
-        public async Task<OrganizationInvitation> GetInvitationByTokenAsync(string token)
+        public async Task<OrganizationUnitInvitation> GetInvitationByTokenAsync(string token)
         {
-            return await _unitOfWork.OrganizationInvitations.GetFirstOrDefaultAsync(i => i.Token == token);
+            return await _unitOfWork.OrganizationUnitInvitations.GetFirstOrDefaultAsync(i => i.Token == token);
         }
     }
 }

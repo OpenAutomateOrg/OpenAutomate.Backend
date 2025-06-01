@@ -8,12 +8,12 @@ using System.Threading.Tasks;
 
 namespace OpenAutomate.Core.IServices
 {
-    public interface IOrganizationInvitationService
+    public interface IOrganizationUnitInvitationService
     {
         Task<OrganizationInvitationDto> InviteUserAsync(Guid organizationId, InviteUserRequest request, Guid inviterId);
         Task<AcceptInvitationResult> AcceptInvitationAsync(string token, Guid userId);
-        Task<OrganizationInvitation?> GetPendingInvitationAsync(Guid organizationId, string email);
-        Task<OrganizationInvitation> GetInvitationByTokenAsync(string token);
+        Task<OrganizationUnitInvitation?> GetPendingInvitationAsync(Guid organizationId, string email);
+        Task<OrganizationUnitInvitation> GetInvitationByTokenAsync(string token);
     }
     public enum AcceptInvitationResult
     {

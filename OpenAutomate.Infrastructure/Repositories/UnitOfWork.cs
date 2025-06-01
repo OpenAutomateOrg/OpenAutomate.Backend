@@ -24,7 +24,7 @@ namespace OpenAutomate.Infrastructure.Repositories
         private IRepository<AssetBotAgent> _assetBotAgents;
         private IRepository<EmailVerificationToken> _emailVerificationTokens;
         private IRepository<PasswordResetToken> _passwordResetTokens;
-        private IRepository<OrganizationInvitation> _organizationInvitations;
+        private IRepository<OrganizationUnitInvitation> _organizationUnitInvitations;
 
         public UnitOfWork(ApplicationDbContext context)
         {
@@ -72,8 +72,8 @@ namespace OpenAutomate.Infrastructure.Repositories
             
         public IRepository<PasswordResetToken> PasswordResetTokens =>
             _passwordResetTokens ??= new Repository<PasswordResetToken>(_context);
-        public IRepository<OrganizationInvitation> OrganizationInvitations =>
-            _organizationInvitations ??= new Repository<OrganizationInvitation>(_context);
+        public IRepository<OrganizationUnitInvitation> OrganizationUnitInvitations =>
+            _organizationUnitInvitations ??= new Repository<OrganizationUnitInvitation>(_context);
             
         public IRepository<T> GetRepository<T>() where T : class
         {

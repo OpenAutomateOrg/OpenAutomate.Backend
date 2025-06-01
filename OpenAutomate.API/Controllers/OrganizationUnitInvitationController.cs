@@ -9,13 +9,13 @@ using System.Security.Claims;
 namespace OpenAutomate.API.Controllers
 {
     [ApiController]
-    [Route("{tenant}/api/organization-invitations")]
-    public class OrganizationInvitationsController : CustomControllerBase
+    [Route("{tenant}/api/organization-unit-invitation")]
+    public class OrganizationUnitInvitationController : CustomControllerBase
     {
-        private readonly IOrganizationInvitationService _organizationInvitationService;
+        private readonly IOrganizationUnitInvitationService _organizationInvitationService;
         private readonly IOrganizationUnitService _organizationUnitService;
 
-        public OrganizationInvitationsController(IOrganizationInvitationService organizationInvitationService, IOrganizationUnitService organizationUnitService)
+        public OrganizationUnitInvitationController(IOrganizationUnitInvitationService organizationInvitationService, IOrganizationUnitService organizationUnitService)
         {
             _organizationInvitationService = organizationInvitationService;
             _organizationUnitService = organizationUnitService;

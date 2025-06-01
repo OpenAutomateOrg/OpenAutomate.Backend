@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace OpenAutomate.Core.Domain.Entities
 {
-    public class OrganizationInvitation : TenantEntity
+    public class OrganizationUnitInvitation : TenantEntity
     {
         public Guid OrganizationUnitId { get; set; }
         public virtual OrganizationUnit OrganizationUnit { get; set; }
