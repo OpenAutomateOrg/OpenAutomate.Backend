@@ -36,8 +36,20 @@ namespace OpenAutomate.API.Controllers
             var org = await _organizationUnitService.GetOrganizationUnitBySlugAsync(tenant);
             if (org == null) return NotFound("Organization not found");
             var inviterId = GetCurrentUserId();
-            var result = await _organizationInvitationService.InviteUserAsync(org.Id, request, inviterId);
-            return Ok(result);
+            try
+            {
+                var result = await _organizationInvitationService.InviteUserAsync(org.Id, request, inviterId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message.Contains("already a member of this organization") ||
+                    ex.Message.Contains("There is already a pending invitation for this email"))
+                {
+                    return BadRequest(new { message = ex.Message });
+                }
+                return StatusCode(500, new { message = ex.Message });
+            }
         }
 
         /// <summary>
