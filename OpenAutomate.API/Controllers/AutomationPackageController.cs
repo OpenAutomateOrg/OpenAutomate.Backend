@@ -6,6 +6,7 @@ using OpenAutomate.Core.Dto.Package;
 using OpenAutomate.Core.IServices;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace OpenAutomate.API.Controllers
@@ -20,18 +21,26 @@ namespace OpenAutomate.API.Controllers
     {
         private readonly IAutomationPackageService _packageService;
         private readonly IPackageMetadataService _metadataService;
+        private readonly IBotAgentService _botAgentService;
+        private readonly ILogger<AutomationPackageController> _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AutomationPackageController"/> class
         /// </summary>
         /// <param name="packageService">The automation package service</param>
         /// <param name="metadataService">The package metadata service</param>
+        /// <param name="botAgentService">The bot agent service</param>
+        /// <param name="logger">The logger</param>
         public AutomationPackageController(
             IAutomationPackageService packageService,
-            IPackageMetadataService metadataService)
+            IPackageMetadataService metadataService,
+            IBotAgentService botAgentService,
+            ILogger<AutomationPackageController> logger)
         {
             _packageService = packageService;
             _metadataService = metadataService;
+            _botAgentService = botAgentService;
+            _logger = logger;
         }
 
         /// <summary>
@@ -235,6 +244,46 @@ namespace OpenAutomate.API.Controllers
             catch (ArgumentException ex)
             {
                 return NotFound(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Gets a secure download URL for a package version (for bot agents)
+        /// </summary>
+        /// <param name="id">Package ID</param>
+        /// <param name="version">Version number</param>
+        /// <param name="machineKey">Bot agent machine key for authentication</param>
+        /// <returns>Download URL response with expiration</returns>
+        [HttpGet("{id}/versions/{version}/agent-download")]
+        [Microsoft.AspNetCore.Authorization.AllowAnonymous] // Bot agents use machine key auth
+        public async Task<IActionResult> GetAgentDownloadUrl(Guid id, string version, [FromQuery] string machineKey)
+        {
+            try
+            {
+                // Validate machine key
+                var botAgents = await _botAgentService.GetAllBotAgentsAsync();
+                var botAgent = botAgents.FirstOrDefault(ba => ba.MachineKey == machineKey);
+                if (botAgent == null)
+                    return Unauthorized("Invalid machine key");
+
+                // Get download URL
+                var downloadUrl = await _packageService.GetPackageDownloadUrlAsync(id, version);
+                
+                return Ok(new { 
+                    downloadUrl,
+                    packageId = id,
+                    version,
+                    expiresAt = DateTime.UtcNow.AddHours(1) // URL expires in 1 hour
+                });
+            }
+            catch (ArgumentException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting agent download URL");
+                return StatusCode(500, "Error getting download URL");
             }
         }
 

@@ -145,8 +145,8 @@ namespace OpenAutomate.Infrastructure.Services
                 throw new InvalidOperationException($"Version {version} already exists for this package");
             }
 
-            // Generate unique object key for S3
-            var objectKey = GenerateObjectKey(packageId, version, fileName);
+            // Generate meaningful object key for S3
+            var objectKey = GenerateObjectKey(package.Name, version, fileName);
 
             // Get file size
             var fileSize = fileStream.Length;
@@ -171,8 +171,8 @@ namespace OpenAutomate.Infrastructure.Services
             await _unitOfWork.PackageVersions.AddAsync(packageVersion);
             await _unitOfWork.CompleteAsync();
 
-            _logger.LogInformation("Package version uploaded: {PackageId}, Version: {Version}, Size: {FileSize}", 
-                packageId, version, fileSize);
+            _logger.LogInformation("Package version uploaded: {PackageId}, Version: {Version}, Size: {FileSize}, ObjectKey: {ObjectKey}", 
+                packageId, version, fileSize, objectKey);
 
             return MapVersionToResponseDto(packageVersion);
         }
@@ -277,10 +277,44 @@ namespace OpenAutomate.Infrastructure.Services
                 packageId, version);
         }
 
-        private string GenerateObjectKey(Guid packageId, string version, string fileName)
+        private string GenerateObjectKey(string packageName, string version, string fileName)
         {
-            // Create unique object key: packages/{packageId}/{version}/{fileName}
-            return $"packages/{packageId}/{version}/{fileName}";
+            // Get tenant slug for meaningful naming
+            var tenantSlug = _tenantContext.CurrentTenantSlug ?? "unknown";
+            
+            // Sanitize names for S3 object key (remove spaces, special chars)
+            var sanitizedTenantSlug = SanitizeForS3Key(tenantSlug);
+            var sanitizedPackageName = SanitizeForS3Key(packageName);
+            var sanitizedVersion = SanitizeForS3Key(version);
+            
+            // Create meaningful object key: packages/{tenantslug}_{packagename}_{version}.zip
+            var extension = Path.GetExtension(fileName);
+            var objectKey = $"packages/{sanitizedTenantSlug}_{sanitizedPackageName}_{sanitizedVersion}{extension}";
+            
+            _logger.LogInformation("Generated S3 object key: {ObjectKey} for package {PackageName} v{Version}", 
+                objectKey, packageName, version);
+                
+            return objectKey;
+        }
+
+        private static string SanitizeForS3Key(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return "unknown";
+                
+            // Replace spaces and special characters with hyphens, convert to lowercase
+            var sanitized = input.ToLowerInvariant()
+                .Replace(" ", "-")
+                .Replace("_", "-")
+                .Replace(".", "-");
+                
+            // Remove any characters that aren't alphanumeric or hyphens
+            sanitized = System.Text.RegularExpressions.Regex.Replace(sanitized, @"[^a-z0-9\-]", "");
+            
+            // Remove multiple consecutive hyphens and trim
+            sanitized = System.Text.RegularExpressions.Regex.Replace(sanitized, @"-+", "-").Trim('-');
+            
+            return string.IsNullOrEmpty(sanitized) ? "unknown" : sanitized;
         }
 
         private string GetContentType(string fileName)
