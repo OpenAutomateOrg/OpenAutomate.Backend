@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OpenAutomate.Core.Dto.OrganizationInvitation
+namespace OpenAutomate.Core.Dto.OrganizationUnitInvitation
 {
     public class AcceptInvitationRequest
     {

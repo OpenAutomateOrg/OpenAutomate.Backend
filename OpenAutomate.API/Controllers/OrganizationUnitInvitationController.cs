@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using OpenAutomate.Core.Dto.OrganizationInvitation;
+using OpenAutomate.Core.Dto.OrganizationUnitInvitation;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Infrastructure.Services;
 using System.Security.Claims;
@@ -12,12 +12,12 @@ namespace OpenAutomate.API.Controllers
     [Route("{tenant}/api/organization-unit-invitation")]
     public class OrganizationUnitInvitationController : CustomControllerBase
     {
-        private readonly IOrganizationUnitInvitationService _organizationInvitationService;
+        private readonly IOrganizationUnitInvitationService _organizationUnitInvitationService;
         private readonly IOrganizationUnitService _organizationUnitService;
 
-        public OrganizationUnitInvitationController(IOrganizationUnitInvitationService organizationInvitationService, IOrganizationUnitService organizationUnitService)
+        public OrganizationUnitInvitationController(IOrganizationUnitInvitationService organizationUnitInvitationService, IOrganizationUnitService organizationUnitService)
         {
-            _organizationInvitationService = organizationInvitationService;
+            _organizationUnitInvitationService = organizationUnitInvitationService;
             _organizationUnitService = organizationUnitService;
         }
 
@@ -38,7 +38,7 @@ namespace OpenAutomate.API.Controllers
             var inviterId = GetCurrentUserId();
             try
             {
-                var result = await _organizationInvitationService.InviteUserAsync(org.Id, request, inviterId);
+                var result = await _organizationUnitInvitationService.InviteUserAsync(org.Id, request, inviterId);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -67,11 +67,11 @@ namespace OpenAutomate.API.Controllers
         public async Task<IActionResult> AcceptInvitation([FromBody] AcceptInvitationRequest request)
         {
             var userId = GetCurrentUserId();
-            var invitation = await _organizationInvitationService.GetInvitationByTokenAsync(request.Token);
+            var invitation = await _organizationUnitInvitationService.GetInvitationByTokenAsync(request.Token);
             if (invitation == null)
                 return NotFound(new { message = "Invitation not found" });
 
-            var result = await _organizationInvitationService.AcceptInvitationAsync(request.Token, userId);
+            var result = await _organizationUnitInvitationService.AcceptInvitationAsync(request.Token, userId);
 
             if (result != AcceptInvitationResult.Success)
             {
@@ -105,7 +105,7 @@ namespace OpenAutomate.API.Controllers
             var org = await _organizationUnitService.GetOrganizationUnitBySlugAsync(tenant);
             if (org == null) return NotFound("Organization not found");
 
-            var invitation = await _organizationInvitationService.GetPendingInvitationAsync(org.Id, email);
+            var invitation = await _organizationUnitInvitationService.GetPendingInvitationAsync(org.Id, email);
             if (invitation != null)
                 return Ok(new { invited = true, status = invitation.Status.ToString() });
 
@@ -128,7 +128,7 @@ namespace OpenAutomate.API.Controllers
             if (string.IsNullOrEmpty(token))
                 return BadRequest(new { status = "Invalid", message = "Token is required" });
 
-            var invitation = await _organizationInvitationService.GetInvitationByTokenAsync(token);
+            var invitation = await _organizationUnitInvitationService.GetInvitationByTokenAsync(token);
 
             if (invitation == null)
                 return NotFound(new { status = "Invalid", message = "Invitation not found" });

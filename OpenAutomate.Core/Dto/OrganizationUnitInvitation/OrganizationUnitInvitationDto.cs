@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OpenAutomate.Core.Dto.OrganizationInvitation
+namespace OpenAutomate.Core.Dto.OrganizationUnitInvitation
 {
-    public class OrganizationInvitationDto
+    public class OrganizationUnitInvitationDto
     {
         public Guid Id { get; set; }
         public string RecipientEmail { get; set; }

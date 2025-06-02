@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Domain.IRepository;
-using OpenAutomate.Core.Dto.OrganizationInvitation;
+using OpenAutomate.Core.Dto.OrganizationUnitInvitation;
 using OpenAutomate.Core.IServices;
 using System;
 using System.Collections.Generic;
@@ -22,7 +22,7 @@ namespace OpenAutomate.Infrastructure.Services
             _notificationService = notificationService;
         }
 
-        public async Task<OrganizationInvitationDto> InviteUserAsync(Guid organizationId, InviteUserRequest request, Guid inviterId)
+        public async Task<OrganizationUnitInvitationDto> InviteUserAsync(Guid organizationId, InviteUserRequest request, Guid inviterId)
         {
             var organization = await _unitOfWork.OrganizationUnits.GetByIdAsync(organizationId);
             if (organization == null)
@@ -61,7 +61,7 @@ namespace OpenAutomate.Infrastructure.Services
             var isExistingUser = await _unitOfWork.Users.AnyAsync(u => u.Email == invitation.RecipientEmail);
 
             // Send an invitation email
-            await _notificationService.SendOrganizationInvitationAsync(
+            await _notificationService.SendOrganizationUnitInvitationAsync(
                 inviterId,
                 invitation.RecipientEmail,
                 organizationId,
@@ -70,7 +70,7 @@ namespace OpenAutomate.Infrastructure.Services
                 isExistingUser
             );
 
-            return new OrganizationInvitationDto
+            return new OrganizationUnitInvitationDto
             {
                 Id = invitation.Id,
                 RecipientEmail = invitation.RecipientEmail,

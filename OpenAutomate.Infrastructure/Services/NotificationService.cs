@@ -85,7 +85,7 @@ namespace OpenAutomate.Infrastructure.Services
             }
         }
 
-        public async Task SendOrganizationInvitationAsync(Guid inviterId, string recipientEmail, Guid organizationId, string invitationToken, DateTime expiresAt, bool isExistingUser)
+        public async Task SendOrganizationUnitInvitationAsync(Guid inviterId, string recipientEmail, Guid organizationId, string invitationToken, DateTime expiresAt, bool isExistingUser)
         {
             try
             {

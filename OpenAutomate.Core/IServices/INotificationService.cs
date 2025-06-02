@@ -35,7 +35,7 @@ namespace OpenAutomate.Core.IServices
         /// <param name="expiresAt">The expiration date of the invitation</param>
         /// <param name="isExistingUser">Whether the recipient is an existing user</param>
         /// <returns>A task representing the asynchronous operation</returns>
-        Task SendOrganizationInvitationAsync(Guid inviterId, string recipientEmail, Guid organizationId, string invitationToken, DateTime expiresAt, bool isExistingUser);
+        Task SendOrganizationUnitInvitationAsync(Guid inviterId, string recipientEmail, Guid organizationId, string invitationToken, DateTime expiresAt, bool isExistingUser);
 
         /// <summary>
         /// Sends a password reset email to a user

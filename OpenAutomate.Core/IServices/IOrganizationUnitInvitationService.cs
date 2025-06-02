@@ -1,5 +1,5 @@
 ﻿using OpenAutomate.Core.Domain.Entities;
-using OpenAutomate.Core.Dto.OrganizationInvitation;
+using OpenAutomate.Core.Dto.OrganizationUnitInvitation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,7 +10,7 @@ namespace OpenAutomate.Core.IServices
 {
     public interface IOrganizationUnitInvitationService
     {
-        Task<OrganizationInvitationDto> InviteUserAsync(Guid organizationId, InviteUserRequest request, Guid inviterId);
+        Task<OrganizationUnitInvitationDto> InviteUserAsync(Guid organizationId, InviteUserRequest request, Guid inviterId);
         Task<AcceptInvitationResult> AcceptInvitationAsync(string token, Guid userId);
         Task<OrganizationUnitInvitation?> GetPendingInvitationAsync(Guid organizationId, string email);
         Task<OrganizationUnitInvitation> GetInvitationByTokenAsync(string token);
