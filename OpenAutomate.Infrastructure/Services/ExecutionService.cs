@@ -38,13 +38,18 @@ namespace OpenAutomate.Infrastructure.Services
         /// </summary>
         public async Task<Execution> CreateExecutionAsync(CreateExecutionDto dto)
         {
+            if (dto == null)
+            {
+                throw new ArgumentNullException(nameof(dto));
+            }
+
             if (!_tenantContext.HasTenant)
             {
                 throw new InvalidOperationException(TenantNotAvailableMessage);
             }
-            
+
             var currentTenantId = _tenantContext.CurrentTenantId;
-            
+
             var execution = new Execution
             {
                 BotAgentId = dto.BotAgentId,
@@ -67,22 +72,30 @@ namespace OpenAutomate.Infrastructure.Services
         /// </summary>
         public async Task<Execution?> GetExecutionByIdAsync(Guid id)
         {
-            var execution = await _unitOfWork.Executions.GetByIdAsync(id);
-            
-            if (!_tenantContext.HasTenant)
+            try
             {
-                return null;
-            }
-            
-            var currentTenantId = _tenantContext.CurrentTenantId;
-            
-            // Ensure the execution belongs to the current tenant
-            if (execution?.OrganizationUnitId != currentTenantId)
-            {
-                return null;
-            }
+                var execution = await _unitOfWork.Executions.GetByIdAsync(id);
 
-            return execution;
+                if (!_tenantContext.HasTenant)
+                {
+                    return null;
+                }
+
+                var currentTenantId = _tenantContext.CurrentTenantId;
+
+                // Ensure the execution belongs to the current tenant
+                if (execution?.OrganizationUnitId != currentTenantId)
+                {
+                    return null;
+                }
+
+                return execution;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving execution {ExecutionId}", id);
+                return null;
+            }
         }        /// <summary>
         /// Gets all executions for the current tenant
         /// </summary>
@@ -92,17 +105,25 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 throw new InvalidOperationException(TenantNotAvailableMessage);
             }
-            
-            var currentTenantId = _tenantContext.CurrentTenantId;
-            
-            var executions = await _unitOfWork.Executions.GetAllAsync(
-                e => e.OrganizationUnitId == currentTenantId,
-                null,
-                e => e.BotAgent,
-                e => e.Package,
-                e => e.Package.Versions);
 
-            return executions ?? Enumerable.Empty<Execution>();
+            var currentTenantId = _tenantContext.CurrentTenantId;
+
+            try
+            {
+                var executions = await _unitOfWork.Executions.GetAllAsync(
+                    e => e.OrganizationUnitId == currentTenantId,
+                    null,
+                    e => e.BotAgent,
+                    e => e.Package,
+                    e => e.Package.Versions);
+
+                return executions ?? Enumerable.Empty<Execution>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving executions for tenant {TenantId}", currentTenantId);
+                return Enumerable.Empty<Execution>();
+            }
         }        /// <summary>
         /// Gets executions for a specific bot agent
         /// </summary>
@@ -112,17 +133,26 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 throw new InvalidOperationException(TenantNotAvailableMessage);
             }
-            
-            var currentTenantId = _tenantContext.CurrentTenantId;
-            
-            var executions = await _unitOfWork.Executions.GetAllAsync(
-                e => e.BotAgentId == botAgentId && e.OrganizationUnitId == currentTenantId,
-                null,
-                e => e.BotAgent,
-                e => e.Package,
-                e => e.Package.Versions);
 
-            return executions ?? Enumerable.Empty<Execution>();
+            var currentTenantId = _tenantContext.CurrentTenantId;
+
+            try
+            {
+                var executions = await _unitOfWork.Executions.GetAllAsync(
+                    e => e.BotAgentId == botAgentId && e.OrganizationUnitId == currentTenantId,
+                    null,
+                    e => e.BotAgent,
+                    e => e.Package,
+                    e => e.Package.Versions);
+
+                return executions ?? Enumerable.Empty<Execution>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving executions for bot agent {BotAgentId} in tenant {TenantId}",
+                    botAgentId, currentTenantId);
+                return Enumerable.Empty<Execution>();
+            }
         }
 
         /// <summary>
@@ -130,6 +160,11 @@ namespace OpenAutomate.Infrastructure.Services
         /// </summary>
         public async Task<Execution?> UpdateExecutionStatusAsync(Guid id, string status, string? errorMessage = null, string? logOutput = null)
         {
+            if (string.IsNullOrWhiteSpace(status))
+            {
+                throw new ArgumentException("Status cannot be null or empty", nameof(status));
+            }
+
             var execution = await GetExecutionByIdAsync(id);
             if (execution == null)
             {
@@ -193,19 +228,28 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 throw new InvalidOperationException(TenantNotAvailableMessage);
             }
-            
-            var currentTenantId = _tenantContext.CurrentTenantId;
-            
-            var executions = await _unitOfWork.Executions.GetAllAsync(
-                e => e.BotAgentId == botAgentId && 
-                     e.OrganizationUnitId == currentTenantId &&
-                     (e.Status == "Pending" || e.Status == "Running"),
-                null,
-                e => e.BotAgent,
-                e => e.Package,
-                e => e.Package.Versions);
 
-            return executions ?? Enumerable.Empty<Execution>();
+            var currentTenantId = _tenantContext.CurrentTenantId;
+
+            try
+            {
+                var executions = await _unitOfWork.Executions.GetAllAsync(
+                    e => e.BotAgentId == botAgentId &&
+                         e.OrganizationUnitId == currentTenantId &&
+                         (e.Status == "Pending" || e.Status == "Running"),
+                    null,
+                    e => e.BotAgent,
+                    e => e.Package,
+                    e => e.Package.Versions);
+
+                return executions ?? Enumerable.Empty<Execution>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving active executions for bot agent {BotAgentId} in tenant {TenantId}",
+                    botAgentId, currentTenantId);
+                return Enumerable.Empty<Execution>();
+            }
         }
     }
 } 
