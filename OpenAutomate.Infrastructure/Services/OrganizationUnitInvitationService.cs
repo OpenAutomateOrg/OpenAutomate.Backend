@@ -147,7 +147,10 @@ namespace OpenAutomate.Infrastructure.Services
 
         public async Task<OrganizationUnitInvitation> GetInvitationByTokenAsync(string token)
         {
-            return await _unitOfWork.OrganizationUnitInvitations.GetFirstOrDefaultAsync(i => i.Token == token);
+            var invitation = await _unitOfWork.OrganizationUnitInvitations.GetFirstOrDefaultAsync(i => i.Token == token);
+            if (invitation == null)
+                throw new Exception("Invitation not found");
+            return invitation;
         }
     }
 }
