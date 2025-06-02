@@ -6,17 +6,16 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace OpenAutomate.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class AddOrganizationInvitation : Migration
+    public partial class addTableOUInvitation : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "OrganizationInvitations",
+                name: "OrganizationUnitInvitations",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    OrganizationUnitId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     RecipientEmail = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     InviterId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Token = table.Column<string>(type: "nvarchar(max)", nullable: false),
@@ -25,32 +24,22 @@ namespace OpenAutomate.Infrastructure.Migrations
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     LastModifyAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    LastModifyBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true)
+                    LastModifyBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    OrganizationUnitId = table.Column<Guid>(type: "uniqueidentifier", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_OrganizationInvitations", x => x.Id);
+                    table.PrimaryKey("PK_OrganizationUnitInvitations", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_OrganizationInvitations_OrganizationUnits_OrganizationUnitId",
+                        name: "FK_OrganizationUnitInvitations_OrganizationUnits_OrganizationUnitId",
                         column: x => x.OrganizationUnitId,
                         principalTable: "OrganizationUnits",
                         principalColumn: "Id");
-                    table.ForeignKey(
-                        name: "FK_OrganizationInvitations_Users_InviterId",
-                        column: x => x.InviterId,
-                        principalTable: "Users",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_OrganizationInvitations_InviterId",
-                table: "OrganizationInvitations",
-                column: "InviterId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_OrganizationInvitations_OrganizationUnitId",
-                table: "OrganizationInvitations",
+                name: "IX_OrganizationUnitInvitations_OrganizationUnitId",
+                table: "OrganizationUnitInvitations",
                 column: "OrganizationUnitId");
         }
 
@@ -58,7 +47,7 @@ namespace OpenAutomate.Infrastructure.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "OrganizationInvitations");
+                name: "OrganizationUnitInvitations");
         }
     }
 }

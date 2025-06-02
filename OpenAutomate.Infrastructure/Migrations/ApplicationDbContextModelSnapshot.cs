@@ -478,8 +478,6 @@ namespace OpenAutomate.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("InviterId");
-
                     b.HasIndex("OrganizationUnitId");
 
                     b.ToTable("OrganizationUnitInvitations");
@@ -943,19 +941,11 @@ namespace OpenAutomate.Infrastructure.Migrations
 
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.OrganizationUnitInvitation", b =>
                 {
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.User", "Inviter")
-                        .WithMany()
-                        .HasForeignKey("InviterId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
                         .WithMany()
                         .HasForeignKey("OrganizationUnitId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
-
-                    b.Navigation("Inviter");
 
                     b.Navigation("OrganizationUnit");
                 });

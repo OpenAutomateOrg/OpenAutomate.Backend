@@ -53,7 +53,7 @@ namespace OpenAutomate.API.Controllers
         }
 
         /// <summary>
-        /// Accepts an organization invitation using the provided token.
+        /// Accepts an organization unit invitation using the provided token.
         /// </summary>
         /// <param name="request">The accept invitation request containing the invitation token.</param>
         /// <returns>

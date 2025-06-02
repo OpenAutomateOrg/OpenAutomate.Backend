@@ -26,7 +26,7 @@ namespace OpenAutomate.Core.IServices
         Task SendWelcomeEmailAsync(string email, string name);
 
         /// <summary>
-        /// Sends an organization invitation email
+        /// Sends an organization unit invitation email
         /// </summary>
         /// <param name="inviterId">The inviter's user ID</param>
         /// <param name="recipientEmail">The recipient's email address</param>
