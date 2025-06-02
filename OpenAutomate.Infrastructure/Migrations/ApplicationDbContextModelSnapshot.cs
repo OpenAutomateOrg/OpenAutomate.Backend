@@ -438,6 +438,51 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.ToTable("OrganizationUnits", (string)null);
                 });
 
+            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.OrganizationUnitInvitation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("InviterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("LastModifyAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LastModifyBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OrganizationUnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RecipientEmail")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationUnitId");
+
+                    b.ToTable("OrganizationUnitInvitations");
+                });
+
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.OrganizationUnitUser", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -892,6 +937,17 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Navigation("Package");
 
                     b.Navigation("Schedule");
+                });
+
+            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.OrganizationUnitInvitation", b =>
+                {
+                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
+                        .WithMany()
+                        .HasForeignKey("OrganizationUnitId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("OrganizationUnit");
                 });
 
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.OrganizationUnitUser", b =>

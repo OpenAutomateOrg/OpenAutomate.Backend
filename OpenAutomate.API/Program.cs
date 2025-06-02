@@ -190,7 +190,11 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<IAssetService, AssetService>();
             builder.Services.AddScoped<IEmailService, AwsSesEmailService>();
             builder.Services.AddScoped<IAuthorizationManager, AuthorizationManager>();
+
             builder.Services.AddScoped<IExecutionService, ExecutionService>();
+
+            builder.Services.AddScoped<IOrganizationUnitInvitationService, OrganizationUnitInvitationService>();
+
             
             // Register email verification services
             builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();

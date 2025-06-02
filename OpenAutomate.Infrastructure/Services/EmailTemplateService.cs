@@ -41,17 +41,18 @@ namespace OpenAutomate.Infrastructure.Services
             return Task.FromResult(WrapInEmailTemplate("Welcome to OpenAutomate", "Welcome to OpenAutomate", content));
         }
 
-        public Task<string> GetInvitationEmailTemplateAsync(string userName, string inviterName, 
-            string organizationName, string invitationLink, int tokenValidityHours, bool isExistingUser)
+        public Task<string> GetInvitationEmailTemplateAsync(string userName, string inviterName,
+    string organizationName, string invitationLink, int tokenValidityHours, bool isExistingUser)
         {
+            string actionText = isExistingUser
+                ? "Please log in to your account and accept the invitation using the link below:"
+                : "Please register for an account and accept the invitation using the link below:";
+
             string content = $@"
-    <p>Hello {userName},</p>
-    
-    <p>{inviterName} has invited you to join {organizationName}. To accept this invitation, please click the URL below:</p>
-    
-    <p><a href='{invitationLink}'>{invitationLink}</a></p>
-    
-    <p>This invitation will expire in {tokenValidityHours / 24} days.</p>";
+                <p>Hello {userName},</p>
+                <p>{inviterName} has invited you to join {organizationName}. {actionText}</p>
+                <p><a href='{invitationLink}'>{invitationLink}</a></p>
+                <p>This invitation will expire in {tokenValidityHours / 24} days.</p>";
 
             return Task.FromResult(WrapInEmailTemplate($"Invitation to Join {organizationName}", $"Invitation to Join {organizationName}", content));
         }
