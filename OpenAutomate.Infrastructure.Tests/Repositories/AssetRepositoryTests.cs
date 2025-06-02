@@ -17,13 +17,11 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
     {
         // Using fixed tenant IDs for tests
         private readonly Guid _tenantId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-        private readonly Guid _otherTenantId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-
-
-        // Custom tenant context for testing
+        private readonly Guid _otherTenantId = Guid.Parse("22222222-2222-2222-2222-222222222222");        // Custom tenant context for testing
         private class TestTenantContext : ITenantContext
         {
             public Guid CurrentTenantId { get; set; }
+            public string? CurrentTenantSlug { get; set; }
             public bool HasTenant => true;
 
             public void SetTenant(Guid tenantId)
