@@ -8,6 +8,6 @@ namespace OpenAutomate.Core.Dto.OrganizationUnitInvitation
 {
     public class AcceptInvitationRequest
     {
-        public string Token { get; set; }
+        public string Token { get; set; } = string.Empty;
     }
 }
