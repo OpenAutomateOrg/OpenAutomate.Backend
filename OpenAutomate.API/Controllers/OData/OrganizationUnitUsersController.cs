@@ -35,11 +35,6 @@ namespace OpenAutomate.API.Controllers.OData
         /// Gets all Organization Unit Users with OData query support
         /// </summary>
         /// <returns>Collection of OrganizationUnitUserDetailDto</returns>
-        /// <remarks>
-        /// Example queries:
-        /// GET /tenant/odata/OrganizationUnitUsers?$filter=Email eq 'abc@xyz.com'
-        /// GET /tenant/odata/OrganizationUnitUsers?$orderby=JoinedAt desc&$top=10&$skip=0
-        /// </remarks>
         [HttpGet]
         [RequirePermission(Resources.OrganizationUnitResource, Permissions.View)]
         [EnableQuery]

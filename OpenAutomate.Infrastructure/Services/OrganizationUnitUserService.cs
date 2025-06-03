@@ -8,12 +8,10 @@ namespace OpenAutomate.Infrastructure.Services
     public class OrganizationUnitUserService : IOrganizationUnitUserService
     {
         private readonly IUnitOfWork _unitOfWork;
-        private readonly ILogger<OrganizationUnitUserService> _logger;
 
-        public OrganizationUnitUserService(IUnitOfWork unitOfWork, ILogger<OrganizationUnitUserService> logger)
+        public OrganizationUnitUserService(IUnitOfWork unitOfWork)
         {
             _unitOfWork = unitOfWork;
-            _logger = logger;
         }
 
         public async Task<IEnumerable<OrganizationUnitUserDetailDto>> GetUsersInOrganizationUnitAsync(string tenantSlug)
@@ -22,7 +20,7 @@ namespace OpenAutomate.Infrastructure.Services
             if (ou == null) return new List<OrganizationUnitUserDetailDto>();
             var orgUnitUsers = await _unitOfWork.OrganizationUnitUsers.GetAllAsync(ouu => ouu.OrganizationUnitId == ou.Id);
             var userIds = orgUnitUsers.Select(ouu => ouu.UserId).ToList();
-            if (!userIds.Any()) return new List<OrganizationUnitUserDetailDto>();
+            if (userIds.Count == 0) return new List<OrganizationUnitUserDetailDto>();
             var users = await _unitOfWork.Users.GetAllAsync(u => userIds.Contains(u.Id));
             var userAuthorities = await _unitOfWork.UserAuthorities.GetAllAsync(ua => ua.OrganizationUnitId == ou.Id);
             var authorities = await _unitOfWork.Authorities.GetAllAsync(a => a.OrganizationUnitId == ou.Id);
