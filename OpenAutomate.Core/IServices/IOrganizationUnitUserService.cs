@@ -16,5 +16,6 @@ namespace OpenAutomate.Core.IServices
         /// <param name="tenantSlug">The slug of the organization unit (tenant)</param>
         /// <returns>List of users in the organization unit</returns>
         Task<IEnumerable<OrganizationUnitUserDetailDto>> GetUsersInOrganizationUnitAsync(string tenantSlug);
+        Task<bool> DeleteUserAsync(string tenantSlug, Guid userId);
     }
 }

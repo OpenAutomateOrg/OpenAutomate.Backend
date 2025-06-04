@@ -39,5 +39,30 @@ namespace OpenAutomate.API.Controllers
             };
             return Ok(response);
         }
+
+        /// <summary>
+        /// Deletes a user from the organization unit by tenant slug
+        /// </summary>
+        /// <param name="tenant">The slug of the organization unit (tenant)</param>
+        /// <param name="userId">The ID of the user to remove</param>
+        /// <returns>No content if successful</returns>
+        /// <response code="204">User removed successfully</response>
+        /// <response code="404">User or organization unit not found</response>
+        [HttpDelete("{userId}")]
+        [RequirePermission(Resources.UserResource, Permissions.Delete)]
+        public async Task<IActionResult> DeleteUser(string tenant, Guid userId)
+        {
+            try
+            {
+                var deleted = await _organizationUnitUserService.DeleteUserAsync(tenant, userId);
+                if (!deleted)
+                    return NotFound(new { message = $"User with id '{userId}' not found in organization unit '{tenant}'." });
+                return NoContent();
+            }
+            catch (Exception)
+            {
+                return StatusCode(500, "An error occurred while removing the user from the organization unit.");
+            }
+        }
     }
 }

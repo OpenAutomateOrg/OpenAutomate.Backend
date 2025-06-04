@@ -46,5 +46,24 @@ namespace OpenAutomate.Infrastructure.Services
                 .Select(g => g.OrderBy(x => rolePriority.IndexOf(x.Role)).First());
             return grouped.ToList();
         }
+
+        public async Task<bool> DeleteUserAsync(string tenantSlug, Guid userId)
+        {
+            var ou = await _unitOfWork.OrganizationUnits.GetFirstOrDefaultAsync(o => o.Slug == tenantSlug);
+            if (ou == null)
+                return false;
+
+            var orgUnitUser = (await _unitOfWork.OrganizationUnitUsers
+                .GetAllAsync(ouu => ouu.OrganizationUnitId == ou.Id && ouu.UserId == userId)).FirstOrDefault();
+            if (orgUnitUser == null)
+                return false;
+            var userAuthorities = await _unitOfWork.UserAuthorities
+                .GetAllAsync(ua => ua.OrganizationUnitId == ou.Id && ua.UserId == userId);
+            _unitOfWork.UserAuthorities.RemoveRange(userAuthorities);
+            _unitOfWork.OrganizationUnitUsers.Remove(orgUnitUser);
+
+            await _unitOfWork.CompleteAsync();
+            return true;
+        }
     }
 }
