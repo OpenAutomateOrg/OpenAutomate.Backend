@@ -12,8 +12,8 @@ using OpenAutomate.Infrastructure.DbContext;
 namespace OpenAutomate.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250525053407_AddS3PackageStorageFields")]
-    partial class AddS3PackageStorageFields
+    [Migration("20250602190859_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -115,7 +115,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("CreatedAt")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("CreatedBy")
@@ -123,7 +123,11 @@ namespace OpenAutomate.Infrastructure.Migrations
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsSystemAuthority")
+                        .HasColumnType("bit");
 
                     b.Property<DateTime?>("LastModifyAt")
                         .HasColumnType("datetime2");
@@ -138,6 +142,9 @@ namespace OpenAutomate.Infrastructure.Migrations
 
                     b.Property<Guid>("OrganizationUnitId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -155,7 +162,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<Guid>("AuthorityId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("CreatedAt")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("CreatedBy")
@@ -177,6 +184,9 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -439,6 +449,51 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("OrganizationUnits", (string)null);
+                });
+
+            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.OrganizationUnitInvitation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("InviterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("LastModifyAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LastModifyBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OrganizationUnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RecipientEmail")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationUnitId");
+
+                    b.ToTable("OrganizationUnitInvitations");
                 });
 
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.OrganizationUnitUser", b =>
@@ -895,6 +950,17 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Navigation("Package");
 
                     b.Navigation("Schedule");
+                });
+
+            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.OrganizationUnitInvitation", b =>
+                {
+                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
+                        .WithMany()
+                        .HasForeignKey("OrganizationUnitId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("OrganizationUnit");
                 });
 
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.OrganizationUnitUser", b =>

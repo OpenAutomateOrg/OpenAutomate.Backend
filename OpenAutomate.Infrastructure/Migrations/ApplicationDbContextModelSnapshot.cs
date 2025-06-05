@@ -112,7 +112,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("CreatedAt")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("CreatedBy")
@@ -120,7 +120,11 @@ namespace OpenAutomate.Infrastructure.Migrations
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsSystemAuthority")
+                        .HasColumnType("bit");
 
                     b.Property<DateTime?>("LastModifyAt")
                         .HasColumnType("datetime2");
@@ -135,6 +139,9 @@ namespace OpenAutomate.Infrastructure.Migrations
 
                     b.Property<Guid>("OrganizationUnitId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -152,7 +159,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.Property<Guid>("AuthorityId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("CreatedAt")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("CreatedBy")
@@ -174,6 +181,9 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
