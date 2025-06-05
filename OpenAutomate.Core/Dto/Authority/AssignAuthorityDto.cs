@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace OpenAutomate.Core.Dto.Authority
@@ -5,6 +6,6 @@ namespace OpenAutomate.Core.Dto.Authority
     public class AssignAuthorityDto
     {
         [Required]
-        public string AuthorityName { get; set; }
+        public Guid AuthorityId { get; set; }
     }
 } 
