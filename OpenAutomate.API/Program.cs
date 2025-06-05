@@ -194,6 +194,7 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<IExecutionService, ExecutionService>();
 
             builder.Services.AddScoped<IOrganizationUnitInvitationService, OrganizationUnitInvitationService>();
+            builder.Services.AddScoped<IOrganizationUnitUserService, OrganizationUnitUserService>();
 
             
             // Register email verification services
