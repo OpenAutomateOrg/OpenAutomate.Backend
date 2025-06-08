@@ -38,30 +38,36 @@ namespace OpenAutomate.API.Controllers.OData
         /// <returns>Collection of OrganizationUnitInvitationDto</returns>
         [HttpGet]
         [EnableQuery]
-        public IQueryable<OrganizationUnitInvitationDto> Get()
+        public async Task<IActionResult> Get()
         {
-            string? tenantSlug = _tenantContext.CurrentTenantSlug;
-            if (string.IsNullOrEmpty(tenantSlug))
+            try
             {
-                tenantSlug = RouteData.Values["tenant"]?.ToString();
+                string? tenantSlug = _tenantContext.CurrentTenantSlug;
+                if (string.IsNullOrEmpty(tenantSlug))
+                {
+                    tenantSlug = RouteData.Values["tenant"]?.ToString();
+                }
+                if (string.IsNullOrEmpty(tenantSlug))
+                {
+                    _logger.LogError("Tenant slug not available in context or route data");
+                    return BadRequest("Tenant not specified");
+                }
+
+                var resolved = await _tenantContext.ResolveTenantFromSlugAsync(tenantSlug);
+                if (!resolved)
+                {
+                    _logger.LogError("Tenant not found for slug: {TenantSlug}", tenantSlug);
+                    return NotFound($"Tenant '{tenantSlug}' not found");
+                }
+
+                var invitations = await _invitationService.ListInvitationsByOrganizationUnitAsync(_tenantContext.CurrentTenantId);
+                return Ok(invitations);
             }
-            if (string.IsNullOrEmpty(tenantSlug))
+            catch (Exception ex)
             {
-                _logger.LogError("Tenant slug not available in context or route data");
-                throw new InvalidOperationException("Tenant not specified");
+                _logger.LogError(ex, "Error retrieving organization unit invitations for OData query");
+                return StatusCode(500, "An error occurred while retrieving organization unit invitations");
             }
-
-            var resolved = _tenantContext.ResolveTenantFromSlugAsync(tenantSlug).GetAwaiter().GetResult();
-            if (!resolved)
-            {
-                _logger.LogError("Tenant not found for slug: {TenantSlug}", tenantSlug);
-                throw new InvalidOperationException("Tenant not found");
-            }
-
-            var invitations = _invitationService.ListInvitationsByOrganizationUnitAsync(_tenantContext.CurrentTenantId)
-                .GetAwaiter().GetResult();
-
-            return invitations.AsQueryable();
         }
     }
 }
