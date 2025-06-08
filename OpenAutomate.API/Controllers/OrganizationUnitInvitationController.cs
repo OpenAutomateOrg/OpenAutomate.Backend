@@ -143,5 +143,27 @@ namespace OpenAutomate.API.Controllers
                 organizationUnitId = invitation.OrganizationUnitId
             });
         }
+
+        /// <summary>
+        /// Lists all invitations for the specified organization unit.
+        /// </summary>
+        /// <param name="tenant">The organization slug.</param>
+        /// <returns>
+        /// 200 OK: Returns a list of invitations for the organization unit.<br/>
+        /// 404 Not Found: Organization not found.
+        /// </returns>
+        [HttpGet("list")]
+        public async Task<IActionResult> ListInvitations([FromRoute] string tenant)
+        {
+            var org = await _organizationUnitService.GetOrganizationUnitBySlugAsync(tenant);
+            if (org == null) return NotFound("Organization not found");
+            var invitations = await _organizationUnitInvitationService.ListInvitationsByOrganizationUnitAsync(org.Id);
+            var response = new OrganizationUnitInvitationsResponseDto
+            {
+                Count = invitations.Count,
+                Invitations = invitations
+            };
+            return Ok(response);
+        }
     }
 }

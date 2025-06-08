@@ -14,6 +14,7 @@ namespace OpenAutomate.Core.IServices
         Task<AcceptInvitationResult> AcceptInvitationAsync(string token, Guid userId);
         Task<OrganizationUnitInvitation?> GetPendingInvitationAsync(Guid organizationId, string email);
         Task<OrganizationUnitInvitation> GetInvitationByTokenAsync(string token);
+        Task<List<OrganizationUnitInvitationDto>> ListInvitationsByOrganizationUnitAsync(Guid organizationUnitId);
     }
     public enum AcceptInvitationResult
     {

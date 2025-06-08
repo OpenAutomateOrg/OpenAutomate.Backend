@@ -152,5 +152,20 @@ namespace OpenAutomate.Infrastructure.Services
                 throw new Exception("Invitation not found");
             return invitation;
         }
+
+        public async Task<List<OrganizationUnitInvitationDto>> ListInvitationsByOrganizationUnitAsync(Guid organizationUnitId)
+        {
+            var invitations = await _unitOfWork.OrganizationUnitInvitations
+                .GetAllAsync(i => i.OrganizationUnitId == organizationUnitId);
+            return invitations.Select(i => new OrganizationUnitInvitationDto
+            {
+                Id = i.Id,
+                RecipientEmail = i.RecipientEmail,
+                Status = i.Status.ToString(),
+                ExpiresAt = i.ExpiresAt,
+                InviterId = i.InviterId,
+                OrganizationUnitId = i.OrganizationUnitId
+            }).ToList();
+        }
     }
 }
