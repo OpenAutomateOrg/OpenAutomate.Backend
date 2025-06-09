@@ -1,7 +1,7 @@
 namespace OpenAutomate.Core.Constants
 {
     /// <summary>
-    /// Defines permission levels for authorization (0-5)
+    /// Defines permission levels for authorization (0-4)
     /// Higher permission levels include all lower levels (hierarchical)
     /// </summary>
     public static class Permissions
@@ -23,25 +23,19 @@ namespace OpenAutomate.Core.Constants
         public const int Create = 2;
         
         /// <summary>
-        /// Execute permission (3) - ability to run operations and execute tasks
-        /// Includes: View, Create
-        /// </summary>
-        public const int Execute = 3;
-        
-        /// <summary>
-        /// Update permission (4) - ability to modify existing resources
+        /// Update permission (3) - ability to modify existing resources and execute operations
         /// Includes: View, Create, Execute
         /// </summary>
-        public const int Update = 4;
+        public const int Update = 3;
         
         /// <summary>
-        /// Delete permission (5) - highest level with full administrative access including delete operations
-        /// Includes: View, Create, Execute, Update
+        /// Delete permission (4) - highest level with full administrative access including delete operations
+        /// Includes: View, Create, Update, Execute
         /// </summary>
-        public const int Delete = 5;
+        public const int Delete = 4;
         
         /// <summary>
-        /// Validates if a permission level is valid (0-5)
+        /// Validates if a permission level is valid (0-4)
         /// </summary>
         /// <param name="permission">The permission level to validate</param>
         /// <returns>True if valid, false otherwise</returns>
@@ -62,8 +56,7 @@ namespace OpenAutomate.Core.Constants
                 NoAccess => "No Access",
                 View => "View Only",
                 Create => "View & Create",
-                Execute => "View, Create & Execute",
-                Update => "View, Create, Execute & Update",
+                Update => "View, Create & Update (includes Execute)",
                 Delete => "Full Administrative Access",
                 _ => "Invalid Permission"
             };
