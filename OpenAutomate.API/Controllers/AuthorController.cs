@@ -305,5 +305,29 @@ namespace OpenAutomate.API.Controllers
             await _authorizationManager.RemoveResourcePermissionAsync(authorityName, resourceName);
             return Ok();
         }
+
+        /// <summary>
+        /// Assigns multiple authorities (roles) to a user in one request
+        /// </summary>
+        /// <param name="userId">The unique identifier of the user</param>
+        /// <param name="dto">The authority assignment details containing the list of authority IDs</param>
+        /// <returns>A success response if the assignment is successful</returns>
+        /// <response code="200">Authorities successfully assigned to user</response>
+        /// <response code="400">Invalid request data</response>
+        /// <response code="401">User is not authenticated</response>
+        /// <response code="403">User lacks required permissions</response>
+        /// <response code="404">User or authority not found</response>
+        [HttpPost("user/{userId}/assign-multiple-roles")]
+        [RequirePermission(Resources.OrganizationUnitResource, Permissions.Update)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> AssignAuthoritiesToUserBulk(Guid userId, [FromBody] AssignAuthoritiesDto dto)
+        {
+            await _authorizationManager.AssignAuthoritiesToUserAsync(userId, dto.AuthorityIds);
+            return Ok();
+        }
     }
 } 

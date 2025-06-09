@@ -25,26 +25,27 @@ namespace OpenAutomate.Infrastructure.Services
             var userAuthorities = await _unitOfWork.UserAuthorities.GetAllAsync(ua => ua.OrganizationUnitId == ou.Id);
             var authorities = await _unitOfWork.Authorities.GetAllAsync(a => a.OrganizationUnitId == ou.Id);
 
+            // Build a lookup for userId -> list of role names
+            var userRolesLookup = userAuthorities
+                .Join(authorities, ua => ua.AuthorityId, a => a.Id, (ua, a) => new { ua.UserId, RoleName = a.Name })
+                .GroupBy(x => x.UserId)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.RoleName).ToList());
+
             var result = from ouu in orgUnitUsers
                          join u in users on ouu.UserId equals u.Id
-                         join ua in userAuthorities on ouu.UserId equals ua.UserId into uaGroup
-                         from ua in uaGroup.DefaultIfEmpty()
-                         join a in authorities on ua != null ? ua.AuthorityId : Guid.Empty equals a.Id into aGroup
-                         from a in aGroup.DefaultIfEmpty()
                          select new OrganizationUnitUserDetailDto
                          {
                              UserId = u.Id,
                              Email = u.Email ?? string.Empty,
                              FirstName = u.FirstName ?? string.Empty,
                              LastName = u.LastName ?? string.Empty,
-                             Role = a != null ? a.Name : string.Empty,
+                             Roles = userRolesLookup.ContainsKey(u.Id) ? userRolesLookup[u.Id] : new List<string>(),
+                             Role = userRolesLookup.ContainsKey(u.Id) ? (userRolesLookup[u.Id].FirstOrDefault() ?? string.Empty) : string.Empty,
                              JoinedAt = ouu.CreatedAt
                          };
-            var rolePriority = new List<string> { "OWNER", "OPERATOR", "DEVELOPER", "USER" };
-            var grouped = result
-                .GroupBy(x => x.UserId)
-                .Select(g => g.OrderBy(x => rolePriority.IndexOf(x.Role)).First());
-            return grouped.ToList();
+
+            // Ensure no duplicate users
+            return result.GroupBy(x => x.UserId).Select(g => g.First()).ToList();
         }
 
         public async Task<bool> DeleteUserAsync(string tenantSlug, Guid userId)

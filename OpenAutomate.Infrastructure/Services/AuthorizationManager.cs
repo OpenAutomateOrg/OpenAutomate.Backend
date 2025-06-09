@@ -389,7 +389,50 @@ namespace OpenAutomate.Infrastructure.Services
             // In a more advanced implementation, this could be dynamic from database
             return await Task.FromResult(Resources.GetAvailableResources());
         }
-        
+
         #endregion
+
+        #region Assign Multiple Roles to User
+        public async Task AssignAuthoritiesToUserAsync(Guid userId, List<Guid> authorityIds)
+        {
+            // Get all current authorities assigned to the user
+            var currentUserAuthorities = await _unitOfWork.UserAuthorities.GetAllAsync(ua => ua.UserId == userId);
+            var currentAuthorityIds = currentUserAuthorities.Select(ua => ua.AuthorityId).ToHashSet();
+
+            // Add new authorities that the user does not have yet
+            foreach (var authorityId in authorityIds)
+            {
+                if (!currentAuthorityIds.Contains(authorityId))
+                {
+                    // Check if authority exists
+                    var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(a => a.Id == authorityId);
+                    if (authority == null)
+                        throw new NotFoundException($"Authority with ID {authorityId} not found");
+
+                    // Create new UserAuthority
+                    var userAuthority = new UserAuthority
+                    {
+                        UserId = userId,
+                        AuthorityId = authorityId,
+                        OrganizationUnitId = authority.OrganizationUnitId
+                    };
+                    await _unitOfWork.UserAuthorities.AddAsync(userAuthority);
+                }
+            }
+
+            // Remove authorities that are not in the new list
+            foreach (var ua in currentUserAuthorities)
+            {
+                if (!authorityIds.Contains(ua.AuthorityId))
+                {
+                    _unitOfWork.UserAuthorities.Remove(ua);
+                }
+            }
+
+            await _unitOfWork.CompleteAsync();
+        }
+
+        #endregion
+
     }
 } 
