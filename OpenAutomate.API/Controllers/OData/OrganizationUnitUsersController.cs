@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.OData.Routing.Controllers;
 using OpenAutomate.API.Attributes;
 using OpenAutomate.Core.Constants;
 using OpenAutomate.Core.IServices;
+using OpenAutomate.Core.Dto.UserDto;
+using System.Linq;
+using OpenAutomate.Core.Dto.OrganizationUnitUser;
 
 namespace OpenAutomate.API.Controllers.OData
 {
@@ -38,29 +41,21 @@ namespace OpenAutomate.API.Controllers.OData
         [HttpGet]
         [RequirePermission(Resources.OrganizationUnitResource, Permissions.View)]
         [EnableQuery]
-        public async Task<IActionResult> Get()
+        public IQueryable<OrganizationUnitUserDetailDto> Get()
         {
-            try
+            string? tenantSlug = _tenantContext.CurrentTenantSlug;
+            if (string.IsNullOrEmpty(tenantSlug))
             {
-                string? tenantSlug = _tenantContext.CurrentTenantSlug;
-                if (string.IsNullOrEmpty(tenantSlug))
-                {
-                    tenantSlug = RouteData.Values["tenant"]?.ToString();
-                }
-                if (string.IsNullOrEmpty(tenantSlug))
-                {
-                    _logger.LogError("Tenant slug not available in context or route data");
-                    return BadRequest("Tenant not specified");
-                }
+                tenantSlug = RouteData.Values["tenant"]?.ToString();
+            }
+            if (string.IsNullOrEmpty(tenantSlug))
+            {
+                _logger.LogError("Tenant slug not available in context or route data");
+                throw new InvalidOperationException("Tenant not specified");
+            }
 
-                var users = await _service.GetUsersInOrganizationUnitAsync(tenantSlug);
-                return Ok(users);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving OU users for OData query");
-                return StatusCode(500, "An error occurred while retrieving OU users");
-            }
+            var users = _service.GetUsersInOrganizationUnitAsync(tenantSlug).GetAwaiter().GetResult();
+            return users.AsQueryable();
         }
     }
 }

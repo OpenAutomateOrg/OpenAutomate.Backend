@@ -4,6 +4,7 @@ using OpenAutomate.Core.Dto.Asset;
 using OpenAutomate.Core.Dto.BotAgent;
 using OpenAutomate.Core.Dto.Execution;
 using OpenAutomate.Core.Dto.OrganizationUnit;
+using OpenAutomate.Core.Dto.OrganizationUnitInvitation;
 using OpenAutomate.Core.Dto.Package;
 using OpenAutomate.Core.Dto.UserDto;
 
@@ -29,7 +30,8 @@ namespace OpenAutomate.API.Extensions
             builder.EntitySet<AutomationPackageResponseDto>("AutomationPackages");
             builder.EntitySet<PackageVersionResponseDto>("PackageVersions");
             builder.EntitySet<ExecutionResponseDto>("Executions");
-            
+            builder.EntitySet<OrganizationUnitInvitationDto>("OrganizationUnitInvitations");
+
             return builder.GetEdmModel();
         }
     }
