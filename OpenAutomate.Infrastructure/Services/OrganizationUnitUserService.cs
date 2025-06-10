@@ -39,8 +39,8 @@ namespace OpenAutomate.Infrastructure.Services
                              Email = u.Email ?? string.Empty,
                              FirstName = u.FirstName ?? string.Empty,
                              LastName = u.LastName ?? string.Empty,
-                             Roles = userRolesLookup.ContainsKey(u.Id) ? userRolesLookup[u.Id] : new List<string>(),
-                             Role = userRolesLookup.ContainsKey(u.Id) ? (userRolesLookup[u.Id].FirstOrDefault() ?? string.Empty) : string.Empty,
+                             Roles = userRolesLookup.TryGetValue(u.Id, out var roles) ? roles : new List<string>(),
+                             Role = userRolesLookup.TryGetValue(u.Id, out var roles2) ? (roles2.FirstOrDefault() ?? string.Empty) : string.Empty,
                              JoinedAt = ouu.CreatedAt
                          };
 
