@@ -192,6 +192,7 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<IAuthorizationManager, AuthorizationManager>();
 
             builder.Services.AddScoped<IExecutionService, ExecutionService>();
+            builder.Services.AddScoped<IScheduleService, ScheduleServiceSimplified>();
 
             builder.Services.AddScoped<IOrganizationUnitInvitationService, OrganizationUnitInvitationService>();
             builder.Services.AddScoped<IOrganizationUnitUserService, OrganizationUnitUserService>();
@@ -206,6 +207,9 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<IPackageStorageService, S3PackageStorageService>();
             builder.Services.AddScoped<IAutomationPackageService, AutomationPackageService>();
             builder.Services.AddScoped<IPackageMetadataService, PackageMetadataService>();
+            
+            // Configure Quartz.NET scheduling services
+            builder.Services.AddQuartzScheduling(builder.Configuration);
         }
         
         private static void ConfigureAuthentication(WebApplicationBuilder builder)

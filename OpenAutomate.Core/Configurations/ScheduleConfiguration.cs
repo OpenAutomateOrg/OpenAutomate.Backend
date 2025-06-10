@@ -8,30 +8,55 @@ namespace OpenAutomate.Core.Configurations
     {
         public void Configure(EntityTypeBuilder<Schedule> builder)
         {
+            // Table name
             builder.ToTable("Schedules");
+
+            // Primary key
             builder.HasKey(s => s.Id);
             
-            builder.Property(s => s.CronExpression).IsRequired().HasMaxLength(100);
+            // Properties
+            builder.Property(s => s.Name)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            builder.Property(s => s.Description)
+                .HasMaxLength(500);
+
+            builder.Property(s => s.CronExpression)
+                .HasMaxLength(100);
+
+            builder.Property(s => s.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+
+            builder.Property(s => s.Type)
+                .IsRequired()
+                .HasConversion<int>();
             
-            // Setup relationships
+            // Foreign key relationships
             builder.HasOne(s => s.Package)
-                .WithMany(ap => ap.Schedules)
+                .WithMany(p => p.Schedules)
                 .HasForeignKey(s => s.PackageId)
                 .OnDelete(DeleteBehavior.Cascade);
                 
-            // User relationship with UserId
             builder.HasOne(s => s.User)
                 .WithMany()
                 .HasForeignKey(s => s.CreatedById)
-                .OnDelete(DeleteBehavior.NoAction);
+                .OnDelete(DeleteBehavior.Restrict);
             
+            // Relationships
             builder.HasMany(s => s.Executions)
                 .WithOne(e => e.Schedule)
                 .HasForeignKey(e => e.ScheduleId)
-                .OnDelete(DeleteBehavior.SetNull);
+                .OnDelete(DeleteBehavior.Cascade);
                 
-            // Create indexes for faster lookups
+            // Indexes
+            builder.HasIndex(s => s.Name);
             builder.HasIndex(s => s.IsActive);
+            builder.HasIndex(s => s.Type);
+            builder.HasIndex(s => s.CreatedById);
+            builder.HasIndex(s => s.PackageId);
+            builder.HasIndex(s => new { s.OrganizationUnitId, s.IsActive });
         }
     }
 } 
