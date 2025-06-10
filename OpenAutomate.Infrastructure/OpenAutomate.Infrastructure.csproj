@@ -16,6 +16,9 @@
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.0" />
     <PackageReference Include="AWSSDK.S3" Version="3.7.307.25" />
+    <PackageReference Include="Quartz" Version="3.14.0" />
+    <PackageReference Include="Quartz.Extensions.Hosting" Version="3.14.0" />
+    <PackageReference Include="Quartz.Serialization.Json" Version="3.14.0" />
   </ItemGroup>
 
   <ItemGroup>
