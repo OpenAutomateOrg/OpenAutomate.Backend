@@ -9,6 +9,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using OpenAutomate.Core.Domain.IRepository;
 
 namespace OpenAutomate.API.Controllers
 {
@@ -26,14 +27,17 @@ namespace OpenAutomate.API.Controllers
     public class AuthorController : CustomControllerBase
     {
         private readonly IAuthorizationManager _authorizationManager;
-        
+        private readonly IUnitOfWork _unitOfWork;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="AuthorController"/> class
         /// </summary>
         /// <param name="authorizationManager">The authorization manager service</param>
-        public AuthorController(IAuthorizationManager authorizationManager)
+        /// <param name="unitOfWork">The unit of work service</param>
+        public AuthorController(IAuthorizationManager authorizationManager, IUnitOfWork unitOfWork)
         {
             _authorizationManager = authorizationManager;
+            _unitOfWork = unitOfWork;
         }
 
         /// <summary>
@@ -97,7 +101,7 @@ namespace OpenAutomate.API.Controllers
             var authority = await _authorizationManager.GetAuthorityWithPermissionsAsync(authorityId);
             if (authority == null)
                 return NotFound();
-            
+
             return Ok(authority);
         }
 
@@ -169,7 +173,7 @@ namespace OpenAutomate.API.Controllers
                 return Conflict(new { message = ex.Message });
             }
         }
-        
+
         /// <summary>
         /// Gets all authorities assigned to a specific user
         /// </summary>
@@ -193,7 +197,7 @@ namespace OpenAutomate.API.Controllers
             });
             return Ok(result);
         }
-        
+
         /// <summary>
         /// Assigns an authority to a user
         /// Requires UPDATE permission on OrganizationUnit
@@ -218,7 +222,7 @@ namespace OpenAutomate.API.Controllers
             await _authorizationManager.AssignAuthorityToUserAsync(userId, dto.AuthorityId);
             return Ok();
         }
-        
+
         /// <summary>
         /// Removes an authority from a user
         /// </summary>
@@ -256,7 +260,7 @@ namespace OpenAutomate.API.Controllers
             var resources = await _authorizationManager.GetAvailableResourcesAsync();
             return Ok(resources);
         }
-        
+
         /// <summary>
         /// Adds a resource permission to an authority
         /// </summary>
@@ -283,7 +287,7 @@ namespace OpenAutomate.API.Controllers
             );
             return Ok();
         }
-        
+
         /// <summary>
         /// Removes all permissions for a resource from an authority
         /// </summary>
@@ -309,6 +313,7 @@ namespace OpenAutomate.API.Controllers
         /// <summary>
         /// Assigns multiple authorities (roles) to a user in one request
         /// </summary>
+        /// <param name="tenant">The tenant slug</param>
         /// <param name="userId">The unique identifier of the user</param>
         /// <param name="dto">The authority assignment details containing the list of authority IDs</param>
         /// <returns>A success response if the assignment is successful</returns>
@@ -324,10 +329,13 @@ namespace OpenAutomate.API.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> AssignAuthoritiesToUserBulk(Guid userId, [FromBody] AssignAuthoritiesDto dto)
+        public async Task<IActionResult> AssignAuthoritiesToUserBulk(string tenant, Guid userId, [FromBody] AssignAuthoritiesDto dto)
         {
-            await _authorizationManager.AssignAuthoritiesToUserAsync(userId, dto.AuthorityIds);
+            var ou = await _unitOfWork.OrganizationUnits.GetFirstOrDefaultAsync(o => o.Slug == tenant);
+            if (ou == null)
+                return NotFound(new { message = $"Organization unit '{tenant}' not found." });
+            await _authorizationManager.AssignAuthoritiesToUserAsync(userId, dto.AuthorityIds, ou.Id);
             return Ok();
         }
     }
-} 
+}

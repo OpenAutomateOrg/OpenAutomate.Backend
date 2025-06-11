@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using OpenAutomate.Core.Domain.IRepository;
+using OpenAutomate.Core.Dto.Authority;
 using OpenAutomate.Core.Dto.OrganizationUnitUser;
 using OpenAutomate.Core.IServices;
 
@@ -64,6 +65,19 @@ namespace OpenAutomate.Infrastructure.Services
 
             await _unitOfWork.CompleteAsync();
             return true;
+        }
+
+        public async Task<IEnumerable<AuthorityDto>> GetRolesInOrganizationUnitAsync(string tenantSlug)
+        {
+            var ou = await _unitOfWork.OrganizationUnits.GetFirstOrDefaultAsync(o => o.Slug == tenantSlug);
+            if (ou == null) return new List<AuthorityDto>();
+            var authorities = await _unitOfWork.Authorities.GetAllAsync(a => a.OrganizationUnitId == ou.Id);
+            return authorities.Select(a => new AuthorityDto
+            {
+                Id = a.Id,
+                Name = a.Name,
+                Description = a.Description
+            }).ToList();
         }
     }
 }

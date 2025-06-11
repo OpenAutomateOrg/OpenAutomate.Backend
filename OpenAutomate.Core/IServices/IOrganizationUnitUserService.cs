@@ -1,4 +1,5 @@
-﻿using OpenAutomate.Core.Dto.OrganizationUnitUser;
+﻿using OpenAutomate.Core.Dto.Authority;
+using OpenAutomate.Core.Dto.OrganizationUnitUser;
 using OpenAutomate.Core.Dto.UserDto;
 using System;
 using System.Collections.Generic;
@@ -17,5 +18,6 @@ namespace OpenAutomate.Core.IServices
         /// <returns>List of users in the organization unit</returns>
         Task<IEnumerable<OrganizationUnitUserDetailDto>> GetUsersInOrganizationUnitAsync(string tenantSlug);
         Task<bool> DeleteUserAsync(string tenantSlug, Guid userId);
+        Task<IEnumerable<AuthorityDto>> GetRolesInOrganizationUnitAsync(string tenantSlug);
     }
 }

@@ -32,7 +32,7 @@ namespace OpenAutomate.Core.IServices
         // Resource information
         Task<IEnumerable<AvailableResourceDto>> GetAvailableResourcesAsync();
 
-        //Assigns multiple roles to a user
-        Task AssignAuthoritiesToUserAsync(Guid userId, List<Guid> authorityIds);
+        //Assigns multiple roles to a user in a specific organization unit
+        Task AssignAuthoritiesToUserAsync(Guid userId, List<Guid> authorityIds, Guid organizationUnitId);
     }
 } 
