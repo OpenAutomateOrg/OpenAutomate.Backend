@@ -389,7 +389,53 @@ namespace OpenAutomate.Infrastructure.Services
             // In a more advanced implementation, this could be dynamic from database
             return await Task.FromResult(Resources.GetAvailableResources());
         }
-        
+
         #endregion
+
+        #region Assign Multiple Roles to User
+        public async Task AssignAuthoritiesToUserAsync(Guid userId, List<Guid> authorityIds, Guid organizationUnitId)
+        {
+            // Only get UserAuthorities for this user in the current OU
+            var currentUserAuthorities = await _unitOfWork.UserAuthorities.GetAllAsync(
+                ua => ua.UserId == userId && ua.OrganizationUnitId == organizationUnitId);
+            var currentAuthorityIds = currentUserAuthorities.Select(ua => ua.AuthorityId).ToHashSet();
+
+            // Batch fetch all authorities with the given IDs
+            var authorities = await _unitOfWork.Authorities.GetAllAsync(a => authorityIds.Contains(a.Id));
+            var authorityDictionary = authorities.ToDictionary(a => a.Id);
+
+            foreach (var authorityId in authorityIds)
+            {
+                if (!currentAuthorityIds.Contains(authorityId))
+                {
+                    if (!authorityDictionary.TryGetValue(authorityId, out var authority))
+                        throw new NotFoundException($"Authority with ID {authorityId} not found");
+                    if (authority.OrganizationUnitId != organizationUnitId)
+                        throw new InvalidOperationException("Authority does not belong to this OU");
+
+                    var userAuthority = new UserAuthority
+                    {
+                        UserId = userId,
+                        AuthorityId = authorityId,
+                        OrganizationUnitId = organizationUnitId
+                    };
+                    await _unitOfWork.UserAuthorities.AddAsync(userAuthority);
+                }
+            }
+
+            // Remove authorities in this OU that are not in the new list
+            foreach (var ua in currentUserAuthorities)
+            {
+                if (!authorityIds.Contains(ua.AuthorityId))
+                {
+                    _unitOfWork.UserAuthorities.Remove(ua);
+                }
+            }
+
+            await _unitOfWork.CompleteAsync();
+        }
+
+        #endregion
+
     }
 } 

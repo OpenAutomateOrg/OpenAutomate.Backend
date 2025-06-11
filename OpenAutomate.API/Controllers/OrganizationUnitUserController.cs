@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using OpenAutomate.API.Attributes;
 using OpenAutomate.Core.Constants;
+using OpenAutomate.Core.Dto.Authority;
 using OpenAutomate.Core.Dto.OrganizationUnitUser;
 using OpenAutomate.Core.IServices;
 
@@ -54,6 +55,11 @@ namespace OpenAutomate.API.Controllers
         {
             try
             {
+                var currentUserId = GetCurrentUserId();
+                if (userId == currentUserId)
+                {
+                    return BadRequest(new { message = "You cannot remove yourself from the organization unit." });
+                }
                 var deleted = await _organizationUnitUserService.DeleteUserAsync(tenant, userId);
                 if (!deleted)
                     return NotFound(new { message = $"User with id '{userId}' not found in organization unit '{tenant}'." });
@@ -63,6 +69,23 @@ namespace OpenAutomate.API.Controllers
             {
                 return StatusCode(500, "An error occurred while removing the user from the organization unit.");
             }
+        }
+
+        /// <summary>
+        /// Gets all roles in a specific organization unit by tenant slug
+        /// </summary>
+        /// <param name="tenant">The slug of the organization unit (tenant)</param>
+        /// <returns>List of roles in the organization unit</returns>
+        /// <response code="200">List of roles retrieved successfully</response>
+        /// <response code="401">User is not authenticated</response>
+        /// <response code="403">User lacks required permissions</response>
+        /// <response code="404">Organization unit not found</response>
+        [HttpGet("roles")]
+        [RequirePermission(Resources.UserResource, Permissions.View)]
+        public async Task<ActionResult<IEnumerable<AuthorityDto>>> GetRolesInOrganizationUnit(string tenant)
+        {
+            var roles = await _organizationUnitUserService.GetRolesInOrganizationUnitAsync(tenant);
+            return Ok(roles);
         }
     }
 }
