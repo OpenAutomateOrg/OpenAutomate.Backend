@@ -400,13 +400,15 @@ namespace OpenAutomate.Infrastructure.Services
                 ua => ua.UserId == userId && ua.OrganizationUnitId == organizationUnitId);
             var currentAuthorityIds = currentUserAuthorities.Select(ua => ua.AuthorityId).ToHashSet();
 
-            // Add new authorities for this OU
+            // Batch fetch all authorities with the given IDs
+            var authorities = await _unitOfWork.Authorities.GetAllAsync(a => authorityIds.Contains(a.Id));
+            var authorityDictionary = authorities.ToDictionary(a => a.Id);
+
             foreach (var authorityId in authorityIds)
             {
                 if (!currentAuthorityIds.Contains(authorityId))
                 {
-                    var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(a => a.Id == authorityId);
-                    if (authority == null)
+                    if (!authorityDictionary.TryGetValue(authorityId, out var authority))
                         throw new NotFoundException($"Authority with ID {authorityId} not found");
                     if (authority.OrganizationUnitId != organizationUnitId)
                         throw new InvalidOperationException("Authority does not belong to this OU");
