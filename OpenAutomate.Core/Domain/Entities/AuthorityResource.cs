@@ -24,15 +24,5 @@ namespace OpenAutomate.Core.Domain.Entities
         [Required]
         [Range(0, 4)]
         public int Permission { get; set; }
-        
-        /// <summary>
-        /// When this permission was granted
-        /// </summary>
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        
-        /// <summary>
-        /// When this permission was last updated
-        /// </summary>
-        public DateTime? UpdatedAt { get; set; }
     }
 } 

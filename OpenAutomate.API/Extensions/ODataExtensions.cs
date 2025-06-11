@@ -1,6 +1,7 @@
 using Microsoft.OData.Edm;
 using Microsoft.OData.ModelBuilder;
 using OpenAutomate.Core.Dto.Asset;
+using OpenAutomate.Core.Dto.Authority;
 using OpenAutomate.Core.Dto.BotAgent;
 using OpenAutomate.Core.Dto.Execution;
 using OpenAutomate.Core.Dto.OrganizationUnit;
@@ -31,6 +32,7 @@ namespace OpenAutomate.API.Extensions
             builder.EntitySet<PackageVersionResponseDto>("PackageVersions");
             builder.EntitySet<ExecutionResponseDto>("Executions");
             builder.EntitySet<OrganizationUnitInvitationDto>("OrganizationUnitInvitations");
+            builder.EntitySet<AuthorityWithPermissionsDto>("Roles");
 
             return builder.GetEdmModel();
         }
