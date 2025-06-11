@@ -40,7 +40,6 @@ namespace OpenAutomate.Infrastructure.Services
                              FirstName = u.FirstName ?? string.Empty,
                              LastName = u.LastName ?? string.Empty,
                              Roles = userRolesLookup.TryGetValue(u.Id, out var roles) ? roles : new List<string>(),
-                             Role = userRolesLookup.TryGetValue(u.Id, out var roles2) ? (roles2.FirstOrDefault() ?? string.Empty) : string.Empty,
                              JoinedAt = ouu.CreatedAt
                          };
 

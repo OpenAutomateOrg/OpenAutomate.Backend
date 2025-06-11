@@ -54,6 +54,11 @@ namespace OpenAutomate.API.Controllers
         {
             try
             {
+                var currentUserId = GetCurrentUserId();
+                if (userId == currentUserId)
+                {
+                    return BadRequest(new { message = "You cannot remove yourself from the organization unit." });
+                }
                 var deleted = await _organizationUnitUserService.DeleteUserAsync(tenant, userId);
                 if (!deleted)
                     return NotFound(new { message = $"User with id '{userId}' not found in organization unit '{tenant}'." });
