@@ -27,17 +27,17 @@ namespace OpenAutomate.API.Controllers
     public class AuthorController : CustomControllerBase
     {
         private readonly IAuthorizationManager _authorizationManager;
-        private readonly IUnitOfWork _unitOfWork;
+        private readonly IOrganizationUnitService _organizationUnitService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AuthorController"/> class
         /// </summary>
         /// <param name="authorizationManager">The authorization manager service</param>
-        /// <param name="unitOfWork">The unit of work service</param>
-        public AuthorController(IAuthorizationManager authorizationManager, IUnitOfWork unitOfWork)
+        /// <param name="organizationUnitService">The organization unit service</param>
+        public AuthorController(IAuthorizationManager authorizationManager, IOrganizationUnitService organizationUnitService)
         {
             _authorizationManager = authorizationManager;
-            _unitOfWork = unitOfWork;
+            _organizationUnitService = organizationUnitService;
         }
 
         /// <summary>
@@ -190,7 +190,8 @@ namespace OpenAutomate.API.Controllers
         public async Task<IActionResult> GetUserAuthorities(Guid userId)
         {
             var authorities = await _authorizationManager.GetUserAuthoritiesAsync(userId);
-            var result = authorities.Select(a => new AuthorityDto { 
+            var result = authorities.Select(a => new AuthorityDto
+            {
                 Id = a.Id,
                 Name = a.Name,
                 Description = a.Description
@@ -331,7 +332,7 @@ namespace OpenAutomate.API.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> AssignAuthoritiesToUserBulk(string tenant, Guid userId, [FromBody] AssignAuthoritiesDto dto)
         {
-            var ou = await _unitOfWork.OrganizationUnits.GetFirstOrDefaultAsync(o => o.Slug == tenant);
+            var ou = await _organizationUnitService.GetOrganizationUnitBySlugAsync(tenant);
             if (ou == null)
                 return NotFound(new { message = $"Organization unit '{tenant}' not found." });
             await _authorizationManager.AssignAuthoritiesToUserAsync(userId, dto.AuthorityIds, ou.Id);
