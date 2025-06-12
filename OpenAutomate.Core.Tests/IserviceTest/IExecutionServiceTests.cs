@@ -10,11 +10,11 @@ using Xunit;
 
 namespace OpenAutomate.Core.Tests.IserviceTest
 {
-    public class ExecutionServiceTests
+    public class IExecutionServiceTests
     {
         private readonly Mock<IExecutionService> _mockExecutionService;
 
-        public ExecutionServiceTests()
+        public IExecutionServiceTests()
         {
             _mockExecutionService = new Mock<IExecutionService>();
         }
