@@ -20,16 +20,6 @@ namespace OpenAutomate.Core.Domain.Entities
         /// </summary>
         public bool IsSystemAuthority { get; set; } = false;
         
-        /// <summary>
-        /// When the authority was created
-        /// </summary>
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        
-        /// <summary>
-        /// When the authority was last updated
-        /// </summary>
-        public DateTime? UpdatedAt { get; set; }
-        
         // Navigation properties
         [JsonIgnore]
         public virtual ICollection<UserAuthority>? UserAuthorities { get; set; }

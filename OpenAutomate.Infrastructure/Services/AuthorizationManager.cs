@@ -15,10 +15,12 @@ namespace OpenAutomate.Infrastructure.Services
     public class AuthorizationManager : IAuthorizationManager
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ITenantContext _tenantContext;
         
-        public AuthorizationManager(IUnitOfWork unitOfWork)
+        public AuthorizationManager(IUnitOfWork unitOfWork, ITenantContext tenantContext)
         {
             _unitOfWork = unitOfWork;
+            _tenantContext = tenantContext;
         }
         
         #region Permission Checking
@@ -43,7 +45,11 @@ namespace OpenAutomate.Infrastructure.Services
         
         public async Task<bool> HasAuthorityAsync(Guid userId, string authorityName)
         {
-            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(a => a.Name == authorityName);
+            if (!_tenantContext.HasTenant)
+                return false;
+                
+            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(
+                a => a.Name == authorityName && a.OrganizationUnitId == _tenantContext.CurrentTenantId);
             if (authority == null)
                 return false;
                 
@@ -59,12 +65,16 @@ namespace OpenAutomate.Infrastructure.Services
         
         public async Task<AuthorityWithPermissionsDto> CreateAuthorityAsync(CreateAuthorityDto dto)
         {
+            if (!_tenantContext.HasTenant)
+                throw new InvalidOperationException("Tenant context is required for authority creation");
+                
             // Validate input
             if (!Permissions.IsValid(dto.ResourcePermissions.Max(rp => rp.Permission)))
                 throw new ArgumentException("Invalid permission level");
             
             // Check if authority name already exists in current tenant
-            var existingAuthority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(a => a.Name == dto.Name);
+            var existingAuthority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(
+                a => a.Name == dto.Name && a.OrganizationUnitId == _tenantContext.CurrentTenantId);
             if (existingAuthority != null)
                 throw new InvalidOperationException($"Authority with name '{dto.Name}' already exists");
             
@@ -74,7 +84,7 @@ namespace OpenAutomate.Infrastructure.Services
                 Name = dto.Name,
                 Description = dto.Description,
                 IsSystemAuthority = false,
-                CreatedAt = DateTime.UtcNow
+                OrganizationUnitId = _tenantContext.CurrentTenantId
             };
             
             await _unitOfWork.Authorities.AddAsync(authority);
@@ -88,8 +98,7 @@ namespace OpenAutomate.Infrastructure.Services
                     AuthorityId = authority.Id,
                     OrganizationUnitId = authority.OrganizationUnitId,
                     ResourceName = permission.ResourceName,
-                    Permission = permission.Permission,
-                    CreatedAt = DateTime.UtcNow
+                    Permission = permission.Permission
                 };
                 
                 await _unitOfWork.AuthorityResources.AddAsync(authorityResource);
@@ -103,7 +112,11 @@ namespace OpenAutomate.Infrastructure.Services
         
         public async Task<AuthorityWithPermissionsDto?> GetAuthorityWithPermissionsAsync(Guid authorityId)
         {
-            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(a => a.Id == authorityId);
+            if (!_tenantContext.HasTenant)
+                return null;
+                
+            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(
+                a => a.Id == authorityId && a.OrganizationUnitId == _tenantContext.CurrentTenantId);
             if (authority == null)
                 return null;
             
@@ -115,8 +128,8 @@ namespace OpenAutomate.Infrastructure.Services
                 Name = authority.Name,
                 Description = authority.Description,
                 IsSystemAuthority = authority.IsSystemAuthority,
-                CreatedAt = authority.CreatedAt,
-                UpdatedAt = authority.UpdatedAt,
+                CreatedAt = authority.CreatedAt ?? DateTime.UtcNow,
+                UpdatedAt = authority.LastModifyAt,
                 Permissions = permissions.Select(p => new ResourcePermissionDto
                 {
                     AuthorityId = p.AuthorityId,
@@ -131,7 +144,12 @@ namespace OpenAutomate.Infrastructure.Services
         
         public async Task<IEnumerable<AuthorityWithPermissionsDto>> GetAllAuthoritiesWithPermissionsAsync()
         {
-            var authorities = await _unitOfWork.Authorities.GetAllAsync();
+            if (!_tenantContext.HasTenant)
+                return new List<AuthorityWithPermissionsDto>();
+                
+            // CRITICAL FIX: Explicitly filter by current tenant
+            var authorities = await _unitOfWork.Authorities.GetAllAsync(
+                a => a.OrganizationUnitId == _tenantContext.CurrentTenantId);
             var result = new List<AuthorityWithPermissionsDto>();
             
             foreach (var authority in authorities)
@@ -146,7 +164,11 @@ namespace OpenAutomate.Infrastructure.Services
         
         public async Task UpdateAuthorityAsync(Guid authorityId, UpdateAuthorityDto dto)
         {
-            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(a => a.Id == authorityId);
+            if (!_tenantContext.HasTenant)
+                throw new InvalidOperationException("Tenant context is required for authority update");
+                
+            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(
+                a => a.Id == authorityId && a.OrganizationUnitId == _tenantContext.CurrentTenantId);
             if (authority == null)
                 throw new NotFoundException($"Authority with ID {authorityId} not found");
             
@@ -156,9 +178,9 @@ namespace OpenAutomate.Infrastructure.Services
             // Update basic properties
             if (!string.IsNullOrEmpty(dto.Name))
             {
-                // Check name uniqueness
+                // Check name uniqueness within current tenant
                 var existingAuthority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(
-                    a => a.Name == dto.Name && a.Id != authorityId);
+                    a => a.Name == dto.Name && a.Id != authorityId && a.OrganizationUnitId == _tenantContext.CurrentTenantId);
                 if (existingAuthority != null)
                     throw new InvalidOperationException($"Authority with name '{dto.Name}' already exists");
                 
@@ -168,7 +190,7 @@ namespace OpenAutomate.Infrastructure.Services
             if (dto.Description != null)
                 authority.Description = dto.Description;
             
-            authority.UpdatedAt = DateTime.UtcNow;
+            authority.LastModifyAt = DateTime.UtcNow;
             _unitOfWork.Authorities.Update(authority);
             
             // Update permissions if provided
@@ -189,8 +211,7 @@ namespace OpenAutomate.Infrastructure.Services
                         AuthorityId = authorityId,
                         OrganizationUnitId = authority.OrganizationUnitId,
                         ResourceName = permission.ResourceName,
-                        Permission = permission.Permission,
-                        CreatedAt = DateTime.UtcNow
+                        Permission = permission.Permission
                     };
                     
                     await _unitOfWork.AuthorityResources.AddAsync(authorityResource);
@@ -202,7 +223,11 @@ namespace OpenAutomate.Infrastructure.Services
         
         public async Task DeleteAuthorityAsync(Guid authorityId)
         {
-            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(a => a.Id == authorityId);
+            if (!_tenantContext.HasTenant)
+                throw new InvalidOperationException("Tenant context is required for authority deletion");
+                
+            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(
+                a => a.Id == authorityId && a.OrganizationUnitId == _tenantContext.CurrentTenantId);
             if (authority == null)
                 throw new NotFoundException($"Authority with ID {authorityId} not found");
             
@@ -237,7 +262,11 @@ namespace OpenAutomate.Infrastructure.Services
         
         public async Task AssignAuthorityToUserAsync(Guid userId, Guid authorityId)
         {
-            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(a => a.Id == authorityId);
+            if (!_tenantContext.HasTenant)
+                throw new InvalidOperationException("Tenant context is required for authority assignment");
+                
+            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(
+                a => a.Id == authorityId && a.OrganizationUnitId == _tenantContext.CurrentTenantId);
             if (authority == null) 
                 throw new NotFoundException($"Authority with ID {authorityId} not found");
             
@@ -274,8 +303,11 @@ namespace OpenAutomate.Infrastructure.Services
         
         private async Task<List<Authority>> GetUserAuthoritiesWithDetailAsync(Guid userId)
         {
+            if (!_tenantContext.HasTenant)
+                return new List<Authority>();
+                
             var userAuthorities = await _unitOfWork.UserAuthorities.GetAllAsync(
-                ua => ua.UserId == userId);
+                ua => ua.UserId == userId && ua.OrganizationUnitId == _tenantContext.CurrentTenantId);
                 
             if (!userAuthorities.Any())
                 return new List<Authority>();
@@ -283,7 +315,7 @@ namespace OpenAutomate.Infrastructure.Services
             var authorityIds = userAuthorities.Select(ua => ua.AuthorityId).ToList();
             
             var authorities = await _unitOfWork.Authorities.GetAllAsync(
-                a => authorityIds.Contains(a.Id));
+                a => authorityIds.Contains(a.Id) && a.OrganizationUnitId == _tenantContext.CurrentTenantId);
                 
             return authorities.ToList();
         }
@@ -294,7 +326,11 @@ namespace OpenAutomate.Infrastructure.Services
         
         public async Task AssignAuthorityToUserAsync(Guid userId, string authorityName)
         {
-            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(a => a.Name == authorityName);
+            if (!_tenantContext.HasTenant)
+                throw new InvalidOperationException("Tenant context is required for authority assignment");
+                
+            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(
+                a => a.Name == authorityName && a.OrganizationUnitId == _tenantContext.CurrentTenantId);
             if (authority == null) 
                 throw new InvalidOperationException($"Authority {authorityName} not found");
             
@@ -303,7 +339,11 @@ namespace OpenAutomate.Infrastructure.Services
         
         public async Task RemoveAuthorityFromUserAsync(Guid userId, string authorityName)
         {
-            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(a => a.Name == authorityName);
+            if (!_tenantContext.HasTenant)
+                throw new InvalidOperationException("Tenant context is required for authority removal");
+                
+            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(
+                a => a.Name == authorityName && a.OrganizationUnitId == _tenantContext.CurrentTenantId);
             if (authority == null) 
                 throw new InvalidOperationException($"Authority {authorityName} not found");
             
@@ -316,7 +356,11 @@ namespace OpenAutomate.Infrastructure.Services
         
         public async Task AddResourcePermissionAsync(string authorityName, string resourceName, int permission)
         {
-            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(a => a.Name == authorityName);
+            if (!_tenantContext.HasTenant)
+                throw new InvalidOperationException("Tenant context is required for resource permission management");
+                
+            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(
+                a => a.Name == authorityName && a.OrganizationUnitId == _tenantContext.CurrentTenantId);
             if (authority == null) 
                 throw new InvalidOperationException($"Authority {authorityName} not found");
             
@@ -330,7 +374,7 @@ namespace OpenAutomate.Infrastructure.Services
                 {
                     // Update permission
                     existingPermission.Permission = permission;
-                    existingPermission.UpdatedAt = DateTime.UtcNow;
+                    existingPermission.LastModifyAt = DateTime.UtcNow;
                     _unitOfWork.AuthorityResources.Update(existingPermission);
                 }
                 else
@@ -341,8 +385,7 @@ namespace OpenAutomate.Infrastructure.Services
                         AuthorityId = authority.Id,
                         OrganizationUnitId = authority.OrganizationUnitId,
                         ResourceName = resourceName,
-                        Permission = permission,
-                        CreatedAt = DateTime.UtcNow
+                        Permission = permission
                     };
                     
                     await _unitOfWork.AuthorityResources.AddAsync(authorityResource);
@@ -358,7 +401,11 @@ namespace OpenAutomate.Infrastructure.Services
         
         public async Task RemoveResourcePermissionAsync(string authorityName, string resourceName)
         {
-            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(a => a.Name == authorityName);
+            if (!_tenantContext.HasTenant)
+                throw new InvalidOperationException("Tenant context is required for resource permission management");
+                
+            var authority = await _unitOfWork.Authorities.GetFirstOrDefaultAsync(
+                a => a.Name == authorityName && a.OrganizationUnitId == _tenantContext.CurrentTenantId);
             if (authority == null) 
                 throw new InvalidOperationException($"Authority {authorityName} not found");
             
@@ -395,13 +442,21 @@ namespace OpenAutomate.Infrastructure.Services
         #region Assign Multiple Roles to User
         public async Task AssignAuthoritiesToUserAsync(Guid userId, List<Guid> authorityIds, Guid organizationUnitId)
         {
+            if (!_tenantContext.HasTenant)
+                throw new InvalidOperationException("Tenant context is required for authority assignment");
+                
+            // Verify organizationUnitId matches current tenant
+            if (organizationUnitId != _tenantContext.CurrentTenantId)
+                throw new InvalidOperationException("Organization unit ID does not match current tenant");
+                
             // Only get UserAuthorities for this user in the current OU
             var currentUserAuthorities = await _unitOfWork.UserAuthorities.GetAllAsync(
                 ua => ua.UserId == userId && ua.OrganizationUnitId == organizationUnitId);
             var currentAuthorityIds = currentUserAuthorities.Select(ua => ua.AuthorityId).ToHashSet();
 
-            // Batch fetch all authorities with the given IDs
-            var authorities = await _unitOfWork.Authorities.GetAllAsync(a => authorityIds.Contains(a.Id));
+            // Batch fetch all authorities with the given IDs - ensure they belong to current tenant
+            var authorities = await _unitOfWork.Authorities.GetAllAsync(
+                a => authorityIds.Contains(a.Id) && a.OrganizationUnitId == organizationUnitId);
             var authorityDictionary = authorities.ToDictionary(a => a.Id);
 
             foreach (var authorityId in authorityIds)
