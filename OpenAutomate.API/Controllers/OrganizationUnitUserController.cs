@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using OpenAutomate.API.Attributes;
+using OpenAutomate.Core.Constants;
 using OpenAutomate.Core.Dto.Authority;
 using OpenAutomate.Core.Dto.OrganizationUnitUser;
 using OpenAutomate.Core.IServices;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.Extensions.Logging;
 
 namespace OpenAutomate.API.Controllers
 {
@@ -13,14 +13,10 @@ namespace OpenAutomate.API.Controllers
     public class OrganizationUnitUserController : CustomControllerBase
     {
         private readonly IOrganizationUnitUserService _organizationUnitUserService;
-        private readonly ILogger<OrganizationUnitUserController> _logger;
 
-        public OrganizationUnitUserController(
-            IOrganizationUnitUserService organizationUnitUserService,
-            ILogger<OrganizationUnitUserController> logger)
+        public OrganizationUnitUserController(IOrganizationUnitUserService organizationUnitUserService)
         {
             _organizationUnitUserService = organizationUnitUserService;
-            _logger = logger;
         }
 
         /// <summary>
@@ -30,26 +26,19 @@ namespace OpenAutomate.API.Controllers
         /// <returns>List of users in the organization unit</returns>
         /// <response code="200">List of users retrieved successfully</response>
         /// <response code="401">User is not authenticated</response>
+        /// <response code="403">User lacks required permissions</response>
         /// <response code="404">Organization unit not found</response>
         [HttpGet]
-        [Authorize]
+        [RequirePermission(Resources.UserResource, Permissions.View)]
         public async Task<ActionResult<OrganizationUnitUsersResponseDto>> GetUsersInOrganizationUnit(string tenant)
         {
-            try
+            var users = await _organizationUnitUserService.GetUsersInOrganizationUnitAsync(tenant);
+            var response = new OrganizationUnitUsersResponseDto
             {
-                var users = await _organizationUnitUserService.GetUsersInOrganizationUnitAsync(tenant);
-                var response = new OrganizationUnitUsersResponseDto
-                {
-                    Count = users.Count(),
-                    Users = users
-                };
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"[GetUsersInOrganizationUnit] Error getting users for tenant {tenant}");
-                return StatusCode(500, new { message = "An error occurred while getting users." });
-            }
+                Count = users.Count(),
+                Users = users
+            };
+            return Ok(response);
         }
 
         /// <summary>
@@ -61,28 +50,24 @@ namespace OpenAutomate.API.Controllers
         /// <response code="204">User removed successfully</response>
         /// <response code="404">User or organization unit not found</response>
         [HttpDelete("{userId}")]
-        [Authorize]
+        [RequirePermission(Resources.UserResource, Permissions.Delete)]
         public async Task<IActionResult> DeleteUser(string tenant, Guid userId)
         {
             try
             {
                 var currentUserId = GetCurrentUserId();
-
                 if (userId == currentUserId)
                 {
                     return BadRequest(new { message = "You cannot remove yourself from the organization unit." });
                 }
-
                 var deleted = await _organizationUnitUserService.DeleteUserAsync(tenant, userId);
                 if (!deleted)
                     return NotFound(new { message = $"User with id '{userId}' not found in organization unit '{tenant}'." });
-
                 return NoContent();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                _logger.LogError(ex, $"[DeleteUser] Error deleting user {userId} from tenant {tenant}");
-                return StatusCode(500, new { message = "An error occurred while deleting user." });
+                return StatusCode(500, "An error occurred while removing the user from the organization unit.");
             }
         }
 
@@ -93,21 +78,14 @@ namespace OpenAutomate.API.Controllers
         /// <returns>List of roles in the organization unit</returns>
         /// <response code="200">List of roles retrieved successfully</response>
         /// <response code="401">User is not authenticated</response>
+        /// <response code="403">User lacks required permissions</response>
         /// <response code="404">Organization unit not found</response>
         [HttpGet("roles")]
-        [Authorize]
+        [RequirePermission(Resources.UserResource, Permissions.View)]
         public async Task<ActionResult<IEnumerable<AuthorityDto>>> GetRolesInOrganizationUnit(string tenant)
         {
-            try
-            {
-                var roles = await _organizationUnitUserService.GetRolesInOrganizationUnitAsync(tenant);
-                return Ok(roles);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"[GetRolesInOrganizationUnit] Error getting roles for tenant {tenant}");
-                return StatusCode(500, new { message = "An error occurred while getting roles." });
-            }
+            var roles = await _organizationUnitUserService.GetRolesInOrganizationUnitAsync(tenant);
+            return Ok(roles);
         }
     }
 }
