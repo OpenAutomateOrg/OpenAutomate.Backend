@@ -24,9 +24,22 @@ namespace OpenAutomate.API.Controllers
         private readonly IExecutionService _executionService;
         private readonly IBotAgentService _botAgentService;
         private readonly IAutomationPackageService _packageService;
+        private readonly ILogStorageService _logStorageService;
         private readonly IHubContext<BotAgentHub> _hubContext;
         private readonly ITenantContext _tenantContext;
         private readonly ILogger<ExecutionController> _logger;
+
+        // Standardized log message templates
+        private static class LogMessages
+        {
+            public const string ExecutionTriggered = "Execution {ExecutionId} triggered for bot agent {BotAgentId}";
+            public const string LogUploadStarted = "Log upload started for execution {ExecutionId}";
+            public const string LogUploadCompleted = "Log upload completed for execution {ExecutionId}";
+            public const string LogUploadFailed = "Log upload failed for execution {ExecutionId}";
+            public const string LogDownloadRequested = "Log download requested for execution {ExecutionId}";
+            public const string LogDownloadUrlGenerated = "Log download URL generated for execution {ExecutionId}";
+            public const string LogDownloadFailed = "Log download failed for execution {ExecutionId}";
+        }
 
         /// <summary>
         /// Initializes a new instance of the ExecutionController
@@ -35,6 +48,7 @@ namespace OpenAutomate.API.Controllers
             IExecutionService executionService,
             IBotAgentService botAgentService,
             IAutomationPackageService packageService,
+            ILogStorageService logStorageService,
             IHubContext<BotAgentHub> hubContext,
             ITenantContext tenantContext,
             ILogger<ExecutionController> logger)
@@ -42,6 +56,7 @@ namespace OpenAutomate.API.Controllers
             _executionService = executionService;
             _botAgentService = botAgentService;
             _packageService = packageService;
+            _logStorageService = logStorageService;
             _hubContext = hubContext;
             _tenantContext = tenantContext;
             _logger = logger;
@@ -91,8 +106,7 @@ namespace OpenAutomate.API.Controllers
                 await _hubContext.Clients.Group($"bot-{dto.BotAgentId}")
                     .SendAsync("ReceiveCommand", "ExecutePackage", commandPayload);
 
-                _logger.LogInformation("Execution {ExecutionId} triggered for bot agent {BotAgentId}", 
-                    execution.Id, dto.BotAgentId);
+                _logger.LogInformation(LogMessages.ExecutionTriggered, execution.Id, dto.BotAgentId);
 
                 var responseDto = MapToResponseDto(execution);
                 responseDto.BotAgentName = botAgent.Name;
@@ -105,6 +119,84 @@ namespace OpenAutomate.API.Controllers
             {
                 _logger.LogError(ex, "Error triggering execution");
                 return StatusCode(500, "Failed to trigger execution");
+            }
+        }
+
+        /// <summary>
+        /// Uploads a log file for a specific execution
+        /// </summary>
+        /// <param name="id">Execution ID</param>
+        /// <param name="logFile">Log file to upload</param>
+        /// <returns>Success response</returns>
+        [HttpPost("{id}/logs")]
+        [RequirePermission(Resources.ExecutionResource, Permissions.Update)]
+        public async Task<ActionResult> UploadExecutionLogs(Guid id, IFormFile logFile)
+        {
+            try
+            {
+                _logger.LogInformation(LogMessages.LogUploadStarted, id);
+
+                if (logFile == null || logFile.Length == 0)
+                    return BadRequest("Log file is required");
+
+                // Validate execution exists
+                var execution = await _executionService.GetExecutionByIdAsync(id);
+                if (execution == null)
+                    return NotFound("Execution not found");
+
+                // Generate S3 object key for the log file
+                var objectKey = $"execution_{id}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.log";
+
+                // Upload log file to S3
+                using var stream = logFile.OpenReadStream();
+                var s3Key = await _logStorageService.UploadLogAsync(stream, objectKey, "text/plain");
+
+                // Update execution record with S3 path
+                await _executionService.UpdateExecutionLogPathAsync(id, s3Key);
+
+                _logger.LogInformation(LogMessages.LogUploadCompleted, id);
+                return Ok(new { message = "Log file uploaded successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, LogMessages.LogUploadFailed, id);
+                return StatusCode(500, "Failed to upload log file");
+            }
+        }
+
+        /// <summary>
+        /// Gets a secure download URL for execution logs
+        /// </summary>
+        /// <param name="id">Execution ID</param>
+        /// <returns>Download URL</returns>
+        [HttpGet("{id}/logs/download")]
+        [RequirePermission(Resources.ExecutionResource, Permissions.View)]
+        public async Task<ActionResult> GetExecutionLogDownloadUrl(Guid id)
+        {
+            try
+            {
+                _logger.LogInformation(LogMessages.LogDownloadRequested, id);
+
+                // Get execution record
+                var execution = await _executionService.GetExecutionByIdAsync(id);
+                if (execution == null)
+                    return NotFound("Execution not found");
+
+                if (string.IsNullOrEmpty(execution.LogS3Path))
+                    return NotFound("No log file available for this execution");
+
+                // Generate pre-signed URL (valid for 1 hour)
+                var downloadUrl = await _logStorageService.GetLogDownloadUrlAsync(
+                    execution.LogS3Path, 
+                    TimeSpan.FromHours(1));
+
+                _logger.LogInformation(LogMessages.LogDownloadUrlGenerated, id);
+                return Ok(new { downloadUrl });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, LogMessages.LogDownloadFailed, id);
+                return StatusCode(500, "Failed to generate download URL");
             }
         }
 
@@ -231,6 +323,7 @@ namespace OpenAutomate.API.Controllers
                 EndTime = execution.EndTime,
                 ErrorMessage = execution.ErrorMessage,
                 LogOutput = execution.LogOutput,
+                HasLogs = !string.IsNullOrEmpty(execution.LogS3Path),
                 BotAgentName = execution.BotAgent?.Name,
                 PackageName = execution.Package?.Name,
                 PackageVersion = execution.Package?.Versions?.FirstOrDefault()?.VersionNumber

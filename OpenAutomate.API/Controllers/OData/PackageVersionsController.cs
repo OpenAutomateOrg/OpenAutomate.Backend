@@ -50,7 +50,6 @@ namespace OpenAutomate.API.Controllers.OData
         /// <remarks>
         /// Example queries:
         /// GET /tenant/odata/PackageVersions?$filter=IsActive eq true
-        /// GET /tenant/odata/PackageVersions?$orderby=UploadedAt desc&$top=10
         /// GET /tenant/odata/PackageVersions?$select=Id,VersionNumber,FileName,FileSize,UploadedAt
         /// GET /tenant/odata/PackageVersions?$filter=FileSize gt 1000000 and UploadedAt gt 2024-01-01T00:00:00Z
         /// GET /tenant/odata/PackageVersions?$filter=contains(VersionNumber,'1.0') and ContentType eq 'application/zip'

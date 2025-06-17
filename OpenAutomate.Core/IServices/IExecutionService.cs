@@ -49,6 +49,14 @@ namespace OpenAutomate.Core.IServices
         Task<Execution?> UpdateExecutionStatusAsync(Guid id, string status, string? errorMessage = null, string? logOutput = null);
 
         /// <summary>
+        /// Updates the S3 log path for an execution
+        /// </summary>
+        /// <param name="id">Execution ID</param>
+        /// <param name="logS3Path">S3 path to the log file</param>
+        /// <returns>Updated execution</returns>
+        Task<Execution?> UpdateExecutionLogPathAsync(Guid id, string logS3Path);
+
+        /// <summary>
         /// Cancels an execution
         /// </summary>
         /// <param name="id">Execution ID</param>

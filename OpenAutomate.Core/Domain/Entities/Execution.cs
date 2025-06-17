@@ -14,6 +14,7 @@ namespace OpenAutomate.Core.Domain.Entities
         public DateTime? EndTime { get; set; }
         public string? LogOutput { get; set; }
         public string? ErrorMessage { get; set; }
+        public string? LogS3Path { get; set; }
         
         // Navigation properties
         [JsonIgnore]
