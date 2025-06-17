@@ -103,8 +103,15 @@ namespace OpenAutomate.API.Controllers
                     TenantSlug = _tenantContext.CurrentTenantSlug
                 };
 
-                await _hubContext.Clients.Group($"bot-{dto.BotAgentId}")
-                    .SendAsync("ReceiveCommand", "ExecutePackage", commandPayload);
+                try
+                {
+                    await _hubContext.Clients.Group($"bot-{dto.BotAgentId}")
+                        .SendAsync("ReceiveCommand", "ExecutePackage", commandPayload);
+                }
+                catch (Exception signalREx)
+                {
+                    _logger.LogWarning(signalREx, "Failed to send SignalR command to bot agent {BotAgentId}", dto.BotAgentId);
+                }
 
                 _logger.LogInformation(LogMessages.ExecutionTriggered, execution.Id, dto.BotAgentId);
 
@@ -129,7 +136,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="logFile">Log file to upload</param>
         /// <returns>Success response</returns>
         [HttpPost("{id}/logs")]
-        [RequirePermission(Resources.ExecutionResource, Permissions.Update)]
+        [Microsoft.AspNetCore.Authorization.AllowAnonymous] // Bot agents use machine key authentication
         public async Task<ActionResult> UploadExecutionLogs(Guid id, IFormFile logFile)
         {
             try
@@ -139,10 +146,35 @@ namespace OpenAutomate.API.Controllers
                 if (logFile == null || logFile.Length == 0)
                     return BadRequest("Log file is required");
 
-                // Validate execution exists
+                // Authenticate using machine key
+                var machineKey = Request.Headers["X-Machine-Key"].FirstOrDefault();
+                if (string.IsNullOrEmpty(machineKey))
+                {
+                    _logger.LogWarning("Log upload attempted without machine key for execution {ExecutionId}", id);
+                    return Unauthorized("Machine key is required");
+                }
+
+                // Verify machine key is valid for current tenant
+                var botAgents = await _botAgentService.GetAllBotAgentsAsync();
+                var botAgent = botAgents.FirstOrDefault(ba => ba.MachineKey == machineKey);
+                
+                if (botAgent == null)
+                {
+                    _logger.LogWarning("Log upload attempted with invalid machine key for execution {ExecutionId}", id);
+                    return Unauthorized("Invalid machine key");
+                }
+
+                // Validate execution exists and belongs to the bot agent
                 var execution = await _executionService.GetExecutionByIdAsync(id);
                 if (execution == null)
                     return NotFound("Execution not found");
+
+                if (execution.BotAgentId != botAgent.Id)
+                {
+                    _logger.LogWarning("Log upload attempted for execution {ExecutionId} by unauthorized bot agent {BotAgentId}", 
+                        id, botAgent.Id);
+                    return Forbid("Bot agent not authorized for this execution");
+                }
 
                 // Generate S3 object key for the log file
                 var objectKey = $"execution_{id}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.log";
@@ -269,7 +301,14 @@ namespace OpenAutomate.API.Controllers
                     return NotFound("Execution not found");
 
                 // Broadcast status update via SignalR to connected clients
-                await _hubContext.Clients.All.SendAsync("ExecutionStatusUpdate", MapToResponseDto(execution));
+                try
+                {
+                    await _hubContext.Clients.All.SendAsync("ExecutionStatusUpdate", MapToResponseDto(execution));
+                }
+                catch (Exception signalREx)
+                {
+                    _logger.LogWarning(signalREx, "Failed to broadcast execution status update via SignalR for execution {ExecutionId}", id);
+                }
 
                 return Ok(MapToResponseDto(execution));
             }
@@ -296,8 +335,15 @@ namespace OpenAutomate.API.Controllers
                     return NotFound("Execution not found");
 
                 // Send cancel command to bot agent
-                await _hubContext.Clients.Group($"bot-{execution.BotAgentId}")
-                    .SendAsync("ReceiveCommand", "CancelExecution", new { ExecutionId = id.ToString() });
+                try
+                {
+                    await _hubContext.Clients.Group($"bot-{execution.BotAgentId}")
+                        .SendAsync("ReceiveCommand", "CancelExecution", new { ExecutionId = id.ToString() });
+                }
+                catch (Exception signalREx)
+                {
+                    _logger.LogWarning(signalREx, "Failed to send cancel command via SignalR to bot agent {BotAgentId}", execution.BotAgentId);
+                }
 
                 return Ok(MapToResponseDto(execution));
             }

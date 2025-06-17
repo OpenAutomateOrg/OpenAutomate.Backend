@@ -10,6 +10,7 @@ namespace OpenAutomate.API.Controllers
 {
     [ApiController]
     [Route("{tenant}/api/organization-unit-invitation")]
+    [Authorize]
     public class OrganizationUnitInvitationController : CustomControllerBase
     {
         private readonly IOrganizationUnitInvitationService _organizationUnitInvitationService;

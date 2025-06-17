@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpenAutomate.API.Attributes;
 using OpenAutomate.Core.Constants;
@@ -18,6 +19,7 @@ namespace OpenAutomate.API.Controllers
     /// </remarks>
     [Route("api/ou")]
     [ApiController]
+    [Authorize]
     public class OrganizationUnitController : CustomControllerBase
     {
         private readonly IOrganizationUnitService _organizationUnitService;
