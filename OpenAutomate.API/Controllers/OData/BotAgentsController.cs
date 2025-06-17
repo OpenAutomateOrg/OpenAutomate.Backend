@@ -51,7 +51,6 @@ namespace OpenAutomate.API.Controllers.OData
         /// <remarks>
         /// Example queries:
         /// GET /tenant/odata/BotAgents?$filter=Status eq 'Active'
-        /// GET /tenant/odata/BotAgents?$orderby=Name asc&$top=10&$skip=10
         /// GET /tenant/odata/BotAgents?$select=Id,Name,Status
         /// </remarks>
         [HttpGet]

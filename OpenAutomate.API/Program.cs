@@ -205,6 +205,7 @@ namespace OpenAutomate.API
             // Register AWS configuration and S3 package storage services
             builder.Services.Configure<AwsSettings>(builder.Configuration.GetSection("AWS"));
             builder.Services.AddScoped<IPackageStorageService, S3PackageStorageService>();
+            builder.Services.AddScoped<ILogStorageService, S3LogStorageService>();
             builder.Services.AddScoped<IAutomationPackageService, AutomationPackageService>();
             builder.Services.AddScoped<IPackageMetadataService, PackageMetadataService>();
             
