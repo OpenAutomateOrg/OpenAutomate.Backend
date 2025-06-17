@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using OpenAutomate.API.Attributes;
 using OpenAutomate.Core.Constants;
@@ -10,6 +11,7 @@ namespace OpenAutomate.API.Controllers
 {
     [Route("api/ou/{tenant}/users")]
     [ApiController]
+    [Authorize]
     public class OrganizationUnitUserController : CustomControllerBase
     {
         private readonly IOrganizationUnitUserService _organizationUnitUserService;

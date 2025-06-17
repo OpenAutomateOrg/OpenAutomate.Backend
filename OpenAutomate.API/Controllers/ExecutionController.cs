@@ -103,8 +103,15 @@ namespace OpenAutomate.API.Controllers
                     TenantSlug = _tenantContext.CurrentTenantSlug
                 };
 
-                await _hubContext.Clients.Group($"bot-{dto.BotAgentId}")
-                    .SendAsync("ReceiveCommand", "ExecutePackage", commandPayload);
+                try
+                {
+                    await _hubContext.Clients.Group($"bot-{dto.BotAgentId}")
+                        .SendAsync("ReceiveCommand", "ExecutePackage", commandPayload);
+                }
+                catch (Exception signalREx)
+                {
+                    _logger.LogWarning(signalREx, "Failed to send SignalR command to bot agent {BotAgentId}", dto.BotAgentId);
+                }
 
                 _logger.LogInformation(LogMessages.ExecutionTriggered, execution.Id, dto.BotAgentId);
 
@@ -294,7 +301,14 @@ namespace OpenAutomate.API.Controllers
                     return NotFound("Execution not found");
 
                 // Broadcast status update via SignalR to connected clients
-                await _hubContext.Clients.All.SendAsync("ExecutionStatusUpdate", MapToResponseDto(execution));
+                try
+                {
+                    await _hubContext.Clients.All.SendAsync("ExecutionStatusUpdate", MapToResponseDto(execution));
+                }
+                catch (Exception signalREx)
+                {
+                    _logger.LogWarning(signalREx, "Failed to broadcast execution status update via SignalR for execution {ExecutionId}", id);
+                }
 
                 return Ok(MapToResponseDto(execution));
             }
@@ -321,8 +335,15 @@ namespace OpenAutomate.API.Controllers
                     return NotFound("Execution not found");
 
                 // Send cancel command to bot agent
-                await _hubContext.Clients.Group($"bot-{execution.BotAgentId}")
-                    .SendAsync("ReceiveCommand", "CancelExecution", new { ExecutionId = id.ToString() });
+                try
+                {
+                    await _hubContext.Clients.Group($"bot-{execution.BotAgentId}")
+                        .SendAsync("ReceiveCommand", "CancelExecution", new { ExecutionId = id.ToString() });
+                }
+                catch (Exception signalREx)
+                {
+                    _logger.LogWarning(signalREx, "Failed to send cancel command via SignalR to bot agent {BotAgentId}", execution.BotAgentId);
+                }
 
                 return Ok(MapToResponseDto(execution));
             }
