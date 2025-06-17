@@ -8,7 +8,7 @@ using OpenAutomate.Core.IServices;
 
 namespace OpenAutomate.API.Controllers
 {
-    [Route("api/ou/{tenant}/users")]
+    [Route("{tenant}/api/ou/users")]
     [ApiController]
     public class OrganizationUnitUserController : CustomControllerBase
     {
