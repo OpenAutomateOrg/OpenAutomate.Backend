@@ -11,23 +11,23 @@ namespace OpenAutomate.Infrastructure.Repositories
     public class UnitOfWork : IUnitOfWork
     {
         private readonly ApplicationDbContext _context;
-        private IRepository<User> _userRepository;
-        private IRepository<BotAgent> _botAgentRepository;
-        private IRepository<AutomationPackage> _automationPackageRepository;
-        private IRepository<PackageVersion> _packageVersionRepository;
-        private IRepository<Execution> _executionRepository;
-        private IRepository<Schedule> _scheduleRepository;
-        private IRepository<RefreshToken> _refreshTokenRepository;
-        private IRepository<OrganizationUnit> _organizationUnitRepository;
-        private IRepository<OrganizationUnitUser> _organizationUnitUserRepository;
-        private IRepository<Authority> _authorityRepository;
-        private IRepository<UserAuthority> _userAuthorityRepository;
-        private IRepository<AuthorityResource> _authorityResourceRepository;
-        private IRepository<Asset> _assets;
-        private IRepository<AssetBotAgent> _assetBotAgents;
-        private IRepository<EmailVerificationToken> _emailVerificationTokens;
-        private IRepository<PasswordResetToken> _passwordResetTokens;
-        private IRepository<OrganizationUnitInvitation> _organizationUnitInvitations;
+        private IRepository<User>? _userRepository;
+        private IRepository<BotAgent>? _botAgentRepository;
+        private IRepository<AutomationPackage>? _automationPackageRepository;
+        private IRepository<PackageVersion>? _packageVersionRepository;
+        private IRepository<Execution>? _executionRepository;
+        private IRepository<Schedule>? _scheduleRepository;
+        private IRepository<RefreshToken>? _refreshTokenRepository;
+        private IRepository<OrganizationUnit>? _organizationUnitRepository;
+        private IRepository<OrganizationUnitUser>? _organizationUnitUserRepository;
+        private IRepository<Authority>? _authorityRepository;
+        private IRepository<UserAuthority>? _userAuthorityRepository;
+        private IRepository<AuthorityResource>? _authorityResourceRepository;
+        private IRepository<Asset>? _assets;
+        private IRepository<AssetBotAgent>? _assetBotAgents;
+        private IRepository<EmailVerificationToken>? _emailVerificationTokens;
+        private IRepository<PasswordResetToken>? _passwordResetTokens;
+        private IRepository<OrganizationUnitInvitation>? _organizationUnitInvitations;
 
         public UnitOfWork(ApplicationDbContext context)
         {
