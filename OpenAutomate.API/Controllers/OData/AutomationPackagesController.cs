@@ -49,7 +49,6 @@ namespace OpenAutomate.API.Controllers.OData
         /// <remarks>
         /// Example queries:
         /// GET /tenant/odata/AutomationPackages?$filter=IsActive eq true
-        /// GET /tenant/odata/AutomationPackages?$orderby=Name asc&$top=10&$skip=10
         /// GET /tenant/odata/AutomationPackages?$select=Id,Name,Description,CreatedAt
         /// GET /tenant/odata/AutomationPackages?$expand=Versions
         /// GET /tenant/odata/AutomationPackages?$filter=contains(Name,'automation') and CreatedAt gt 2024-01-01T00:00:00Z

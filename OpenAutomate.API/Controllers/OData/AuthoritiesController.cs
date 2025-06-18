@@ -51,7 +51,6 @@ namespace OpenAutomate.API.Controllers.OData
         /// <remarks>
         /// Example queries:
         /// GET /{tenant}/odata/Roles?$filter=IsSystemAuthority eq false
-        /// GET /{tenant}/odata/Roles?$orderby=Name asc&$top=10&$skip=10
         /// GET /{tenant}/odata/Roles?$select=Id,Name,Description
         /// GET /{tenant}/odata/Roles?$expand=Permissions
         /// GET /{tenant}/odata/Roles?$filter=contains(Name,'Admin')
@@ -144,5 +143,5 @@ namespace OpenAutomate.API.Controllers.OData
                 return StatusCode(500, "An error occurred while retrieving the authority");
             }
         }
-    }
+    }   
 } 

@@ -157,6 +157,26 @@ namespace OpenAutomate.Infrastructure.Services
         }
 
         /// <summary>
+        /// Updates the S3 log path for an execution
+        /// </summary>
+        public async Task<Execution?> UpdateExecutionLogPathAsync(Guid id, string logS3Path)
+        {
+            var execution = await GetExecutionByIdAsync(id);
+            if (execution == null)
+            {
+                return null;
+            }
+
+            execution.LogS3Path = logS3Path;
+            await _unitOfWork.CompleteAsync();
+
+            _logger.LogInformation("Execution log path updated: {ExecutionId}, LogS3Path: {LogS3Path}",
+                execution.Id, logS3Path);
+
+            return execution;
+        }
+
+        /// <summary>
         /// Cancels an execution
         /// </summary>
         public async Task<Execution?> CancelExecutionAsync(Guid id)

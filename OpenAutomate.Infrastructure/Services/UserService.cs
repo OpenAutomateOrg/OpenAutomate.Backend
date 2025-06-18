@@ -46,7 +46,7 @@ namespace OpenAutomate.Infrastructure.Services
                 if (user == null)
                 {
                     _logger.LogWarning("Authentication failed: User not found for email {Email}", request.Email);
-                    throw new AuthenticationException("Invalid credentials");
+                    throw new AuthenticationException("Email not found");
                 }
 
                 // Skip password verification for external logins (e.g., Google)
@@ -55,7 +55,7 @@ namespace OpenAutomate.Infrastructure.Services
                     if (!VerifyPasswordHash(request.Password, user.PasswordHash ?? string.Empty, user.PasswordSalt ?? string.Empty))
                     {
                         _logger.LogWarning("Authentication failed: Invalid password for user {Email}", request.Email);
-                        throw new AuthenticationException("Invalid credentials");
+                        throw new AuthenticationException("Incorrect password");
                     }
                 }
 

@@ -16,6 +16,7 @@ namespace OpenAutomate.API.Hubs
         private readonly ITenantContext _tenantContext;
         private readonly ILogger<BotAgentHub> _logger;
         private readonly IBotAgentService _botAgentService;
+        private readonly IExecutionService _executionService;
         
         // Standardized log message templates
         private static class LogMessages
@@ -30,6 +31,7 @@ namespace OpenAutomate.API.Hubs
             public const string DisconnectionError = "Error during bot agent disconnection: {Message}";
             public const string QueryNullReference = "HTTP context or query parameter is null during disconnection";
             public const string KeepAliveReceived = "Keep-alive received from bot agent: {BotAgentName} ({BotAgentId})";
+            public const string ExecutionStatusUpdate = "Execution status update: {ExecutionId} - {Status}";
             public const string ResolvingTenant = "Resolving tenant from slug: {TenantSlug}";
             public const string TenantResolved = "Tenant resolved successfully for slug: {TenantSlug}";
             public const string TenantResolutionFailed = "Failed to resolve tenant from slug: {TenantSlug}";
@@ -38,10 +40,12 @@ namespace OpenAutomate.API.Hubs
         public BotAgentHub(
             ITenantContext tenantContext, 
             IBotAgentService botAgentService,
+            IExecutionService executionService,
             ILogger<BotAgentHub> logger)
         {
             _tenantContext = tenantContext ?? throw new ArgumentNullException(nameof(tenantContext));
             _botAgentService = botAgentService ?? throw new ArgumentNullException(nameof(botAgentService));
+            _executionService = executionService ?? throw new ArgumentNullException(nameof(executionService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
         
@@ -233,6 +237,93 @@ namespace OpenAutomate.API.Hubs
                 "BotStatusUpdate", updateData);
             string botAgentName = botAgent.Name ?? "Unknown";
             _logger.LogDebug(LogMessages.BotStatusUpdate, botAgentName, status);
+        }
+        
+        /// <summary>
+        /// Method for bot agent to send execution-specific status updates
+        /// </summary>
+        /// <param name="executionId">ID of the execution</param>
+        /// <param name="status">Current status of the execution</param>
+        /// <param name="message">Optional status message</param>
+        public async Task SendExecutionStatusUpdate(string executionId, string status, string? message = null)
+        {
+            var httpContext = Context.GetHttpContext();
+            var machineKey = httpContext?.Request.Query["machineKey"].ToString();
+            if (string.IsNullOrEmpty(machineKey) && httpContext?.Request.Headers.ContainsKey("X-MachineKey") == true)
+            {
+                machineKey = httpContext.Request.Headers["X-MachineKey"].ToString();
+            }
+            
+            if (string.IsNullOrEmpty(machineKey) || string.IsNullOrEmpty(executionId)) return;
+            
+            // Ensure tenant context is resolved before making service calls
+            if (!_tenantContext.HasTenant)
+            {
+                var tenantSlug = httpContext?.GetTenantSlug();
+                if (!string.IsNullOrEmpty(tenantSlug))
+                {
+                    _logger.LogInformation(LogMessages.ResolvingTenant, tenantSlug);
+                    var tenantResolved = await _botAgentService.ResolveTenantFromSlugAsync(tenantSlug);
+                    if (!tenantResolved)
+                    {
+                        _logger.LogWarning(LogMessages.TenantResolutionFailed, tenantSlug);
+                        return;
+                    }
+                    _logger.LogInformation(LogMessages.TenantResolved, tenantSlug);
+                }
+                else
+                {
+                    _logger.LogWarning(LogMessages.NoTenantContext);
+                    return;
+                }
+            }
+            
+            try
+            {
+                // Parse execution ID to Guid
+                if (!Guid.TryParse(executionId, out var executionGuid))
+                {
+                    _logger.LogWarning("Invalid execution ID format: {ExecutionId}", executionId);
+                    return;
+                }
+                
+                // Update the execution record in the database
+                var updatedExecution = await _executionService.UpdateExecutionStatusAsync(
+                    executionGuid, 
+                    status, 
+                    message, 
+                    null); // logOutput - can be null for now
+                
+                if (updatedExecution == null)
+                {
+                    _logger.LogWarning("Execution not found: {ExecutionId}", executionId);
+                    return;
+                }
+                
+                // Update bot agent status with execution context
+                var botAgent = await _botAgentService.UpdateBotAgentStatusAsync(machineKey, status, executionId);
+                if (botAgent == null) return;
+                
+                // Broadcast execution status update to all clients in the tenant
+                var updateData = new {
+                    BotAgentId = botAgent.Id,
+                    BotAgentName = botAgent.Name,
+                    Status = status,
+                    ExecutionId = executionId,
+                    Message = message,
+                    Timestamp = DateTime.UtcNow
+                };
+                
+                await Clients.Group($"tenant-{_tenantContext.CurrentTenantId}").SendAsync(
+                    "ExecutionStatusUpdate", updateData);
+                    
+                _logger.LogInformation("Execution status updated in database: {ExecutionId} - {Status}", executionId, status);
+                _logger.LogDebug(LogMessages.ExecutionStatusUpdate, executionId, status);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating execution status for {ExecutionId}", executionId);
+            }
         }
         
         /// <summary>

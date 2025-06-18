@@ -51,7 +51,6 @@ namespace OpenAutomate.API.Controllers.OData
         /// <remarks>
         /// Example queries:
         /// GET /tenant/odata/Executions?$filter=Status eq 'Running'
-        /// GET /tenant/odata/Executions?$orderby=StartTime desc&$top=10&$skip=10
         /// GET /tenant/odata/Executions?$select=Id,Status,StartTime,EndTime
         /// GET /tenant/odata/Executions?$expand=BotAgent,Package
         /// GET /tenant/odata/Executions?$filter=Status eq 'Completed' and StartTime gt 2024-01-01T00:00:00Z

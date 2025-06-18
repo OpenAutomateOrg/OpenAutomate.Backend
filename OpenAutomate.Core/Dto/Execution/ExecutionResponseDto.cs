@@ -47,6 +47,11 @@ namespace OpenAutomate.Core.Dto.Execution
         /// </summary>
         public string? LogOutput { get; set; }
 
+        /// <summary>
+        /// Indicates whether log files are available for download
+        /// </summary>
+        public bool HasLogs { get; set; }
+
         // Navigation properties for display purposes
         
         /// <summary>
