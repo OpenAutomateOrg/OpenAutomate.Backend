@@ -135,5 +135,101 @@ namespace OpenAutomate.API.Controllers
                 return StatusCode(500, new { message = "An error occurred while processing your request." });
             }
         }
+        
+        /// <summary>
+        /// Resends a verification email to a user by email address (without requiring authentication)
+        /// </summary>
+        /// <param name="email">The email address to resend verification to</param>
+        /// <returns>Status of the operation</returns>
+        [HttpPost("resend-by-email")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> ResendVerificationByEmail([FromBody] ResendVerificationRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(request?.Email))
+                {
+                    return BadRequest(new { message = "Email is required" });
+                }
+                
+                _logger.LogInformation("Processing resend verification request for email: {Email}", request.Email);
+                
+                // Find user by email
+                var user = await _userService.GetByEmailAsync(request.Email);
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found with email: {Email}", request.Email);
+                    return NotFound(new { message = "User not found" });
+                }
+                
+                if (user.IsEmailVerified)
+                {
+                    _logger.LogInformation("Email is already verified for user: {Email}", request.Email);
+                    return BadRequest(new { message = "Email is already verified" });
+                }
+                
+                var success = await _userService.SendVerificationEmailAsync(user.Id);
+                if (!success)
+                {
+                    return BadRequest(new { message = "Failed to send verification email" });
+                }
+                
+                _logger.LogInformation("Verification email resent for user: {Email}", request.Email);
+                return Ok(new { message = "Verification email sent" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error resending verification email: {Message}", ex.Message);
+                return StatusCode(500, new { message = "An error occurred while processing your request." });
+            }
+        }
+        
+        /// <summary>
+        /// Checks if an email is verified
+        /// </summary>
+        /// <param name="email">The email address to check</param>
+        /// <returns>Status of the email verification</returns>
+        [HttpGet("check-status")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> CheckEmailVerificationStatus([FromQuery] string email)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(email))
+                {
+                    return BadRequest(new { message = "Email is required" });
+                }
+                
+                _logger.LogInformation("Checking verification status for email: {Email}", email);
+                
+                // Find user by email
+                var user = await _userService.GetByEmailAsync(email);
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found with email: {Email}", email);
+                    return NotFound(new { message = "User not found" });
+                }
+                
+                return Ok(new { 
+                    email = user.Email,
+                    isVerified = user.IsEmailVerified,
+                    userId = user.Id
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking email verification status: {Message}", ex.Message);
+                return StatusCode(500, new { message = "An error occurred while processing your request." });
+            }
+        }
+    }
+    
+    public class ResendVerificationRequest
+    {
+        public string Email { get; set; }
     }
 } 
