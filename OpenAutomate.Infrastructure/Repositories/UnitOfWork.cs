@@ -92,7 +92,27 @@ namespace OpenAutomate.Infrastructure.Repositories
             }
             
             var command = connection.CreateCommand();
-            command.Transaction = (SqlTransaction)_context.Database.CurrentTransaction?.GetDbTransaction();
+            
+            if (_context.Database.CurrentTransaction != null)
+            {
+                dynamic transaction = _context.Database.CurrentTransaction;
+                try
+                {
+                    command.Transaction = (SqlTransaction)transaction.GetDbTransaction();
+                }
+                catch
+                {
+                    try
+                    {
+                        command.Transaction = (SqlTransaction)transaction.DbTransaction;
+                    }
+                    catch
+                    {
+                        // Bỏ qua nếu không thể lấy transaction
+                    }
+                }
+            }
+            
             return command;
         }
 
