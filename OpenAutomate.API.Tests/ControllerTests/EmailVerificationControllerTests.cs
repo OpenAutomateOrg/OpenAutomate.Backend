@@ -65,6 +65,10 @@ namespace OpenAutomate.API.Tests.ControllerTests
             var userId = Guid.NewGuid();
             _mockTokenService.Setup(s => s.ValidateEmailVerificationTokenAsync("token")).ReturnsAsync(userId);
             _mockUserService.Setup(s => s.VerifyUserEmailAsync(userId)).ReturnsAsync(false);
+            
+            // Setup user before update to avoid null reference
+            var userBeforeUpdate = new UserResponse { Id = userId, Email = "test@example.com", IsEmailVerified = false };
+            _mockUserService.Setup(s => s.GetByIdAsync(userId)).ReturnsAsync(userBeforeUpdate);
 
             // Act
             var result = await _controller.VerifyEmail("token");
@@ -80,10 +84,19 @@ namespace OpenAutomate.API.Tests.ControllerTests
         {
             // Arrange
             var userId = Guid.NewGuid();
-            var user = new UserResponse { Id = userId, Email = "test@example.com", FirstName = "Test", LastName = "User" };
+            var userBeforeUpdate = new UserResponse { Id = userId, Email = "test@example.com", IsEmailVerified = false };
+            var user = new UserResponse { Id = userId, Email = "test@example.com", FirstName = "Test", LastName = "User", IsEmailVerified = true };
+            
             _mockTokenService.Setup(s => s.ValidateEmailVerificationTokenAsync("token")).ReturnsAsync(userId);
             _mockUserService.Setup(s => s.VerifyUserEmailAsync(userId)).ReturnsAsync(true);
-            _mockUserService.Setup(s => s.GetByIdAsync(userId)).ReturnsAsync(user);
+            _mockUserService.Setup(s => s.GetByIdAsync(userId))
+                .Returns<Guid>(id => {
+                    // Return different user objects before and after verification
+                    if (_mockUserService.Invocations.Count <= 1)
+                        return Task.FromResult(userBeforeUpdate);
+                    else
+                        return Task.FromResult(user);
+                });
             _mockNotificationService.Setup(s => s.SendWelcomeEmailAsync(user.Email, It.IsAny<string>())).Returns(Task.CompletedTask);
 
             // Act
@@ -124,7 +137,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
 
             // Assert
             var unauthorized = Assert.IsType<UnauthorizedObjectResult>(result);
-            Assert.Contains("User not authenticated", unauthorized.Value.ToString());
+            Assert.Contains("User not authenticated", unauthorized.Value!.ToString()!);
         }
 
         [Fact]
@@ -135,14 +148,14 @@ namespace OpenAutomate.API.Tests.ControllerTests
             var httpContext = new DefaultHttpContext();
             httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, userId.ToString()) }));
             _controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
-            _mockUserService.Setup(s => s.GetByIdAsync(userId)).ReturnsAsync((UserResponse)null);
+            _mockUserService.Setup(s => s.GetByIdAsync(userId)).ReturnsAsync((UserResponse)null!);
 
             // Act
             var result = await _controller.ResendVerification();
 
             // Assert
             var notFound = Assert.IsType<NotFoundObjectResult>(result);
-            Assert.Contains("User not found", notFound.Value.ToString());
+            Assert.Contains("User not found", notFound.Value!.ToString()!);
         }
 
         [Fact]
@@ -161,7 +174,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
 
             // Assert
             var badRequest = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.Contains("already verified", badRequest.Value.ToString());
+            Assert.Contains("already verified", badRequest.Value!.ToString()!);
         }
 
         [Fact]
@@ -181,7 +194,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
 
             // Assert
             var badRequest = Assert.IsType<BadRequestObjectResult>(result);
-            Assert.Contains("Failed to send verification email", badRequest.Value.ToString());
+            Assert.Contains("Failed to send verification email", badRequest.Value!.ToString()!);
         }
 
         [Fact]
@@ -201,7 +214,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
 
             // Assert
             var ok = Assert.IsType<OkObjectResult>(result);
-            Assert.Contains("Verification email sent", ok.Value.ToString());
+            Assert.Contains("Verification email sent", ok.Value!.ToString()!);
         }
 
         [Fact]
@@ -222,7 +235,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
             // Assert
             var serverError = Assert.IsType<ObjectResult>(result);
             Assert.Equal(500, serverError.StatusCode);
-            Assert.Contains("error", serverError.Value.ToString(), StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("error", serverError.Value!.ToString()!, StringComparison.OrdinalIgnoreCase);
         }
 
         #endregion

@@ -108,7 +108,7 @@ namespace OpenAutomate.Infrastructure.Repositories
                     }
                     catch
                     {
-                        // Bỏ qua nếu không thể lấy transaction
+                        
                     }
                 }
             }

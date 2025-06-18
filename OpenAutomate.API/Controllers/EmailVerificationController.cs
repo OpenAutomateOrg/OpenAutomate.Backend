@@ -9,6 +9,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using OpenAutomate.Core.Configurations;
+using System.ComponentModel.DataAnnotations;
 
 namespace OpenAutomate.API.Controllers
 {
@@ -59,6 +60,14 @@ namespace OpenAutomate.API.Controllers
                 _logger.LogInformation("Frontend URL from configuration: {FrontendUrl}", _appSettings.FrontendUrl);
                 _logger.LogInformation("Request path: {Path}, QueryString: {QueryString}", Request.Path, Request.QueryString);
 
+                if (string.IsNullOrEmpty(token))
+                {
+                    _logger.LogWarning("Token is null or empty");
+                    var redirectUrl = $"{_appSettings.FrontendUrl}/email-verified?success=false&reason=invalid-token";
+                    _logger.LogInformation("Redirecting to: {RedirectUrl}", redirectUrl);
+                    return Redirect(redirectUrl);
+                }
+
                 var userId = await _tokenService.ValidateEmailVerificationTokenAsync(token);
                 _logger.LogInformation("Token validation result - UserId: {UserId}", userId);
                 
@@ -80,7 +89,7 @@ namespace OpenAutomate.API.Controllers
                 if (userBeforeUpdate.IsEmailVerified)
                 {
                     _logger.LogInformation("User {UserId} is already verified, redirecting to success page", userId);
-                    var alreadyVerifiedUrl = $"{_appSettings.FrontendUrl}/email-verified?success=true&reason=already-verified";
+                    var alreadyVerifiedUrl = $"{_appSettings.FrontendUrl}/email-verified?success=true";
                     _logger.LogInformation("Redirecting to: {RedirectUrl}", alreadyVerifiedUrl);
                     return Redirect(alreadyVerifiedUrl);
                 }
@@ -178,7 +187,7 @@ namespace OpenAutomate.API.Controllers
         /// <summary>
         /// Resends a verification email to a user by email address (without requiring authentication)
         /// </summary>
-        /// <param name="email">The email address to resend verification to</param>
+        /// <param name="request">The request containing the email address to resend verification to</param>
         /// <returns>Status of the operation</returns>
         [HttpPost("resend-by-email")]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -269,6 +278,10 @@ namespace OpenAutomate.API.Controllers
     
     public class ResendVerificationRequest
     {
-        public string Email { get; set; }
+        /// <summary>
+        /// The email address to resend verification to
+        /// </summary>
+        [Required]
+        public string Email { get; set; } = string.Empty;
     }
 } 
