@@ -43,8 +43,8 @@ namespace OpenAutomate.Infrastructure.Services
                 var baseUrl = _configuration["FrontendUrl"];
                 _logger.LogInformation("Frontend URL from configuration: {BaseUrl}", baseUrl);
                 
-                // Sửa đường dẫn xác thực - đảm bảo gọi đúng API endpoint
-                var verificationLink = $"{baseUrl}/api/email/verify?token={token}";
+                // Đường dẫn xác thực - đảm bảo đúng route ở frontend
+                var verificationLink = $"{baseUrl}/email/verify?token={token}";
                 _logger.LogInformation("Generated verification link: {Link}", verificationLink);
                 
                 // Get email template

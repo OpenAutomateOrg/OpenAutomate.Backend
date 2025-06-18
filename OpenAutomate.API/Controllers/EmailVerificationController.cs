@@ -53,36 +53,75 @@ namespace OpenAutomate.API.Controllers
         {
             try
             {
-                _logger.LogInformation("Processing email verification for token");
+                _logger.LogInformation("Processing email verification for token: {TokenPrefix}...", 
+                    token?.Length > 6 ? token.Substring(0, 6) + "..." : "null");
+                
+                _logger.LogInformation("Frontend URL from configuration: {FrontendUrl}", _appSettings.FrontendUrl);
+                _logger.LogInformation("Request path: {Path}, QueryString: {QueryString}", Request.Path, Request.QueryString);
 
                 var userId = await _tokenService.ValidateEmailVerificationTokenAsync(token);
+                _logger.LogInformation("Token validation result - UserId: {UserId}", userId);
+                
                 if (!userId.HasValue)
                 {
                     _logger.LogWarning("Invalid or expired verification token");
-                    return Redirect($"{_appSettings.FrontendUrl}/email-verified?success=false&reason=invalid-token");
+                    var redirectUrl = $"{_appSettings.FrontendUrl}/email-verified?success=false&reason=invalid-token";
+                    _logger.LogInformation("Redirecting to: {RedirectUrl}", redirectUrl);
+                    return Redirect(redirectUrl);
+                }
+                
+                _logger.LogInformation("Token validated successfully for user ID: {UserId}", userId);
+
+                // Kiểm tra trạng thái xác thực hiện tại
+                var userBeforeUpdate = await _userService.GetByIdAsync(userId.Value);
+                _logger.LogInformation("User before verification - Email: {Email}, IsEmailVerified: {IsVerified}", 
+                    userBeforeUpdate.Email, userBeforeUpdate.IsEmailVerified);
+                
+                if (userBeforeUpdate.IsEmailVerified)
+                {
+                    _logger.LogInformation("User {UserId} is already verified, redirecting to success page", userId);
+                    var alreadyVerifiedUrl = $"{_appSettings.FrontendUrl}/email-verified?success=true&reason=already-verified";
+                    _logger.LogInformation("Redirecting to: {RedirectUrl}", alreadyVerifiedUrl);
+                    return Redirect(alreadyVerifiedUrl);
                 }
 
                 var result = await _userService.VerifyUserEmailAsync(userId.Value);
+                _logger.LogInformation("VerifyUserEmailAsync result: {Result}", result);
+                
                 if (!result)
                 {
                     _logger.LogWarning("Failed to verify email for user ID: {UserId}", userId);
-                    return Redirect($"{_appSettings.FrontendUrl}/email-verified?success=false&reason=verification-failed");
+                    var failedUrl = $"{_appSettings.FrontendUrl}/email-verified?success=false&reason=verification-failed";
+                    _logger.LogInformation("Redirecting to: {RedirectUrl}", failedUrl);
+                    return Redirect(failedUrl);
                 }
+                
+                _logger.LogInformation("Email verification status updated successfully for user ID: {UserId}", userId);
 
-                // Get user info
+                // Get user info after update
                 var user = await _userService.GetByIdAsync(userId.Value);
+                _logger.LogInformation("Retrieved user info after verification - Email: {Email}, IsEmailVerified: {IsVerified}", 
+                    user.Email, user.IsEmailVerified);
 
                 // Send welcome email
+                _logger.LogInformation("Sending welcome email to: {Email}", user.Email);
                 await _notificationService.SendWelcomeEmailAsync(user.Email, $"{user.FirstName} {user.LastName}");
+                _logger.LogInformation("Welcome email sent successfully");
 
-                _logger.LogInformation("Email verified successfully for user ID: {UserId}", userId);
+                _logger.LogInformation("Email verification process completed for user ID: {UserId}, IsVerified: {IsVerified}", 
+                    userId, user.IsEmailVerified);
+                    
                 // Redirect to frontend with success message
-                return Redirect($"{_appSettings.FrontendUrl}/email-verified?success=true");
+                var successUrl = $"{_appSettings.FrontendUrl}/email-verified?success=true";
+                _logger.LogInformation("Redirecting to success page: {RedirectUrl}", successUrl);
+                return Redirect(successUrl);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing email verification");
-                return Redirect($"{_appSettings.FrontendUrl}/email-verified?success=false&reason=server-error");
+                var errorUrl = $"{_appSettings.FrontendUrl}/email-verified?success=false&reason=server-error";
+                _logger.LogInformation("Redirecting to error page: {RedirectUrl}", errorUrl);
+                return Redirect(errorUrl);
             }
         }
 
