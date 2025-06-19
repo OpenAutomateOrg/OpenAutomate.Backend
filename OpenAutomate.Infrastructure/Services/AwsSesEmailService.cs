@@ -30,8 +30,7 @@ namespace OpenAutomate.Infrastructure.Services
             try
             {
                 _logger.LogInformation("Preparing to send email to {Recipient} with subject: {Subject}", recipient, subject);
-                _logger.LogInformation("Email configuration: Server={Server}, Port={Port}, Sender={Sender}", 
-                    _emailSettings.SmtpServer, _emailSettings.Port, _emailSettings.SenderEmail);
+                _logger.LogInformation("Email configuration is being used to send the email.");
                 
                 using (var client = CreateSmtpClient())
                 using (var message = CreateMailMessage(subject, body, isHtml))

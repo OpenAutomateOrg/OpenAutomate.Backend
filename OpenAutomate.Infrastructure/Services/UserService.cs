@@ -157,7 +157,7 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 _logger.LogInformation("Starting email verification for user ID: {UserId}", userId);
                 
-                // Lấy thông tin user
+                // Get user information
                 var user = await _unitOfWork.Users.GetByIdAsync(userId);
                 if (user == null)
                 {
@@ -190,6 +190,10 @@ namespace OpenAutomate.Infrastructure.Services
                         if (rowsAffected > 0)
                         {
                             _logger.LogInformation("Email verification status updated via SQL for user: {UserId}", userId);
+                            
+                            // Update the entity in memory to match the database state
+                            user.IsEmailVerified = true;
+                            
                             return true;
                         }
                     }

@@ -5,12 +5,14 @@ using OpenAutomate.Domain.IRepository;
 using OpenAutomate.Infrastructure.DbContext;
 using OpenAutomate.Core.Domain.IRepository;
 using System.Data;
+using Microsoft.Extensions.Logging;
 
 namespace OpenAutomate.Infrastructure.Repositories
 {
     public class UnitOfWork : IUnitOfWork
     {
         private readonly ApplicationDbContext _context;
+        private readonly ILogger<UnitOfWork>? _logger;
         private IRepository<User>? _userRepository;
         private IRepository<BotAgent>? _botAgentRepository;
         private IRepository<AutomationPackage>? _automationPackageRepository;
@@ -29,9 +31,10 @@ namespace OpenAutomate.Infrastructure.Repositories
         private IRepository<PasswordResetToken>? _passwordResetTokens;
         private IRepository<OrganizationUnitInvitation>? _organizationUnitInvitations;
 
-        public UnitOfWork(ApplicationDbContext context)
+        public UnitOfWork(ApplicationDbContext context, ILogger<UnitOfWork>? logger = null)
         {
             _context = context;
+            _logger = logger;
         }
 
         public IRepository<User> Users => _userRepository ??= new Repository<User>(_context);
@@ -100,15 +103,16 @@ namespace OpenAutomate.Infrastructure.Repositories
                 {
                     command.Transaction = (SqlTransaction)transaction.GetDbTransaction();
                 }
-                catch
+                catch (Exception ex)
                 {
+                    _logger?.LogWarning(ex, "Failed to get transaction using GetDbTransaction(). Trying DbTransaction property instead.");
                     try
                     {
                         command.Transaction = (SqlTransaction)transaction.DbTransaction;
                     }
-                    catch
+                    catch (Exception innerEx)
                     {
-                        
+                        _logger?.LogError(innerEx, "Failed to assign transaction to command. Command will execute without transaction context.");
                     }
                 }
             }
