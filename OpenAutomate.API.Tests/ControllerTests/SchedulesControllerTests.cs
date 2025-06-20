@@ -97,22 +97,10 @@ namespace OpenAutomate.API.Tests.ControllerTests
             Assert.Equal(id, value.Id);
         }
 
-        [Fact]
-        public async Task GetSchedule_WithInvalidId_ReturnsNotFound()
-        {
-            // Arrange
-            var id = Guid.NewGuid();
-            _mockService.Setup(s => s.GetScheduleByIdAsync(id)).ReturnsAsync((ScheduleResponseDto)null);
-
-            // Act
-            var result = await _controller.GetScheduleById(id);
-
-            // Assert
-            Assert.IsType<NotFoundObjectResult>(result.Result);
-        }
-
-        [Fact]
-        public async Task GetSchedule_CrossTenant_ReturnsNotFound()
+        [Theory]
+        [InlineData("InvalidId")]
+        [InlineData("CrossTenant")]
+        public async Task GetSchedule_ReturnsNotFound(string testCase)
         {
             // Arrange
             var id = Guid.NewGuid();
