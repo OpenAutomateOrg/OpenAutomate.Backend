@@ -1,4 +1,3 @@
-using Microsoft.Data.SqlClient;
 using OpenAutomate.Core.Domain.Entities;
 
 namespace OpenAutomate.Core.Domain.IRepository
@@ -25,9 +24,6 @@ namespace OpenAutomate.Core.Domain.IRepository
         
         // Get a repository for a specific entity type
         IRepository<T> GetRepository<T>() where T : class;
-
-        // Create a SQL command for direct database operations
-        SqlCommand CreateCommand();
 
         Task<int> CompleteAsync();
     }

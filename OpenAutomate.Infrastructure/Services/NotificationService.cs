@@ -41,32 +41,21 @@ namespace OpenAutomate.Infrastructure.Services
                 
                 // Create verification link
                 var baseUrl = _configuration["FrontendUrl"];
-                _logger.LogInformation("Frontend URL from configuration: {BaseUrl}", baseUrl);
-                
-                // Đường dẫn xác thực - đảm bảo đúng route ở frontend
                 var verificationLink = $"{baseUrl}/email/verify?token={token}";
-                _logger.LogInformation("Generated verification link: {Link}", verificationLink);
                 
                 // Get email template
                 var emailContent = await _emailTemplateService.GetVerificationEmailTemplateAsync(
                     name, verificationLink, 24); // 24 hours validity
                 
-                // Log email content (không ghi log nội dung đầy đủ để bảo mật)
-                _logger.LogInformation("Email template loaded successfully. Content length: {Length} characters", 
-                    emailContent?.Length ?? 0);
-                
                 // Send email
                 string subject = "Verify Your Email Address - OpenAutomate";
-                _logger.LogInformation("Sending verification email to: {Email} with subject: {Subject}", email, subject);
-                
                 await _emailService.SendEmailAsync(email, subject, emailContent);
                 
-                _logger.LogInformation("Verification email sent successfully to: {Email} for user: {UserId}", email, userId);
+                _logger.LogInformation("Verification email sent to: {Email} for user: {UserId}", email, userId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send verification email to: {Email} for user: {UserId}. Error: {Message}", 
-                    email, userId, ex.Message);
+                _logger.LogError(ex, "Failed to send verification email to: {Email} for user: {UserId}", email, userId);
                 throw;
             }
         }

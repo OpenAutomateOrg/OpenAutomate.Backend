@@ -1,33 +1,30 @@
-using Microsoft.Data.SqlClient;
-using Microsoft.EntityFrameworkCore;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Domain.IRepository;
 using OpenAutomate.Infrastructure.DbContext;
 using OpenAutomate.Core.Domain.IRepository;
-using System.Data;
 
 namespace OpenAutomate.Infrastructure.Repositories
 {
     public class UnitOfWork : IUnitOfWork
     {
         private readonly ApplicationDbContext _context;
-        private IRepository<User>? _userRepository;
-        private IRepository<BotAgent>? _botAgentRepository;
-        private IRepository<AutomationPackage>? _automationPackageRepository;
-        private IRepository<PackageVersion>? _packageVersionRepository;
-        private IRepository<Execution>? _executionRepository;
-        private IRepository<Schedule>? _scheduleRepository;
-        private IRepository<RefreshToken>? _refreshTokenRepository;
-        private IRepository<OrganizationUnit>? _organizationUnitRepository;
-        private IRepository<OrganizationUnitUser>? _organizationUnitUserRepository;
-        private IRepository<Authority>? _authorityRepository;
-        private IRepository<UserAuthority>? _userAuthorityRepository;
-        private IRepository<AuthorityResource>? _authorityResourceRepository;
-        private IRepository<Asset>? _assets;
-        private IRepository<AssetBotAgent>? _assetBotAgents;
-        private IRepository<EmailVerificationToken>? _emailVerificationTokens;
-        private IRepository<PasswordResetToken>? _passwordResetTokens;
-        private IRepository<OrganizationUnitInvitation>? _organizationUnitInvitations;
+        private IRepository<User> _userRepository;
+        private IRepository<BotAgent> _botAgentRepository;
+        private IRepository<AutomationPackage> _automationPackageRepository;
+        private IRepository<PackageVersion> _packageVersionRepository;
+        private IRepository<Execution> _executionRepository;
+        private IRepository<Schedule> _scheduleRepository;
+        private IRepository<RefreshToken> _refreshTokenRepository;
+        private IRepository<OrganizationUnit> _organizationUnitRepository;
+        private IRepository<OrganizationUnitUser> _organizationUnitUserRepository;
+        private IRepository<Authority> _authorityRepository;
+        private IRepository<UserAuthority> _userAuthorityRepository;
+        private IRepository<AuthorityResource> _authorityResourceRepository;
+        private IRepository<Asset> _assets;
+        private IRepository<AssetBotAgent> _assetBotAgents;
+        private IRepository<EmailVerificationToken> _emailVerificationTokens;
+        private IRepository<PasswordResetToken> _passwordResetTokens;
+        private IRepository<OrganizationUnitInvitation> _organizationUnitInvitations;
 
         public UnitOfWork(ApplicationDbContext context)
         {
@@ -81,39 +78,6 @@ namespace OpenAutomate.Infrastructure.Repositories
         public IRepository<T> GetRepository<T>() where T : class
         {
             return new Repository<T>(_context);
-        }
-        
-        public SqlCommand CreateCommand()
-        {
-            var connection = (SqlConnection)_context.Database.GetDbConnection();
-            if (connection.State != System.Data.ConnectionState.Open)
-            {
-                connection.Open();
-            }
-            
-            var command = connection.CreateCommand();
-            
-            if (_context.Database.CurrentTransaction != null)
-            {
-                dynamic transaction = _context.Database.CurrentTransaction;
-                try
-                {
-                    command.Transaction = (SqlTransaction)transaction.GetDbTransaction();
-                }
-                catch
-                {
-                    try
-                    {
-                        command.Transaction = (SqlTransaction)transaction.DbTransaction;
-                    }
-                    catch
-                    {
-                        
-                    }
-                }
-            }
-            
-            return command;
         }
 
         public async Task<int> CompleteAsync()
