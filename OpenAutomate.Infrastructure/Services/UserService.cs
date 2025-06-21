@@ -155,9 +155,6 @@ namespace OpenAutomate.Infrastructure.Services
         {
             try
             {
-                _logger.LogInformation("Starting email verification for user ID: {UserId}", userId);
-                
-                // Lấy thông tin user
                 var user = await _unitOfWork.Users.GetByIdAsync(userId);
                 if (user == null)
                 {
@@ -165,54 +162,13 @@ namespace OpenAutomate.Infrastructure.Services
                     return false;
                 }
                 
-                _logger.LogInformation("User found: {UserId}, Current IsEmailVerified status: {IsVerified}", 
-                    userId, user.IsEmailVerified);
-                
-                // Nếu đã xác thực rồi, không cần cập nhật nữa
-                if (user.IsEmailVerified)
-                {
-                    _logger.LogInformation("User {UserId} is already verified", userId);
-                    return true;
-                }
-                
-                // Thử cập nhật trực tiếp bằng SQL
-                try
-                {
-                    _logger.LogInformation("Updating via direct SQL");
-                    using (var command = _unitOfWork.CreateCommand())
-                    {
-                        command.CommandText = "UPDATE Users SET IsEmailVerified = 1 WHERE Id = @UserId";
-                        command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@UserId", userId));
-                        
-                        var rowsAffected = await command.ExecuteNonQueryAsync();
-                        _logger.LogInformation("SQL update result: {RowsAffected} rows affected", rowsAffected);
-                        
-                        if (rowsAffected > 0)
-                        {
-                            _logger.LogInformation("Email verification status updated via SQL for user: {UserId}", userId);
-                            return true;
-                        }
-                    }
-                }
-                catch (Exception sqlEx)
-                {
-                    _logger.LogError(sqlEx, "Error executing SQL update for user {UserId}", userId);
-                }
-                
-                // Nếu SQL không thành công, thử cách thông thường
-                _logger.LogInformation("Updating via Entity Framework");
+                // Update user's email verification status
                 user.IsEmailVerified = true;
                 _unitOfWork.Users.Update(user);
-                
                 await _unitOfWork.CompleteAsync();
-                _logger.LogInformation("Entity Framework update completed for user: {UserId}", userId);
                 
-                // Kiểm tra lại sau khi cập nhật
-                var updatedUser = await _unitOfWork.Users.GetByIdAsync(userId);
-                _logger.LogInformation("After update - User: {UserId}, IsEmailVerified: {IsVerified}", 
-                    userId, updatedUser?.IsEmailVerified);
-                
-                return updatedUser?.IsEmailVerified ?? false;
+                _logger.LogInformation("Email verified for user: {UserId}", userId);
+                return true;
             }
             catch (Exception ex)
             {

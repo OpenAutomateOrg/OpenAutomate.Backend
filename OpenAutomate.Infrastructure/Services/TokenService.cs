@@ -381,52 +381,31 @@ namespace OpenAutomate.Infrastructure.Services
         {
             try
             {
-                _logger.LogInformation("Validating email verification token: {TokenPrefix}...", 
-                    token?.Length > 6 ? token.Substring(0, 6) + "..." : "null");
-                
                 if (string.IsNullOrEmpty(token))
-                {
-                    _logger.LogWarning("Token is null or empty");
                     return null;
-                }
 
                 // Find the token in the database
                 var verificationToken = await _unitOfWork.EmailVerificationTokens
                     .GetFirstOrDefaultAsync(t => t.Token == token, t => t.User);
-                
+
                 // Check if token exists
                 if (verificationToken == null)
-                {
-                    _logger.LogWarning("Token not found in database");
                     return null;
-                }
-                
-                _logger.LogInformation("Token found - UserId: {UserId}, IsUsed: {IsUsed}, IsExpired: {IsExpired}, ExpiresAt: {ExpiresAt}", 
-                    verificationToken.UserId, verificationToken.IsUsed, verificationToken.IsExpired, verificationToken.ExpiresAt);
 
                 // Check if token is already used
                 if (verificationToken.IsUsed)
-                {
-                    _logger.LogWarning("Token is already used. Used at: {UsedAt}", verificationToken.UsedAt);
                     return null;
-                }
 
                 // Check if token is expired
                 if (verificationToken.IsExpired)
-                {
-                    _logger.LogWarning("Token is expired. Expires at: {ExpiresAt}", verificationToken.ExpiresAt);
                     return null;
-                }
 
                 // Mark token as used
                 verificationToken.IsUsed = true;
                 verificationToken.UsedAt = DateTime.UtcNow;
                 _unitOfWork.EmailVerificationTokens.Update(verificationToken);
-                
-                var saveResult = await _unitOfWork.CompleteAsync();
-                _logger.LogInformation("Token marked as used. Save result: {SaveResult} records affected", saveResult);
+                await _unitOfWork.CompleteAsync();
 
-                _logger.LogInformation("Email verification token validated successfully for user: {UserId}", verificationToken.UserId);
                 return verificationToken.UserId;
             }
             catch (OpenAutomateException)

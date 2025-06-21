@@ -4,9 +4,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.IServices;
-using System;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 
 namespace OpenAutomate.Infrastructure.Services
 {
@@ -29,30 +26,17 @@ namespace OpenAutomate.Infrastructure.Services
         {
             try
             {
-                _logger.LogInformation("Preparing to send email to {Recipient} with subject: {Subject}", recipient, subject);
-                _logger.LogInformation("Email configuration: Server={Server}, Port={Port}, Sender={Sender}", 
-                    _emailSettings.SmtpServer, _emailSettings.Port, _emailSettings.SenderEmail);
-                
                 using (var client = CreateSmtpClient())
                 using (var message = CreateMailMessage(subject, body, isHtml))
                 {
                     message.To.Add(recipient);
-                    _logger.LogInformation("SMTP client and message created successfully. Attempting to send email...");
-                    
                     await client.SendMailAsync(message);
                     _logger.LogInformation("Email sent successfully to {Recipient}", recipient);
                 }
             }
-            catch (SmtpException smtpEx)
-            {
-                _logger.LogError(smtpEx, "SMTP error occurred while sending email to {Recipient}. Status code: {StatusCode}, Message: {Message}", 
-                    recipient, smtpEx.StatusCode, smtpEx.Message);
-                throw;
-            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send email to {Recipient}. Error type: {ErrorType}, Message: {Message}", 
-                    recipient, ex.GetType().Name, ex.Message);
+                _logger.LogError(ex, "Failed to send email to {Recipient}", recipient);
                 throw;
             }
         }
