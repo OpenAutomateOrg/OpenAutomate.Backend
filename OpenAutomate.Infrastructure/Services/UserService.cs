@@ -223,7 +223,8 @@ namespace OpenAutomate.Infrastructure.Services
             try
             {
                 var user = await _unitOfWork.Users.GetFirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == email.ToLower());
-
+                if (user == null)
+                    return null;
                 return MapToResponse(user);
             }
             catch (Exception ex)
