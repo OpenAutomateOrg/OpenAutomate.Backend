@@ -19,20 +19,17 @@ namespace OpenAutomate.Infrastructure.Services
         private readonly ApplicationDbContext _context;
         private readonly IBotAgentService _botAgentService;
         private readonly IAutomationPackageService _packageService;
-        private readonly ITenantContext _tenantContext;
         private readonly IQuartzScheduleManager _quartzManager;
 
         public ScheduleService(
             ApplicationDbContext context,
             IBotAgentService botAgentService,
             IAutomationPackageService packageService,
-            ITenantContext tenantContext,
             IQuartzScheduleManager quartzManager)
         {
             _context = context;
             _botAgentService = botAgentService;
             _packageService = packageService;
-            _tenantContext = tenantContext;
             _quartzManager = quartzManager;
         }
 
@@ -285,40 +282,11 @@ namespace OpenAutomate.Infrastructure.Services
 
         public List<DateTime> CalculateUpcomingRunTimes(ScheduleResponseDto schedule, int count = 5)
         {
-            var upcomingTimes = new List<DateTime>();
-            
             if (!schedule.IsEnabled)
-                return upcomingTimes;
+                return new List<DateTime>();
 
             var timeZone = GetTimeZoneInfo(schedule.TimeZoneId);
-            var now = DateTime.UtcNow;
-            var localNow = TimeZoneInfo.ConvertTimeFromUtc(now, timeZone);
-
-            // For cron-based schedules, calculate multiple upcoming times
-            if (!string.IsNullOrWhiteSpace(schedule.CronExpression))
-            {
-                try
-                {
-                    var parts = schedule.CronExpression.Split(' ');
-                    if (parts.Length == 6 && parts[3] == "*" && parts[4] == "*" && parts[5] == "*") // Daily pattern
-                    {
-                        if (int.TryParse(parts[2], out var hour) && int.TryParse(parts[1], out var minute) && int.TryParse(parts[0], out var second))
-                        {
-                            var baseTime = localNow.Date.AddHours(hour).AddMinutes(minute).AddSeconds(second);
-                            var nextTime = baseTime > localNow ? baseTime : baseTime.AddDays(1);
-                            
-                            for (int i = 0; i < count; i++)
-                            {
-                                upcomingTimes.Add(TimeZoneInfo.ConvertTimeToUtc(nextTime.AddDays(i), timeZone));
-                            }
-                        }
-                    }
-                }
-                catch
-                {
-                    // Fall back to single calculation
-                }
-            }
+            var upcomingTimes = TryCalculateMultipleCronTimes(schedule, timeZone, count);
 
             // If we couldn't calculate multiple times, fall back to single next time
             if (upcomingTimes.Count == 0)
@@ -333,6 +301,63 @@ namespace OpenAutomate.Infrastructure.Services
             return upcomingTimes;
         }
 
+        private static List<DateTime> TryCalculateMultipleCronTimes(ScheduleResponseDto schedule, TimeZoneInfo timeZone, int count)
+        {
+            var upcomingTimes = new List<DateTime>();
+
+            if (string.IsNullOrWhiteSpace(schedule.CronExpression))
+                return upcomingTimes;
+
+            try
+            {
+                var dailyTimes = TryCalculateDailyCronTimes(schedule.CronExpression, timeZone, count);
+                upcomingTimes.AddRange(dailyTimes);
+            }
+            catch
+            {
+                // Fall back to single calculation
+            }
+
+            return upcomingTimes;
+        }
+
+        private static List<DateTime> TryCalculateDailyCronTimes(string cronExpression, TimeZoneInfo timeZone, int count)
+        {
+            var upcomingTimes = new List<DateTime>();
+            var parts = cronExpression.Split(' ');
+
+            if (!IsDailyCronPattern(parts))
+                return upcomingTimes;
+
+            if (TryParseCronTimeParts(parts, out var hour, out var minute, out var second))
+            {
+                var now = DateTime.UtcNow;
+                var localNow = TimeZoneInfo.ConvertTimeFromUtc(now, timeZone);
+                var baseTime = localNow.Date.AddHours(hour).AddMinutes(minute).AddSeconds(second);
+                var nextTime = baseTime > localNow ? baseTime : baseTime.AddDays(1);
+
+                for (int i = 0; i < count; i++)
+                {
+                    upcomingTimes.Add(TimeZoneInfo.ConvertTimeToUtc(nextTime.AddDays(i), timeZone));
+                }
+            }
+
+            return upcomingTimes;
+        }
+
+        private static bool IsDailyCronPattern(string[] parts)
+        {
+            return parts.Length == 6 && parts[3] == "*" && parts[4] == "*" && parts[5] == "*";
+        }
+
+        private static bool TryParseCronTimeParts(string[] parts, out int hour, out int minute, out int second)
+        {
+            hour = minute = second = 0;
+            return int.TryParse(parts[2], out hour) &&
+                   int.TryParse(parts[1], out minute) &&
+                   int.TryParse(parts[0], out second);
+        }
+
         public DateTime? CalculateNextRunTime(ScheduleResponseDto schedule)
         {
             if (!schedule.IsEnabled)
@@ -340,67 +365,86 @@ namespace OpenAutomate.Infrastructure.Services
 
             var now = DateTime.UtcNow;
             var timeZone = GetTimeZoneInfo(schedule.TimeZoneId);
-            var localNow = TimeZoneInfo.ConvertTimeFromUtc(now, timeZone);
 
-            switch (schedule.RecurrenceType)
+            return schedule.RecurrenceType switch
             {
-                case RecurrenceType.Once:
-                    if (schedule.OneTimeExecution.HasValue)
-                    {
-                        var executionTime = TimeZoneInfo.ConvertTimeToUtc(schedule.OneTimeExecution.Value, timeZone);
-                        return executionTime > now ? executionTime : null;
-                    }
-                    return null;
+                RecurrenceType.Once => CalculateOnceNextRunTime(schedule, timeZone, now),
+                RecurrenceType.Minutes => now.AddMinutes(30), // Default to 30 minutes to match Quartz configuration
+                RecurrenceType.Hourly => CalculateHourlyNextRunTime(schedule, timeZone, now),
+                RecurrenceType.Daily => CalculateDailyNextRunTime(schedule, timeZone, now),
+                RecurrenceType.Weekly => CalculateWeeklyNextRunTime(schedule, timeZone, now),
+                RecurrenceType.Monthly => CalculateMonthlyNextRunTime(schedule, timeZone, now),
+                RecurrenceType.Advanced => CalculateAdvancedNextRunTime(schedule, timeZone),
+                _ => null
+            };
+        }
 
-                case RecurrenceType.Minutes:
-                    // Default to 30 minutes to match Quartz configuration
-                    return now.AddMinutes(30);
+        private static DateTime? CalculateOnceNextRunTime(ScheduleResponseDto schedule, TimeZoneInfo timeZone, DateTime now)
+        {
+            if (!schedule.OneTimeExecution.HasValue)
+                return null;
 
-                case RecurrenceType.Hourly:
-                case RecurrenceType.Daily:
-                case RecurrenceType.Weekly:
-                case RecurrenceType.Monthly:
-                case RecurrenceType.Advanced:
-                    // Try to parse cron expression for accurate next run time
-                    if (!string.IsNullOrWhiteSpace(schedule.CronExpression))
-                    {
-                        try
-                        {
-                            return CalculateNextRunTimeFromCron(schedule.CronExpression, timeZone);
-                        }
-                        catch (Exception)
-                        {
-                            // Fall back to simple calculation if cron parsing fails
-                        }
-                    }
+            var executionTime = TimeZoneInfo.ConvertTimeToUtc(schedule.OneTimeExecution.Value, timeZone);
+            return executionTime > now ? executionTime : null;
+        }
 
-                    // Fallback calculations for simple recurrence types
-                    switch (schedule.RecurrenceType)
-                    {
-                        case RecurrenceType.Hourly:
-                            return now.AddHours(1);
-                        case RecurrenceType.Daily:
-                            // Calculate next occurrence at the same time tomorrow
-                            var tomorrow = localNow.Date.AddDays(1);
-                            if (schedule.CronExpression != null && TryParseDailyCronTime(schedule.CronExpression, out var hour, out var minute))
-                            {
-                                tomorrow = tomorrow.AddHours(hour).AddMinutes(minute);
-                            }
-                            return TimeZoneInfo.ConvertTimeToUtc(tomorrow, timeZone);
-                        case RecurrenceType.Weekly:
-                            return now.AddDays(7);
-                        case RecurrenceType.Monthly:
-                            return now.AddMonths(1);
-                        default:
-                            return null;
-                    }
+        private static DateTime? CalculateHourlyNextRunTime(ScheduleResponseDto schedule, TimeZoneInfo timeZone, DateTime now)
+        {
+            var cronResult = TryCalculateFromCronExpression(schedule.CronExpression, timeZone);
+            return cronResult ?? now.AddHours(1);
+        }
 
-                default:
-                    return null;
+        private static DateTime? CalculateDailyNextRunTime(ScheduleResponseDto schedule, TimeZoneInfo timeZone, DateTime now)
+        {
+            var cronResult = TryCalculateFromCronExpression(schedule.CronExpression, timeZone);
+            if (cronResult.HasValue)
+                return cronResult;
+
+            // Fallback: Calculate next occurrence at the same time tomorrow
+            var localNow = TimeZoneInfo.ConvertTimeFromUtc(now, timeZone);
+            var tomorrow = localNow.Date.AddDays(1);
+
+            if (schedule.CronExpression != null && TryParseDailyCronTime(schedule.CronExpression, out var hour, out var minute))
+            {
+                tomorrow = tomorrow.AddHours(hour).AddMinutes(minute);
+            }
+
+            return TimeZoneInfo.ConvertTimeToUtc(tomorrow, timeZone);
+        }
+
+        private static DateTime? CalculateWeeklyNextRunTime(ScheduleResponseDto schedule, TimeZoneInfo timeZone, DateTime now)
+        {
+            var cronResult = TryCalculateFromCronExpression(schedule.CronExpression, timeZone);
+            return cronResult ?? now.AddDays(7);
+        }
+
+        private static DateTime? CalculateMonthlyNextRunTime(ScheduleResponseDto schedule, TimeZoneInfo timeZone, DateTime now)
+        {
+            var cronResult = TryCalculateFromCronExpression(schedule.CronExpression, timeZone);
+            return cronResult ?? now.AddMonths(1);
+        }
+
+        private static DateTime? CalculateAdvancedNextRunTime(ScheduleResponseDto schedule, TimeZoneInfo timeZone)
+        {
+            return TryCalculateFromCronExpression(schedule.CronExpression, timeZone);
+        }
+
+        private static DateTime? TryCalculateFromCronExpression(string? cronExpression, TimeZoneInfo timeZone)
+        {
+            if (string.IsNullOrWhiteSpace(cronExpression))
+                return null;
+
+            try
+            {
+                return CalculateNextRunTimeFromCron(cronExpression, timeZone);
+            }
+            catch
+            {
+                return null;
             }
         }
 
-        private DateTime? CalculateNextRunTimeFromCron(string cronExpression, TimeZoneInfo timeZone)
+        private static DateTime? CalculateNextRunTimeFromCron(string cronExpression, TimeZoneInfo timeZone)
         {
             try
             {
@@ -414,14 +458,12 @@ namespace OpenAutomate.Infrastructure.Services
                 var localNow = TimeZoneInfo.ConvertTimeFromUtc(now, timeZone);
 
                 // For daily schedules, calculate next occurrence
-                if (parts[3] == "*" && parts[4] == "*" && parts[5] == "*") // Daily pattern
+                if (parts[3] == "*" && parts[4] == "*" && parts[5] == "*" &&
+                    int.TryParse(parts[2], out var hour) && int.TryParse(parts[1], out var minute) && int.TryParse(parts[0], out var second))
                 {
-                    if (int.TryParse(parts[2], out var hour) && int.TryParse(parts[1], out var minute) && int.TryParse(parts[0], out var second))
-                    {
-                        var todayAtTime = localNow.Date.AddHours(hour).AddMinutes(minute).AddSeconds(second);
-                        var nextRun = todayAtTime > localNow ? todayAtTime : todayAtTime.AddDays(1);
-                        return TimeZoneInfo.ConvertTimeToUtc(nextRun, timeZone);
-                    }
+                    var todayAtTime = localNow.Date.AddHours(hour).AddMinutes(minute).AddSeconds(second);
+                    var nextRun = todayAtTime > localNow ? todayAtTime : todayAtTime.AddDays(1);
+                    return TimeZoneInfo.ConvertTimeToUtc(nextRun, timeZone);
                 }
 
                 // For other patterns, we'd need a full cron parser
@@ -434,7 +476,7 @@ namespace OpenAutomate.Infrastructure.Services
             }
         }
 
-        private bool TryParseDailyCronTime(string cronExpression, out int hour, out int minute)
+        private static bool TryParseDailyCronTime(string cronExpression, out int hour, out int minute)
         {
             hour = 0;
             minute = 0;

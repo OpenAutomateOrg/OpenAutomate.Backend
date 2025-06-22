@@ -167,131 +167,139 @@ namespace OpenAutomate.Infrastructure.Services
                 .WithIdentity(triggerKey)
                 .WithDescription($"Trigger for schedule '{schedule.Name}'");
 
-            switch (schedule.RecurrenceType)
+            return schedule.RecurrenceType switch
             {
-                case RecurrenceType.Once:
-                    if (!schedule.OneTimeExecution.HasValue)
-                    {
-                        _logger.LogError("OneTimeExecution is required for Once recurrence type");
-                        return null;
-                    }
+                RecurrenceType.Once => CreateOnceTrigger(triggerBuilder, schedule, timeZone),
+                RecurrenceType.Minutes => CreateMinutesTrigger(triggerBuilder),
+                RecurrenceType.Hourly => CreateHourlyTrigger(triggerBuilder, schedule, timeZone),
+                RecurrenceType.Daily => CreateDailyTrigger(triggerBuilder, schedule, timeZone),
+                RecurrenceType.Weekly => CreateWeeklyTrigger(triggerBuilder),
+                RecurrenceType.Monthly => CreateMonthlyTrigger(triggerBuilder, timeZone),
+                RecurrenceType.Advanced => CreateAdvancedTrigger(triggerBuilder, schedule, timeZone),
+                _ => LogUnsupportedRecurrenceType(schedule.RecurrenceType)
+            };
+        }
 
-                    var startTime = TimeZoneInfo.ConvertTimeToUtc(schedule.OneTimeExecution.Value, timeZone);
-                    if (startTime <= DateTimeOffset.UtcNow)
-                    {
-                        _logger.LogWarning("One-time execution date is in the past for schedule {ScheduleId}", schedule.Id);
-                        return null;
-                    }
-
-                    return triggerBuilder
-                        .StartAt(startTime)
-                        .WithSimpleSchedule(x => x.WithRepeatCount(0))
-                        .Build();
-
-                case RecurrenceType.Minutes:
-                    // Default to 30 minutes for now - this could be configurable in the future
-                    return triggerBuilder
-                        .StartNow()
-                        .WithSimpleSchedule(x => x
-                            .WithIntervalInMinutes(30)
-                            .RepeatForever())
-                        .Build();
-
-                case RecurrenceType.Hourly:
-                    // Use cron expression if available for more precise timing
-                    if (!string.IsNullOrWhiteSpace(schedule.CronExpression))
-                    {
-                        try
-                        {
-                            return triggerBuilder
-                                .StartNow()
-                                .WithCronSchedule(schedule.CronExpression, x => x.InTimeZone(timeZone))
-                                .Build();
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Invalid cron expression '{CronExpression}' for hourly schedule {ScheduleId}", 
-                                schedule.CronExpression, schedule.Id);
-                        }
-                    }
-                    
-                    // Fallback to simple hourly schedule
-                    return triggerBuilder
-                        .StartNow()
-                        .WithSimpleSchedule(x => x
-                            .WithIntervalInHours(1)
-                            .RepeatForever())
-                        .Build();
-
-                case RecurrenceType.Daily:
-                    // Use cron expression to respect the specific time set in the schedule
-                    if (!string.IsNullOrWhiteSpace(schedule.CronExpression))
-                    {
-                        try
-                        {
-                            // Fix cron expression format for daily schedules
-                            var fixedCronExpression = FixDailyCronExpression(schedule.CronExpression);
-                            
-                            return triggerBuilder
-                                .StartNow()
-                                .WithCronSchedule(fixedCronExpression, x => x.InTimeZone(timeZone))
-                                .Build();
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Invalid cron expression '{CronExpression}' for daily schedule {ScheduleId}", 
-                                schedule.CronExpression, schedule.Id);
-                        }
-                    }
-                    
-                    // Fallback to simple daily schedule if no cron expression
-                    return triggerBuilder
-                        .StartNow()
-                        .WithSimpleSchedule(x => x
-                            .WithIntervalInHours(24)
-                            .RepeatForever())
-                        .Build();
-
-                case RecurrenceType.Weekly:
-                    return triggerBuilder
-                        .StartNow()
-                        .WithSimpleSchedule(x => x
-                            .WithIntervalInHours(24 * 7)
-                            .RepeatForever())
-                        .Build();
-
-                case RecurrenceType.Monthly:
-                    // Use cron for monthly since SimpleSchedule doesn't handle months well
-                    return triggerBuilder
-                        .StartNow()
-                        .WithCronSchedule("0 0 0 1 * ?", x => x.InTimeZone(timeZone)) // First day of every month
-                        .Build();
-
-                case RecurrenceType.Advanced:
-                    if (string.IsNullOrWhiteSpace(schedule.CronExpression))
-                    {
-                        _logger.LogError("CronExpression is required for Advanced recurrence type");
-                        return null;
-                    }
-
-                    try
-                    {
-                        return triggerBuilder
-                            .StartNow()
-                            .WithCronSchedule(schedule.CronExpression, x => x.InTimeZone(timeZone))
-                            .Build();
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Invalid cron expression '{CronExpression}' for schedule {ScheduleId}", 
-                            schedule.CronExpression, schedule.Id);
-                        return null;
-                    }
-
-                default:
-                    _logger.LogError("Unsupported recurrence type: {RecurrenceType}", schedule.RecurrenceType);
-                    return null;
+        private ITrigger? CreateOnceTrigger(TriggerBuilder triggerBuilder, ScheduleResponseDto schedule, TimeZoneInfo timeZone)
+        {
+            if (!schedule.OneTimeExecution.HasValue)
+            {
+                _logger.LogError("OneTimeExecution is required for Once recurrence type");
+                return null;
             }
+
+            var startTime = TimeZoneInfo.ConvertTimeToUtc(schedule.OneTimeExecution.Value, timeZone);
+            if (startTime <= DateTimeOffset.UtcNow)
+            {
+                _logger.LogWarning("One-time execution date is in the past for schedule {ScheduleId}", schedule.Id);
+                return null;
+            }
+
+            return triggerBuilder
+                .StartAt(startTime)
+                .WithSimpleSchedule(x => x.WithRepeatCount(0))
+                .Build();
+        }
+
+        private ITrigger CreateMinutesTrigger(TriggerBuilder triggerBuilder)
+        {
+            // Default to 30 minutes for now - this could be configurable in the future
+            return triggerBuilder
+                .StartNow()
+                .WithSimpleSchedule(x => x
+                    .WithIntervalInMinutes(30)
+                    .RepeatForever())
+                .Build();
+        }
+
+        private ITrigger CreateHourlyTrigger(TriggerBuilder triggerBuilder, ScheduleResponseDto schedule, TimeZoneInfo timeZone)
+        {
+            // Use cron expression if available for more precise timing
+            var cronTrigger = TryCreateCronTrigger(triggerBuilder, schedule.CronExpression, timeZone, "hourly", schedule.Id);
+            if (cronTrigger != null)
+                return cronTrigger;
+
+            // Fallback to simple hourly schedule
+            return triggerBuilder
+                .StartNow()
+                .WithSimpleSchedule(x => x
+                    .WithIntervalInHours(1)
+                    .RepeatForever())
+                .Build();
+        }
+
+        private ITrigger CreateDailyTrigger(TriggerBuilder triggerBuilder, ScheduleResponseDto schedule, TimeZoneInfo timeZone)
+        {
+            // Use cron expression to respect the specific time set in the schedule
+            if (!string.IsNullOrWhiteSpace(schedule.CronExpression))
+            {
+                var fixedCronExpression = FixDailyCronExpression(schedule.CronExpression);
+                var cronTrigger = TryCreateCronTrigger(triggerBuilder, fixedCronExpression, timeZone, "daily", schedule.Id);
+                if (cronTrigger != null)
+                    return cronTrigger;
+            }
+
+            // Fallback to simple daily schedule if no cron expression
+            return triggerBuilder
+                .StartNow()
+                .WithSimpleSchedule(x => x
+                    .WithIntervalInHours(24)
+                    .RepeatForever())
+                .Build();
+        }
+
+        private ITrigger CreateWeeklyTrigger(TriggerBuilder triggerBuilder)
+        {
+            return triggerBuilder
+                .StartNow()
+                .WithSimpleSchedule(x => x
+                    .WithIntervalInHours(24 * 7)
+                    .RepeatForever())
+                .Build();
+        }
+
+        private ITrigger CreateMonthlyTrigger(TriggerBuilder triggerBuilder, TimeZoneInfo timeZone)
+        {
+            // Use cron for monthly since SimpleSchedule doesn't handle months well
+            return triggerBuilder
+                .StartNow()
+                .WithCronSchedule("0 0 0 1 * ?", x => x.InTimeZone(timeZone)) // First day of every month
+                .Build();
+        }
+
+        private ITrigger? CreateAdvancedTrigger(TriggerBuilder triggerBuilder, ScheduleResponseDto schedule, TimeZoneInfo timeZone)
+        {
+            if (string.IsNullOrWhiteSpace(schedule.CronExpression))
+            {
+                _logger.LogError("CronExpression is required for Advanced recurrence type");
+                return null;
+            }
+
+            var cronTrigger = TryCreateCronTrigger(triggerBuilder, schedule.CronExpression, timeZone, "advanced", schedule.Id);
+            return cronTrigger;
+        }
+
+        private ITrigger? TryCreateCronTrigger(TriggerBuilder triggerBuilder, string cronExpression, TimeZoneInfo timeZone, string scheduleType, Guid scheduleId)
+        {
+            try
+            {
+                return triggerBuilder
+                    .StartNow()
+                    .WithCronSchedule(cronExpression, x => x.InTimeZone(timeZone))
+                    .Build();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Invalid cron expression '{CronExpression}' for {ScheduleType} schedule {ScheduleId}",
+                    cronExpression, scheduleType, scheduleId);
+                return null;
+            }
+        }
+
+        private ITrigger? LogUnsupportedRecurrenceType(RecurrenceType recurrenceType)
+        {
+            _logger.LogError("Unsupported recurrence type: {RecurrenceType}", recurrenceType);
+            return null;
         }
 
         private static JobKey GetJobKey(Guid scheduleId)
