@@ -9,6 +9,7 @@ using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using OpenAutomate.Core.Configurations;
+using OpenAutomate.Core.Dto.UserDto;
 
 namespace OpenAutomate.API.Controllers
 {
@@ -132,6 +133,58 @@ namespace OpenAutomate.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error resending verification email");
+                return StatusCode(500, new { message = "An error occurred while processing your request." });
+            }
+        }
+
+        /// <summary>
+        /// Resends a verification email to the specified email address (public, no login required)
+        /// </summary>
+        /// <param name="request">Request containing the email address to resend verification to.</param>
+        /// <returns>
+        /// 200 OK: Verification email sent successfully or email is already verified.
+        /// 400 Bad Request: If the email is missing/invalid or sending email failed.
+        /// 404 Not Found: If the email address does not exist in the system.
+        /// 500 Internal Server Error: If an unexpected error occurs.
+        /// </returns>
+        [HttpPost("resend-public")]
+        [AllowAnonymous]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> ResendVerificationPublic([FromBody] ResendEmailVerificationRequest request)
+        {
+            try
+            {
+                if (request == null || string.IsNullOrWhiteSpace(request.Email))
+                {
+                    return BadRequest(new { message = "Email is required" });
+                }
+
+                // Find user by email (case-insensitive)
+                var user = await _userService.GetByEmailAsync(request.Email.Trim().ToLower());
+                if (user == null)
+                {
+                    return NotFound(new { message = "Email address not found" });
+                }
+
+                if (user.IsEmailVerified)
+                {
+                    return Ok(new { message = "Email is already verified." });
+                }
+
+                var success = await _userService.SendVerificationEmailAsync(user.Id);
+                if (!success)
+                {
+                    return BadRequest(new { message = "Failed to send verification email" });
+                }
+
+                return Ok(new { message = "Verification email sent" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error resending verification email (public)");
                 return StatusCode(500, new { message = "An error occurred while processing your request." });
             }
         }
