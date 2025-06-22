@@ -1,6 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
-using OpenAutomate.Core.Domain.Entities;
+using OpenAutomate.Core.Domain.Enums;
 
 namespace OpenAutomate.Core.Dto.Schedule
 {
@@ -15,34 +15,50 @@ namespace OpenAutomate.Core.Dto.Schedule
         [Required]
         [StringLength(100, MinimumLength = 1)]
         public string Name { get; set; } = string.Empty;
-        
+
         /// <summary>
         /// Optional description of the schedule
         /// </summary>
         [StringLength(500)]
-        public string Description { get; set; } = string.Empty;
-        
+        public string? Description { get; set; }
+
         /// <summary>
-        /// Type of schedule (OneTime, Recurring, Cron)
+        /// Whether the schedule should be enabled upon creation
+        /// </summary>
+        public bool IsEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Type of recurrence for the schedule
         /// </summary>
         [Required]
-        public ScheduleType Type { get; set; }
-        
+        public RecurrenceType RecurrenceType { get; set; }
+
         /// <summary>
-        /// Cron expression for scheduling (required for Cron and Recurring types)
+        /// Cron expression for advanced scheduling
         /// </summary>
-        [StringLength(100)]
         public string? CronExpression { get; set; }
-        
+
         /// <summary>
-        /// Execution date for one-time schedules
+        /// Specific date and time for one-time execution
         /// </summary>
-        public DateTime? OneTimeExecutionDate { get; set; }
-        
+        public DateTime? OneTimeExecution { get; set; }
+
+        /// <summary>
+        /// IANA Time Zone ID for schedule execution
+        /// </summary>
+        [Required]
+        public string TimeZoneId { get; set; } = "UTC";
+
         /// <summary>
         /// ID of the automation package to execute
         /// </summary>
         [Required]
-        public Guid PackageId { get; set; }
+        public Guid AutomationPackageId { get; set; }
+
+        /// <summary>
+        /// ID of the bot agent that will execute the package
+        /// </summary>
+        [Required]
+        public Guid BotAgentId { get; set; }
     }
 } 

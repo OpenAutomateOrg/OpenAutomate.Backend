@@ -292,8 +292,8 @@ namespace OpenAutomate.Infrastructure.Services
                         { Resources.AssetResource, Permissions.Delete },
                         { Resources.AgentResource, Permissions.Delete },
                         { Resources.PackageResource, Permissions.Delete },
-                        { Resources.ScheduleResource, Permissions.Delete },
                         { Resources.ExecutionResource, Permissions.Delete },
+                        { Resources.ScheduleResource, Permissions.Delete },
                         { Resources.UserResource, Permissions.Delete },
                         { Resources.OrganizationUnitResource, Permissions.Delete }
                     }
@@ -304,8 +304,8 @@ namespace OpenAutomate.Infrastructure.Services
                         { Resources.AssetResource, Permissions.Delete },
                         { Resources.AgentResource, Permissions.Delete },
                         { Resources.PackageResource, Permissions.Delete },
-                        { Resources.ScheduleResource, Permissions.Delete },
                         { Resources.ExecutionResource, Permissions.Delete },
+                        { Resources.ScheduleResource, Permissions.Delete },
                         { Resources.UserResource, Permissions.Update },
                         { Resources.OrganizationUnitResource, Permissions.Update }
                     }
@@ -316,8 +316,8 @@ namespace OpenAutomate.Infrastructure.Services
                         { Resources.AssetResource, Permissions.Update },
                         { Resources.AgentResource, Permissions.Update },
                         { Resources.PackageResource, Permissions.Update },
-                        { Resources.ScheduleResource, Permissions.Update },
                         { Resources.ExecutionResource, Permissions.Update },
+                        { Resources.ScheduleResource, Permissions.Update },
                         { Resources.UserResource, Permissions.View },
                         { Resources.OrganizationUnitResource, Permissions.View }
                     }
@@ -328,8 +328,8 @@ namespace OpenAutomate.Infrastructure.Services
                         { Resources.AssetResource, Permissions.View },
                         { Resources.AgentResource, Permissions.View },
                         { Resources.PackageResource, Permissions.View },
-                        { Resources.ScheduleResource, Permissions.View },
                         { Resources.ExecutionResource, Permissions.View },
+                        { Resources.ScheduleResource, Permissions.View },
                         { Resources.UserResource, Permissions.View },
                         { Resources.OrganizationUnitResource, Permissions.View }
                     }

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using OpenAutomate.Infrastructure.DbContext;
 
@@ -11,9 +12,11 @@ using OpenAutomate.Infrastructure.DbContext;
 namespace OpenAutomate.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250621115418_RemoveSchedulingFeature")]
+    partial class RemoveSchedulingFeature
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -671,79 +674,6 @@ namespace OpenAutomate.Infrastructure.Migrations
                     b.ToTable("RefreshTokens", (string)null);
                 });
 
-            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.Schedule", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("AutomationPackageId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("BotAgentId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("CronExpression")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<bool>("IsEnabled")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
-                    b.Property<DateTime?>("LastModifyAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("LastModifyBy")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime?>("OneTimeExecution")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("OrganizationUnitId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("RecurrenceType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TimeZoneId")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)")
-                        .HasDefaultValue("UTC");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AutomationPackageId");
-
-                    b.HasIndex("BotAgentId");
-
-                    b.HasIndex("IsEnabled");
-
-                    b.HasIndex("Name");
-
-                    b.HasIndex("OrganizationUnitId");
-
-                    b.ToTable("Schedules", (string)null);
-                });
-
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1028,33 +958,6 @@ namespace OpenAutomate.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.Schedule", b =>
-                {
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.AutomationPackage", "AutomationPackage")
-                        .WithMany()
-                        .HasForeignKey("AutomationPackageId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.BotAgent", "BotAgent")
-                        .WithMany()
-                        .HasForeignKey("BotAgentId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("OpenAutomate.Core.Domain.Entities.OrganizationUnit", "OrganizationUnit")
-                        .WithMany()
-                        .HasForeignKey("OrganizationUnitId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("AutomationPackage");
-
-                    b.Navigation("BotAgent");
-
-                    b.Navigation("OrganizationUnit");
                 });
 
             modelBuilder.Entity("OpenAutomate.Core.Domain.Entities.UserAuthority", b =>
