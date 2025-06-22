@@ -28,8 +28,7 @@ namespace OpenAutomate.Core.Tests.IserviceTest
             var createDto = new CreateExecutionDto
             {
                 BotAgentId = Guid.NewGuid(),
-                PackageId = Guid.NewGuid(),
-                ScheduleId = null
+                PackageId = Guid.NewGuid()
             };
 
             var expectedExecution = new Execution
@@ -37,7 +36,6 @@ namespace OpenAutomate.Core.Tests.IserviceTest
                 Id = Guid.NewGuid(),
                 BotAgentId = createDto.BotAgentId,
                 PackageId = createDto.PackageId,
-                ScheduleId = createDto.ScheduleId,
                 Status = "Pending",
                 StartTime = DateTime.UtcNow,
                 EndTime = null,
@@ -61,39 +59,7 @@ namespace OpenAutomate.Core.Tests.IserviceTest
             _mockExecutionService.Verify(s => s.CreateExecutionAsync(createDto), Times.Once);
         }
 
-        [Fact]
-        public async Task CreateExecutionAsync_WithSchedule_ReturnsExecutionWithScheduleId()
-        {
-            // Arrange
-            var scheduleId = Guid.NewGuid();
-            var createDto = new CreateExecutionDto
-            {
-                BotAgentId = Guid.NewGuid(),
-                PackageId = Guid.NewGuid(),
-                ScheduleId = scheduleId
-            };
 
-            var expectedExecution = new Execution
-            {
-                Id = Guid.NewGuid(),
-                BotAgentId = createDto.BotAgentId,
-                PackageId = createDto.PackageId,
-                ScheduleId = scheduleId,
-                Status = "Pending",
-                StartTime = DateTime.UtcNow
-            };
-
-            _mockExecutionService.Setup(s => s.CreateExecutionAsync(createDto))
-                .ReturnsAsync(expectedExecution);
-
-            // Act
-            var result = await _mockExecutionService.Object.CreateExecutionAsync(createDto);
-
-            // Assert
-            Assert.NotNull(result);
-            Assert.Equal(scheduleId, result.ScheduleId);
-            _mockExecutionService.Verify(s => s.CreateExecutionAsync(createDto), Times.Once);
-        }
 
         [Fact]
         public async Task CreateExecutionAsync_WithNoTenant_ThrowsException()

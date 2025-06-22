@@ -13,7 +13,6 @@ namespace OpenAutomate.Infrastructure.Repositories
         private IRepository<AutomationPackage> _automationPackageRepository;
         private IRepository<PackageVersion> _packageVersionRepository;
         private IRepository<Execution> _executionRepository;
-        private IRepository<Schedule> _scheduleRepository;
         private IRepository<RefreshToken> _refreshTokenRepository;
         private IRepository<OrganizationUnit> _organizationUnitRepository;
         private IRepository<OrganizationUnitUser> _organizationUnitUserRepository;
@@ -42,8 +41,6 @@ namespace OpenAutomate.Infrastructure.Repositories
             _packageVersionRepository ??= new Repository<PackageVersion>(_context);
 
         public IRepository<Execution> Executions => _executionRepository ??= new Repository<Execution>(_context);
-
-        public IRepository<Schedule> Schedules => _scheduleRepository ??= new Repository<Schedule>(_context);
 
         public IRepository<RefreshToken> RefreshTokens => 
             _refreshTokenRepository ??= new Repository<RefreshToken>(_context);

@@ -20,8 +20,5 @@ namespace OpenAutomate.Core.Domain.Entities
 
         [JsonIgnore]
         public virtual ICollection<Execution> Executions { get; set; } = new List<Execution>();
-
-        [JsonIgnore]
-        public virtual ICollection<Schedule> Schedules { get; set; } = new List<Schedule>();
     }
 }

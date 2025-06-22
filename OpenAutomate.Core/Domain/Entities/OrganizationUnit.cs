@@ -16,6 +16,5 @@ namespace OpenAutomate.Core.Domain.Entities
         public virtual ICollection<BotAgent> BotAgents { get; set; } = new List<BotAgent>();
         public virtual ICollection<AutomationPackage> AutomationPackages { get; set; } = new List<AutomationPackage>();
         public virtual ICollection<Execution> Executions { get; set; } = new List<Execution>();
-        public virtual ICollection<Schedule> Schedules { get; set; } = new List<Schedule>();
     }
 }

@@ -9,7 +9,6 @@ namespace OpenAutomate.Core.Domain.IRepository
         IRepository<AutomationPackage> AutomationPackages { get; }
         IRepository<PackageVersion> PackageVersions { get; }
         IRepository<Execution> Executions { get; }
-        IRepository<Schedule> Schedules { get; }
         IRepository<RefreshToken> RefreshTokens { get; }
         IRepository<OrganizationUnit> OrganizationUnits { get; }
         IRepository<OrganizationUnitUser> OrganizationUnitUsers { get; }

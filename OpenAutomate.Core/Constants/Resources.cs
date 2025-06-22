@@ -82,7 +82,7 @@ namespace OpenAutomate.Core.Constants
                 {
                     ResourceName = ScheduleResource,
                     DisplayName = "Schedules",
-                    Description = "Manage automation schedules and triggers",
+                    Description = "Manage automation schedules and recurring tasks",
                     AvailablePermissions = GetPermissionLevels()
                 },
                 new AvailableResourceDto

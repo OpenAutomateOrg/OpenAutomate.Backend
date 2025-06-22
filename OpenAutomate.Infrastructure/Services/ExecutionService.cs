@@ -49,7 +49,6 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 BotAgentId = dto.BotAgentId,
                 PackageId = dto.PackageId,
-                ScheduleId = dto.ScheduleId,
                 Status = "Pending",
                 StartTime = DateTime.UtcNow,
                 OrganizationUnitId = currentTenantId

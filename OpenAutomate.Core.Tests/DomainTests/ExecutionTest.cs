@@ -16,7 +16,6 @@ namespace OpenAutomate.Core.Tests.DomainTests
             Assert.NotNull(execution);
             Assert.Equal(Guid.Empty, execution.BotAgentId);
             Assert.Equal(Guid.Empty, execution.PackageId);
-            Assert.Null(execution.ScheduleId);
             Assert.Equal(string.Empty, execution.Status);
             Assert.Equal(DateTime.MinValue, execution.StartTime);
             Assert.Null(execution.EndTime);
@@ -24,7 +23,6 @@ namespace OpenAutomate.Core.Tests.DomainTests
             Assert.Null(execution.ErrorMessage);
             Assert.Null(execution.BotAgent);
             Assert.Null(execution.Package);
-            Assert.Null(execution.Schedule);
         }
         [Fact]
         public void Execution_SetStatus_StatusIsSet()
@@ -85,21 +83,7 @@ namespace OpenAutomate.Core.Tests.DomainTests
             Assert.Equal("Test Package", linkedPackage.Name);
             Assert.Equal("Test Description", linkedPackage.Description);
         }
-        [Fact]
-        public void Execution_LinkSchedule_ScheduleIsLinked()
-        {
-            // Arrange
-            var schedule = new Schedule { CronExpression = "0 0 * * *", IsActive = true };
-            var execution = new Execution { Schedule = schedule };
 
-            // Act
-            var linkedSchedule = execution.Schedule;
-
-            // Assert
-            Assert.NotNull(linkedSchedule);
-            Assert.Equal("0 0 * * *", linkedSchedule.CronExpression);
-            Assert.True(linkedSchedule.IsActive);
-        }
         [Fact]
         public void Execution_SetLogOutputAndErrorMessage_ValuesAreSet()
         {
