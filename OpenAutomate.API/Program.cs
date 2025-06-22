@@ -25,34 +25,34 @@ namespace OpenAutomate.API
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
-            
+
             // Add application configuration
             ConfigureAppSettings(builder);
-            
+
             // Configure logging
             ConfigureLogging(builder);
-            
+
             // Add services to the container
             ConfigureServices(builder);
-            
+
             // Configure authentication system
             ConfigureAuthentication(builder);
-            
+
             // Configure API documentation
             ConfigureSwagger(builder);
-            
+
             var app = builder.Build();
-            
+
             // Configure middleware pipeline
             ConfigureMiddleware(app);
-            
+
             // Apply database migrations
-            ApplyDatabaseMigrations(app);
-            
-            app.Run();
+            await ApplyDatabaseMigrationsAsync(app);
+
+            await app.RunAsync();
         }
         
         private static void ConfigureAppSettings(WebApplicationBuilder builder)
@@ -432,14 +432,14 @@ namespace OpenAutomate.API
             app.MapHub<BotAgentHub>("/{tenant}/hubs/botagent");
         }
         
-        private static void ApplyDatabaseMigrations(WebApplication app)
+        private static async Task ApplyDatabaseMigrationsAsync(WebApplication app)
         {
             using (var scope = app.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 try
                 {
-                    context.Database.Migrate();
+                    await context.Database.MigrateAsync();
                     Console.WriteLine("Database migrations applied successfully.");
                 }
                 catch (Exception ex)
@@ -451,7 +451,7 @@ namespace OpenAutomate.API
                 var quartzSchemaService = scope.ServiceProvider.GetRequiredService<IQuartzSchemaService>();
                 try
                 {
-                    var schemaCreated = quartzSchemaService.EnsureSchemaExistsAsync().Result;
+                    var schemaCreated = await quartzSchemaService.EnsureSchemaExistsAsync();
                     if (schemaCreated)
                     {
                         Console.WriteLine("Quartz.NET schema verified/created successfully.");
