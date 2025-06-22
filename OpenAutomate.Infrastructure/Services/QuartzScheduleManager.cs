@@ -98,9 +98,6 @@ namespace OpenAutomate.Infrastructure.Services
                 return;
             }
 
-            // Delete existing trigger and create new one
-            await scheduler.UnscheduleJob(triggerKey);
-
             var newTrigger = await CreateTriggerAsync(triggerKey, schedule);
             if (newTrigger == null)
             {
@@ -108,8 +105,19 @@ namespace OpenAutomate.Infrastructure.Services
                 return;
             }
 
-            // Reschedule with new trigger
-            await scheduler.RescheduleJob(triggerKey, newTrigger);
+            // Check if trigger exists and use appropriate method
+            if (await scheduler.GetTrigger(triggerKey) != null)
+            {
+                // Trigger exists, use RescheduleJob to replace it
+                await scheduler.RescheduleJob(triggerKey, newTrigger);
+                _logger.LogInformation("Rescheduled existing trigger for schedule {ScheduleId}", schedule.Id);
+            }
+            else
+            {
+                // Trigger doesn't exist, schedule the new trigger with the existing job
+                await scheduler.ScheduleJob(newTrigger);
+                _logger.LogInformation("Scheduled new trigger for existing job {ScheduleId}", schedule.Id);
+            }
 
             // Ensure job is resumed if it was paused
             await scheduler.ResumeJob(jobKey);
