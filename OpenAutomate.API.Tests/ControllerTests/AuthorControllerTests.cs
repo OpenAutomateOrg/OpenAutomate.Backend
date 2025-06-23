@@ -235,10 +235,10 @@ namespace OpenAutomate.API.Tests.ControllerTests
         {
             // Arrange
             var authorityId = Guid.NewGuid();
-            
+
             _mockAuthorizationManager
                 .Setup(x => x.GetAuthorityWithPermissionsAsync(authorityId))
-                .ReturnsAsync((AuthorityWithPermissionsDto)null);
+                .ReturnsAsync((AuthorityWithPermissionsDto?)null); // Explicitly mark as nullable
 
             // Act
             var result = await _controller.GetAuthority(authorityId);
@@ -247,9 +247,13 @@ namespace OpenAutomate.API.Tests.ControllerTests
             Assert.IsType<NotFoundResult>(result);
         }
 
+
         #endregion
 
         #region UpdateAuthority Tests
+
+        // In AuthorControllerTests.cs, update the test(s) that use UpdateAuthorityDto.Permissions
+        // to use UpdateAuthorityDto.ResourcePermissions instead
 
         [Fact]
         public async Task UpdateAuthority_WithValidData_ReturnsOk()
@@ -260,16 +264,16 @@ namespace OpenAutomate.API.Tests.ControllerTests
             {
                 Name = "UpdatedRole",
                 Description = "Updated description",
-                Permissions = new List<ResourcePermissionDto>
-                {
-                    new ResourcePermissionDto
-                    {
-                        ResourceName = Resources.OrganizationUnitResource,
-                        Permission = 3 // Update permission
-                    }
-                }
+                ResourcePermissions = new List<CreateResourcePermissionDto>
+        {
+            new CreateResourcePermissionDto
+            {
+                ResourceName = Resources.OrganizationUnitResource,
+                Permission = 3 // Update permission
+            }
+        }
             };
-            
+
             _mockAuthorizationManager
                 .Setup(x => x.UpdateAuthorityAsync(authorityId, It.IsAny<UpdateAuthorityDto>()))
                 .Returns(Task.CompletedTask);
@@ -280,12 +284,13 @@ namespace OpenAutomate.API.Tests.ControllerTests
             // Assert
             Assert.IsType<OkResult>(result);
             _mockAuthorizationManager.Verify(x => x.UpdateAuthorityAsync(
-                authorityId, 
-                It.Is<UpdateAuthorityDto>(dto => 
-                    dto.Name == updateDto.Name && 
-                    dto.Description == updateDto.Description)), 
+                authorityId,
+                It.Is<UpdateAuthorityDto>(dto =>
+                    dto.Name == updateDto.Name &&
+                    dto.Description == updateDto.Description)),
                 Times.Once);
         }
+
 
         [Fact]
         public async Task UpdateAuthority_WithNonExistentId_ReturnsNotFound()
