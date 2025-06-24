@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using OpenAutomate.Core.Configurations;
@@ -7,6 +8,7 @@ namespace OpenAutomate.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "Admin")] // Only admins can test email functionality
     public class EmailTestController : ControllerBase
     {
         private readonly IEmailService _emailService;

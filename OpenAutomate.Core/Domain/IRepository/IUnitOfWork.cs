@@ -9,7 +9,6 @@ namespace OpenAutomate.Core.Domain.IRepository
         IRepository<AutomationPackage> AutomationPackages { get; }
         IRepository<PackageVersion> PackageVersions { get; }
         IRepository<Execution> Executions { get; }
-        IRepository<Schedule> Schedules { get; }
         IRepository<RefreshToken> RefreshTokens { get; }
         IRepository<OrganizationUnit> OrganizationUnits { get; }
         IRepository<OrganizationUnitUser> OrganizationUnitUsers { get; }
@@ -20,6 +19,7 @@ namespace OpenAutomate.Core.Domain.IRepository
         IRepository<AssetBotAgent> AssetBotAgents { get; }
         IRepository<EmailVerificationToken> EmailVerificationTokens { get; }
         IRepository<PasswordResetToken> PasswordResetTokens { get; }
+        IRepository<OrganizationUnitInvitation> OrganizationUnitInvitations { get; }
         
         // Get a repository for a specific entity type
         IRepository<T> GetRepository<T>() where T : class;

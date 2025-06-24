@@ -14,6 +14,11 @@ namespace OpenAutomate.Core.IServices
         Guid CurrentTenantId { get; }
 
         /// <summary>
+        /// Gets the current tenant slug
+        /// </summary>
+        string? CurrentTenantSlug { get; }
+
+        /// <summary>
         /// Gets a value indicating whether a tenant has been set
         /// </summary>
         bool HasTenant { get; }

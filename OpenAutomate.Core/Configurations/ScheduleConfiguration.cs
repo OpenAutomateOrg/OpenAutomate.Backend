@@ -4,6 +4,9 @@ using OpenAutomate.Core.Domain.Entities;
 
 namespace OpenAutomate.Core.Configurations
 {
+    /// <summary>
+    /// Entity Framework configuration for the Schedule entity
+    /// </summary>
     public class ScheduleConfiguration : IEntityTypeConfiguration<Schedule>
     {
         public void Configure(EntityTypeBuilder<Schedule> builder)
@@ -11,27 +14,47 @@ namespace OpenAutomate.Core.Configurations
             builder.ToTable("Schedules");
             builder.HasKey(s => s.Id);
             
-            builder.Property(s => s.CronExpression).IsRequired().HasMaxLength(100);
-            
-            // Setup relationships
-            builder.HasOne(s => s.Package)
-                .WithMany(ap => ap.Schedules)
-                .HasForeignKey(s => s.PackageId)
-                .OnDelete(DeleteBehavior.Cascade);
+            // Configure properties
+            builder.Property(s => s.Name)
+                .IsRequired()
+                .HasMaxLength(100);
                 
-            // User relationship with UserId
-            builder.HasOne(s => s.User)
+            builder.Property(s => s.Description)
+                .HasMaxLength(500);
+                
+            builder.Property(s => s.IsEnabled)
+                .IsRequired()
+                .HasDefaultValue(true);
+                
+            builder.Property(s => s.RecurrenceType)
+                .IsRequired()
+                .HasConversion<string>();
+                
+            builder.Property(s => s.TimeZoneId)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasDefaultValue("UTC");
+                
+            // Configure relationships
+            builder.HasOne(s => s.AutomationPackage)
                 .WithMany()
-                .HasForeignKey(s => s.CreatedById)
-                .OnDelete(DeleteBehavior.NoAction);
-            
-            builder.HasMany(s => s.Executions)
-                .WithOne(e => e.Schedule)
-                .HasForeignKey(e => e.ScheduleId)
-                .OnDelete(DeleteBehavior.SetNull);
+                .HasForeignKey(s => s.AutomationPackageId)
+                .OnDelete(DeleteBehavior.Restrict);
                 
-            // Create indexes for faster lookups
-            builder.HasIndex(s => s.IsActive);
+            builder.HasOne(s => s.BotAgent)
+                .WithMany()
+                .HasForeignKey(s => s.BotAgentId)
+                .OnDelete(DeleteBehavior.Restrict);
+                
+            // Create indexes for better query performance
+            builder.HasIndex(s => s.Name);
+            builder.HasIndex(s => s.IsEnabled);
+            builder.HasIndex(s => s.BotAgentId); // Non-unique index for query performance
+            builder.HasIndex(s => s.AutomationPackageId);
+            builder.HasIndex(s => s.OrganizationUnitId);
+            
+            // Note: Bot agents can have multiple schedules (many-to-one relationship)
+            // No unique constraint on BotAgentId
         }
     }
 } 

@@ -30,8 +30,6 @@ namespace OpenAutomate.Core.Tests.DomainTests
             Assert.Empty(package.Versions);
             Assert.NotNull(package.Executions);
             Assert.Empty(package.Executions);
-            Assert.NotNull(package.Schedules);
-            Assert.Empty(package.Schedules);
 
            
         }
@@ -118,21 +116,7 @@ namespace OpenAutomate.Core.Tests.DomainTests
             Assert.Contains(execution, package.Executions);
             Assert.Single(package.Executions);
         }
-        [Fact]
-        public void AutomationPackage_AddSchedule_ScheduleIsAdded()
-        {
-            // Arrange
-            var package = new AutomationPackage { Schedules = new List<Schedule>() };
-            var schedule = new Schedule { CronExpression = "0 0 * * *" };
 
-            // Act
-            package.Schedules.Add(schedule);
-
-            // Assert
-            Assert.NotNull(package.Schedules);
-            Assert.Contains(schedule, package.Schedules);
-            Assert.Single(package.Schedules);
-        }
 
     }
 }

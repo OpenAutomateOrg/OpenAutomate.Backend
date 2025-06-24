@@ -26,8 +26,6 @@ namespace OpenAutomate.Core.Tests.DomainTests
             Assert.Empty(orgUnit.AutomationPackages);
             Assert.NotNull(orgUnit.Executions);
             Assert.Empty(orgUnit.Executions);
-            Assert.NotNull(orgUnit.Schedules);
-            Assert.Empty(orgUnit.Schedules);
         }
         [Fact]
         public void OrganizationUnit_SetName_NameIsSet()
@@ -102,21 +100,7 @@ namespace OpenAutomate.Core.Tests.DomainTests
             Assert.Contains(execution, orgUnit.Executions);
             Assert.Single(orgUnit.Executions);
         }
-        [Fact]
-        public void OrganizationUnit_AddSchedule_ScheduleIsAdded()
-        {
-            // Arrange
-            var orgUnit = new OrganizationUnit();
-            var schedule = new Schedule { CronExpression = "0 0 * * *" };
 
-            // Act
-            orgUnit.Schedules.Add(schedule);
-
-            // Assert
-            Assert.NotNull(orgUnit.Schedules);
-            Assert.Contains(schedule, orgUnit.Schedules);
-            Assert.Single(orgUnit.Schedules);
-        }
 
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using OpenAutomate.Core.IServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,6 +15,7 @@ namespace OpenAutomate.Infrastructure.Services
     public class TenantContext : ITenantContext
     {
         private Guid? _currentTenantId;
+        private string? _currentTenantSlug;
         private readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
         private readonly ILogger<TenantContext> _logger;
         private readonly IServiceProvider _serviceProvider;
@@ -36,6 +38,25 @@ namespace OpenAutomate.Infrastructure.Services
                         throw new InvalidOperationException("No tenant has been set for the current context.");
                     }
                     return _currentTenantId.Value;
+                }
+                finally
+                {
+                    if (_lock.IsReadLockHeld)
+                    {
+                        _lock.ExitReadLock();
+                    }
+                }
+            }
+        }
+
+        public string? CurrentTenantSlug
+        {
+            get
+            {
+                try
+                {
+                    _lock.EnterReadLock();
+                    return _currentTenantSlug;
                 }
                 finally
                 {
@@ -72,6 +93,27 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 _lock.EnterWriteLock();
                 _currentTenantId = tenantId;
+                // Clear slug if setting tenant by ID only
+                if (_currentTenantSlug == null)
+                    _logger.LogDebug("Tenant set: {TenantId}", tenantId);
+            }
+            finally
+            {
+                if (_lock.IsWriteLockHeld)
+                {
+                    _lock.ExitWriteLock();
+                }
+            }
+        }
+
+        public void SetTenant(Guid tenantId, string? tenantSlug)
+        {
+            try
+            {
+                _lock.EnterWriteLock();
+                _currentTenantId = tenantId;
+                _currentTenantSlug = tenantSlug;
+                _logger.LogDebug("Tenant set: {TenantId}, Slug: {TenantSlug}", tenantId, tenantSlug);
             }
             finally
             {
@@ -88,6 +130,8 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 _lock.EnterWriteLock();
                 _currentTenantId = null;
+                _currentTenantSlug = null;
+                _logger.LogDebug("Tenant cleared");
             }
             finally
             {
@@ -110,26 +154,26 @@ namespace OpenAutomate.Infrastructure.Services
                 
                 _logger.LogInformation("Attempting to resolve tenant from slug: {TenantSlug}", tenantSlug);
                 
-                // Use a scoped service to avoid circular dependency
-                using (var scope = _serviceProvider.CreateScope())
+                // Get the current scoped UnitOfWork to avoid creating a new scope
+                // This ensures we use the same DbContext instance that has the tenant filters
+                var unitOfWork = _serviceProvider.GetRequiredService<IUnitOfWork>();
+                
+                // Temporarily bypass tenant filtering to resolve the tenant
+                var tenants = await unitOfWork.OrganizationUnits
+                    .GetAllIgnoringFiltersAsync(o => o.Slug == tenantSlug && o.IsActive);
+                var tenant = tenants.FirstOrDefault();
+                    
+                if (tenant == null)
                 {
-                    var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-                    
-                    var tenant = await unitOfWork.OrganizationUnits
-                        .GetFirstOrDefaultAsync(o => o.Slug == tenantSlug && o.IsActive);
-                        
-                    if (tenant == null)
-                    {
-                        _logger.LogWarning("Tenant not found for slug: {TenantSlug}", tenantSlug);
-                        return false;
-                    }
-                    
-                    // Set the tenant ID in the tenant context
-                    SetTenant(tenant.Id);
-                    
-                    _logger.LogInformation("Tenant resolved successfully: {TenantId}, {TenantName}", tenant.Id, tenant.Name);
-                    return true;
+                    _logger.LogWarning("Tenant not found for slug: {TenantSlug}", tenantSlug);
+                    return false;
                 }
+                
+                // Set the tenant ID and slug in the tenant context
+                SetTenant(tenant.Id, tenantSlug);
+                
+                _logger.LogInformation("Tenant resolved successfully: {TenantId}, {TenantName}, Slug: {TenantSlug}", tenant.Id, tenant.Name, tenantSlug);
+                return true;
             }
             catch (Exception ex)
             {

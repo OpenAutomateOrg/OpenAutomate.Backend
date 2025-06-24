@@ -2,6 +2,7 @@ using Microsoft.Extensions.Primitives;
 using System.IdentityModel.Tokens.Jwt;
 using OpenAutomate.Core.Domain.IRepository;
 using OpenAutomate.Core.IServices;
+using System.Security.Claims;
 
 namespace OpenAutomate.API.Middleware
 {
@@ -39,8 +40,22 @@ namespace OpenAutomate.API.Middleware
 
                         if (user != null)
                         {
-                            // Store the user in HttpContext.Items for later use
+                            // Store the user in HttpContext.Items for backward compatibility
                             context.Items["User"] = user;
+
+                            // Create ClaimsPrincipal for built-in authorization framework
+                            var claims = new List<Claim>
+                            {
+                                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                                new Claim(ClaimTypes.Email, user.Email),
+                                new Claim(ClaimTypes.Role, user.SystemRole.ToString())
+                            };
+
+                            var identity = new ClaimsIdentity(claims, "jwt");
+                            var principal = new ClaimsPrincipal(identity);
+
+                            // Set the user principal for built-in [Authorize] attribute
+                            context.User = principal;
                         }
                     }
                 }

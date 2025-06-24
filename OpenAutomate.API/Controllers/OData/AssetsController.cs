@@ -39,7 +39,6 @@ namespace OpenAutomate.API.Controllers.OData
         /// <remarks>
         /// Example queries:
         /// GET /tenant/odata/Assets?$filter=Type eq 'String'
-        /// GET /tenant/odata/Assets?$orderby=CreatedAt desc&$top=10
         /// GET /tenant/odata/Assets?$select=Id,Key,Description
         /// </remarks>
         [HttpGet]

@@ -16,40 +16,43 @@ using System.Reflection;
 using System.IO;
 using OpenAutomate.API.Hubs;
 using Microsoft.AspNetCore.OData;
+using Microsoft.AspNetCore.SignalR;
 using Serilog;
+using Microsoft.OpenApi.Models;
+using Quartz;
 
 namespace OpenAutomate.API
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
-            
+
             // Add application configuration
             ConfigureAppSettings(builder);
-            
+
             // Configure logging
             ConfigureLogging(builder);
-            
+
             // Add services to the container
             ConfigureServices(builder);
-            
+
             // Configure authentication system
             ConfigureAuthentication(builder);
-            
+
             // Configure API documentation
             ConfigureSwagger(builder);
-            
+
             var app = builder.Build();
-            
+
             // Configure middleware pipeline
             ConfigureMiddleware(app);
-            
+
             // Apply database migrations
-            ApplyDatabaseMigrations(app);
-            
-            app.Run();
+            await ApplyDatabaseMigrationsAsync(app);
+
+            await app.RunAsync();
         }
         
         private static void ConfigureAppSettings(WebApplicationBuilder builder)
@@ -89,8 +92,8 @@ namespace OpenAutomate.API
                 .GetSection("Database")
                 .Get<DatabaseSettings>();
                 
-            // Register TenantContext as singleton to avoid circular dependencies
-            builder.Services.AddSingleton<ITenantContext, TenantContext>();
+            // Register TenantContext as scoped for proper tenant isolation per request
+            builder.Services.AddScoped<ITenantContext, TenantContext>();
             
             // Add DbContext
             builder.Services.AddDbContext<ApplicationDbContext>((provider, options) =>
@@ -104,8 +107,20 @@ namespace OpenAutomate.API
             // Register application services
             RegisterApplicationServices(builder);
             
+            // Configure Quartz.NET for scheduling
+            ConfigureQuartz(builder);
+            
             // Add controllers with OData support
             builder.Services.AddControllers()
+                .AddJsonOptions(options =>
+                {
+                    // Configure JSON serialization to use camelCase for property names
+                    options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+                    options.JsonSerializerOptions.DictionaryKeyPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+                    
+                    // Configure enums to be serialized as strings instead of integers
+                    options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+                })
                 .AddOData(options => 
                     options.Select()
                            .Filter()
@@ -147,7 +162,12 @@ namespace OpenAutomate.API
             })
             // Add diagnostics to help debug connection issues
             .AddJsonProtocol(options => {
-                options.PayloadSerializerOptions.PropertyNamingPolicy = null;
+                // Configure SignalR JSON protocol to use camelCase for consistency
+                options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+                options.PayloadSerializerOptions.DictionaryKeyPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+                
+                // Configure enums to be serialized as strings for consistency with API
+                options.PayloadSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
             });
         }
         
@@ -181,10 +201,52 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<IAssetService, AssetService>();
             builder.Services.AddScoped<IEmailService, AwsSesEmailService>();
             builder.Services.AddScoped<IAuthorizationManager, AuthorizationManager>();
+
+            builder.Services.AddScoped<IExecutionService, ExecutionService>();
+            builder.Services.AddScoped<IScheduleService, ScheduleService>();
+            builder.Services.AddScoped<IQuartzScheduleManager, QuartzScheduleManager>();
+            builder.Services.AddScoped<IQuartzSchemaService, QuartzSchemaService>();
+            
+            // Register execution trigger service with SignalR support
+            builder.Services.AddScoped<IExecutionTriggerService>(provider =>
+            {
+                var executionService = provider.GetRequiredService<IExecutionService>();
+                var botAgentService = provider.GetRequiredService<IBotAgentService>();
+                var packageService = provider.GetRequiredService<IAutomationPackageService>();
+                var tenantContext = provider.GetRequiredService<ITenantContext>();
+                var logger = provider.GetRequiredService<ILogger<ExecutionTriggerService>>();
+                var hubContext = provider.GetRequiredService<IHubContext<BotAgentHub>>();
+
+                // Create SignalR sender delegate
+                Func<Guid, string, object, Task> signalRSender = async (botAgentId, command, payload) =>
+                {
+                    await hubContext.Clients.Group($"bot-{botAgentId}")
+                        .SendAsync("ReceiveCommand", command, payload);
+                };
+
+                return new ExecutionTriggerService(
+                    executionService,
+                    botAgentService,
+                    packageService,
+                    tenantContext,
+                    logger,
+                    signalRSender);
+            });
+
+            builder.Services.AddScoped<IOrganizationUnitInvitationService, OrganizationUnitInvitationService>();
+            builder.Services.AddScoped<IOrganizationUnitUserService, OrganizationUnitUserService>();
+
             
             // Register email verification services
             builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
             builder.Services.AddScoped<INotificationService, NotificationService>();
+            
+            // Register AWS configuration and S3 package storage services
+            builder.Services.Configure<AwsSettings>(builder.Configuration.GetSection("AWS"));
+            builder.Services.AddScoped<IPackageStorageService, S3PackageStorageService>();
+            builder.Services.AddScoped<ILogStorageService, S3LogStorageService>();
+            builder.Services.AddScoped<IAutomationPackageService, AutomationPackageService>();
+            builder.Services.AddScoped<IPackageMetadataService, PackageMetadataService>();
         }
         
         private static void ConfigureAuthentication(WebApplicationBuilder builder)
@@ -321,6 +383,13 @@ namespace OpenAutomate.API
                         Array.Empty<string>()
                     }
                 });
+
+                // Configure file upload support
+                options.MapType<IFormFile>(() => new Microsoft.OpenApi.Models.OpenApiSchema
+                {
+                    Type = "string",
+                    Format = "binary"
+                });
             });
         }
         
@@ -363,21 +432,79 @@ namespace OpenAutomate.API
             app.MapHub<BotAgentHub>("/{tenant}/hubs/botagent");
         }
         
-        private static void ApplyDatabaseMigrations(WebApplication app)
+        private static async Task ApplyDatabaseMigrationsAsync(WebApplication app)
         {
             using (var scope = app.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 try
                 {
-                    context.Database.Migrate();
+                    await context.Database.MigrateAsync();
                     Console.WriteLine("Database migrations applied successfully.");
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"An error occurred applying migrations: {ex.Message}");
                 }
+
+                // Ensure Quartz.NET schema exists after EF migrations
+                var quartzSchemaService = scope.ServiceProvider.GetRequiredService<IQuartzSchemaService>();
+                try
+                {
+                    var schemaCreated = await quartzSchemaService.EnsureSchemaExistsAsync();
+                    if (schemaCreated)
+                    {
+                        Console.WriteLine("Quartz.NET schema verified/created successfully.");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Warning: Quartz.NET schema creation failed.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"An error occurred ensuring Quartz.NET schema: {ex.Message}");
+                }
             }
+        }
+
+        private static void ConfigureQuartz(WebApplicationBuilder builder)
+        {
+            // Get database connection string
+            var dbSettings = builder.Configuration
+                .GetSection("AppSettings")
+                .GetSection("Database")
+                .Get<DatabaseSettings>();
+
+            // Configure Quartz.NET for scheduling
+            builder.Services.AddQuartz(options =>
+            {
+                options.UseMicrosoftDependencyInjectionJobFactory();
+                options.UseSimpleTypeLoader();
+
+                // Use ADO.NET job store with SQL Server for persistence
+                options.UsePersistentStore(storeOptions =>
+                {
+                    storeOptions.UseProperties = true;
+                    storeOptions.RetryInterval = TimeSpan.FromSeconds(15);
+                    storeOptions.UseSqlServer(dbSettings.DefaultConnection);
+                    storeOptions.UseJsonSerializer();
+                });
+
+                // Configure scheduler
+                options.SchedulerId = "OpenAutomate-Scheduler";
+                options.SchedulerName = "OpenAutomate Scheduler";
+                
+                // Configure misfire handling
+                options.MisfireThreshold = TimeSpan.FromMinutes(1);
+            });
+
+            // Register the Quartz hosted service
+            builder.Services.AddQuartzHostedService(options =>
+            {
+                options.WaitForJobsToComplete = true;
+                options.AwaitApplicationStarted = true;
+            });
         }
     }
 }
