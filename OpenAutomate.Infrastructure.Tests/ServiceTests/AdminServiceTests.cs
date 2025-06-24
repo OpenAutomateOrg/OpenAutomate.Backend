@@ -8,7 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OpenAutomate.Core.Tests.ServiceTests
+namespace OpenAutomate.Infrastructure.Tests.ServiceTests
 {
     public class AdminServiceTests
     {

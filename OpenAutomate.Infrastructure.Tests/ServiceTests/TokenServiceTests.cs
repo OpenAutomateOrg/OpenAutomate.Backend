@@ -6,7 +6,7 @@ using OpenAutomate.Core.Dto.UserDto;
 using System;
 using Microsoft.IdentityModel.Tokens;
 
-namespace OpenAutomate.Core.Tests.ServiceTests
+namespace OpenAutomate.Infrastructure.Tests.ServiceTests
 {
     public class TokenServiceTests
     {
