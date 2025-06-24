@@ -4,7 +4,7 @@ using Xunit;
 using Moq;
 using OpenAutomate.Core.IServices;
 
-namespace OpenAutomate.Core.Tests.ServiceTests
+namespace OpenAutomate.Infrastructure.Tests.ServiceTests
 {
     public class CronExpressionServiceTests
     {

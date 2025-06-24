@@ -5,7 +5,7 @@ using OpenAutomate.Core.Dto.BotAgent;
 using OpenAutomate.Core.IServices;
 using Xunit;
 
-namespace OpenAutomate.Core.Tests.ServiceTests
+namespace OpenAutomate.Infrastructure.Tests.ServiceTests
 {
     public class BotAgentServiceTests
     {

@@ -6,7 +6,7 @@ using System;
 using System.Threading.Tasks;
 using OpenAutomate.Core.Dto.UserDto;
 
-namespace OpenAutomate.Core.Tests.ServiceTests
+namespace OpenAutomate.Infrastructure.Tests.ServiceTests
 {
     public class UserServiceTests
     {
