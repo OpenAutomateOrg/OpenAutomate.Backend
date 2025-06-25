@@ -384,7 +384,14 @@ namespace OpenAutomate.Infrastructure.Services
             if (!schedule.OneTimeExecution.HasValue)
                 return null;
 
-            var executionTime = TimeZoneInfo.ConvertTimeToUtc(schedule.OneTimeExecution.Value, timeZone);
+            var oneTime = schedule.OneTimeExecution.Value;
+            if (oneTime.Kind == DateTimeKind.Local && timeZone != TimeZoneInfo.Local)
+            {
+                oneTime = DateTime.SpecifyKind(oneTime, DateTimeKind.Unspecified);
+            }
+            DateTime executionTime = (oneTime.Kind == DateTimeKind.Utc)
+                ? oneTime
+                : TimeZoneInfo.ConvertTimeToUtc(oneTime, timeZone);
             return executionTime > now ? executionTime : null;
         }
 
