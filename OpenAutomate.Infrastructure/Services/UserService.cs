@@ -13,8 +13,6 @@ using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.Exceptions;
 using OpenAutomate.Core.Dto.OrganizationUnit;
 using OpenAutomate.Core.Dto.Authority;
-using Microsoft.EntityFrameworkCore;
-using OpenAutomate.Infrastructure.DbContext;
 
 namespace OpenAutomate.Infrastructure.Services
 {
@@ -412,16 +410,15 @@ namespace OpenAutomate.Infrastructure.Services
                 var userAuthorities = await _unitOfWork.UserAuthorities.GetAllIgnoringFiltersAsync(
                     ua => ua.UserId == userId);
 
-                // Get all organization units the user belongs to
+                // Get all organization units the user belongs to in a single batch query
                 var organizationUnitIds = userAuthorities.Select(ua => ua.OrganizationUnitId).Distinct().ToList();
-                var organizationUnits = new List<OrganizationUnit>();
-                
-                foreach (var orgUnitId in organizationUnitIds)
-                {
-                    var orgUnit = await _unitOfWork.OrganizationUnits.GetByIdAsync(orgUnitId);
-                    if (orgUnit != null)
-                        organizationUnits.Add(orgUnit);
-                }
+                var organizationUnits = await _unitOfWork.OrganizationUnits.GetAllIgnoringFiltersAsync(
+                    ou => organizationUnitIds.Contains(ou.Id));
+
+                // Get all authority resources for all user authorities in a single batch query
+                var allAuthorityIds = userAuthorities.Select(ua => ua.AuthorityId).Distinct().ToList();
+                var allAuthorityResources = await _unitOfWork.AuthorityResources.GetAllIgnoringFiltersAsync(
+                    ar => allAuthorityIds.Contains(ar.AuthorityId));
 
                 // Build the profile DTO
                 var profile = new UserProfileDto
@@ -449,9 +446,8 @@ namespace OpenAutomate.Infrastructure.Services
                     var userAuthoritiesInOrgUnit = userAuthorities.Where(ua => ua.OrganizationUnitId == orgUnit.Id).ToList();
                     var authorityIds = userAuthoritiesInOrgUnit.Select(ua => ua.AuthorityId).ToList();
 
-                    // Get all authority resources for these authorities
-                    var authorityResources = await _unitOfWork.AuthorityResources.GetAllIgnoringFiltersAsync(
-                        ar => authorityIds.Contains(ar.AuthorityId));
+                    // Filter authority resources for this organization unit from the pre-fetched data
+                    var authorityResources = allAuthorityResources.Where(ar => authorityIds.Contains(ar.AuthorityId));
 
                     // Calculate the highest permission level for each resource
                     var resourcePermissions = new Dictionary<string, int>();
