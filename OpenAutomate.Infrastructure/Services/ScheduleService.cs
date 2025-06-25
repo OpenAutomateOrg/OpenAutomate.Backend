@@ -384,15 +384,17 @@ namespace OpenAutomate.Infrastructure.Services
             if (!schedule.OneTimeExecution.HasValue)
                 return null;
 
-            var oneTime = schedule.OneTimeExecution.Value;
-            if (oneTime.Kind == DateTimeKind.Local && timeZone != TimeZoneInfo.Local)
-            {
-                oneTime = DateTime.SpecifyKind(oneTime, DateTimeKind.Unspecified);
-            }
-            DateTime executionTime = (oneTime.Kind == DateTimeKind.Utc)
-                ? oneTime
-                : TimeZoneInfo.ConvertTimeToUtc(oneTime, timeZone);
-            return executionTime > now ? executionTime : null;
+            // Ensure the stored time is treated as UTC
+            var oneTimeUtc = DateTime.SpecifyKind(schedule.OneTimeExecution.Value, DateTimeKind.Utc);
+
+            // Convert to the schedule's local time zone
+            var localTime = TimeZoneInfo.ConvertTimeFromUtc(oneTimeUtc, timeZone);
+
+            // Only return if the time is in the future (in the schedule's timezone)
+            if (localTime <= TimeZoneInfo.ConvertTimeFromUtc(now, timeZone))
+                return null;
+
+            return localTime;
         }
 
         private static DateTime? CalculateHourlyNextRunTime(ScheduleResponseDto schedule, TimeZoneInfo timeZone, DateTime now)
