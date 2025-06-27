@@ -69,5 +69,12 @@ namespace OpenAutomate.Core.IServices
         /// <param name="newPassword">The new password</param>
         /// <returns>True if password was reset successfully, false otherwise</returns>
         Task<bool> ResetPasswordAsync(string email, string token, string newPassword);
+
+        /// <summary>
+        /// Gets the complete user profile with all permissions across organization units
+        /// </summary>
+        /// <param name="userId">The ID of the user to get profile for</param>
+        /// <returns>Complete user profile with permissions for all organization units</returns>
+        Task<UserProfileDto> GetUserProfileAsync(Guid userId);
     }
 }
