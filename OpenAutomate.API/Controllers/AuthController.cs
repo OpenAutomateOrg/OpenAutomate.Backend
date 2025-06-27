@@ -9,17 +9,19 @@ using System.Diagnostics.CodeAnalysis;
 namespace OpenAutomate.API.Controllers
 {
     /// <summary>
-    /// Controller for handling user authentication and account management
+    /// Controller for handling user authentication and identity operations
     /// </summary>
     /// <remarks>
-    /// Provides endpoints for user registration, login, token refresh, and token revocation.
+    /// Provides endpoints for user registration, login, token refresh, token revocation,
+    /// and password recovery operations. All authentication-related functionality is 
+    /// consolidated in this controller.
     /// </remarks>
-    [Route("api/authen")]
+    [Route("api/auth")]
     [ApiController]
-    public class AuthenController : ControllerBase
+    public class AuthController : ControllerBase
     {
-        private readonly IUserService _userService;
-        private readonly ILogger<AuthenController> _logger;
+        private readonly IAuthService _authService;
+        private readonly ILogger<AuthController> _logger;
         private readonly ITenantContext _tenantContext;
 
         // Define static log message templates for consistent logging
@@ -55,17 +57,17 @@ namespace OpenAutomate.API.Controllers
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="AuthenController"/> class
+        /// Initializes a new instance of the <see cref="AuthController"/> class
         /// </summary>
-        /// <param name="userService">The user service for authentication operations</param>
+        /// <param name="authService">The auth service for authentication operations</param>
         /// <param name="logger">The logger for recording authentication events</param>
         /// <param name="tenantContext">The tenant context for current tenant information</param>
-        public AuthenController(
-            IUserService userService, 
-            ILogger<AuthenController> logger,
+        public AuthController(
+            IAuthService authService, 
+            ILogger<AuthController> logger,
             ITenantContext tenantContext)
         {
-            _userService = userService ?? throw new ArgumentNullException(nameof(userService));
+            _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _tenantContext = tenantContext ?? throw new ArgumentNullException(nameof(tenantContext));
         }
@@ -93,10 +95,10 @@ namespace OpenAutomate.API.Controllers
                 }
 
                 var ipAddress = GetIpAddress();
-                var response = await _userService.RegisterAsync(request, ipAddress);
+                var response = await _authService.RegisterAsync(request, ipAddress);
 
                 // Send email verification
-                await _userService.SendVerificationEmailAsync(response.Id);
+                await _authService.SendVerificationEmailAsync(response.Id);
                 
                 _logger.LogInformation(LogMessages.UserRegistered, request.Email);
                 return Ok(new { 
@@ -167,7 +169,7 @@ namespace OpenAutomate.API.Controllers
                     throw new InvalidOperationException("Unable to establish tenant context for authentication", ex);
                 }
                 
-                var response = await _userService.AuthenticateAsync(request, ipAddress);
+                var response = await _authService.AuthenticateAsync(request, ipAddress);
                 
                 try
                 {
@@ -241,7 +243,7 @@ namespace OpenAutomate.API.Controllers
                 _logger.LogInformation(LogMessages.TokenRefreshProcessing, tokenPreview, ipAddress);
                 
                 // Attempt to refresh the token
-                var response = await _userService.RefreshTokenAsync(refreshToken, ipAddress);
+                var response = await _authService.RefreshTokenAsync(refreshToken, ipAddress);
                 
                 _logger.LogInformation(LogMessages.TokenRefreshSuccess, response.Id, response.Email);
                 
@@ -309,7 +311,7 @@ namespace OpenAutomate.API.Controllers
                 EnsureDefaultTenant();
 
                 var ipAddress = GetIpAddress();
-                var success = await _userService.RevokeTokenAsync(
+                var success = await _authService.RevokeTokenAsync(
                     token, 
                     ipAddress, 
                     request?.Reason ?? string.Empty);
@@ -357,7 +359,7 @@ namespace OpenAutomate.API.Controllers
                 EnsureDefaultTenant();
 
                 // Convert the user entity to a DTO directly without making another DB call
-                var userResponse = _userService.MapToResponse(user);
+                var userResponse = _authService.MapToResponse(user);
 
                 _logger.LogInformation(LogMessages.UserInfoRetrieved, user.Id);
                 return Ok(userResponse);
@@ -394,7 +396,7 @@ namespace OpenAutomate.API.Controllers
                 // Set default tenant if not already set
                 EnsureDefaultTenant();
                 
-                var result = await _userService.ForgotPasswordAsync(request.Email);
+                var result = await _authService.ForgotPasswordAsync(request.Email);
                 
                 // Always return success to prevent email enumeration attacks
                 // This way, attackers can't determine if an email exists in the system
@@ -438,7 +440,7 @@ namespace OpenAutomate.API.Controllers
                 // Set default tenant if not already set
                 EnsureDefaultTenant();
                 
-                var result = await _userService.ResetPasswordAsync(request.Email, request.Token, request.NewPassword);
+                var result = await _authService.ResetPasswordAsync(request.Email, request.Token, request.NewPassword);
                 
                 if (!result)
                 {

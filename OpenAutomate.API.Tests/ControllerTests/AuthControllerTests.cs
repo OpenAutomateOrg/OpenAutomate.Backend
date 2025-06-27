@@ -14,19 +14,19 @@ using Xunit;
 
 namespace OpenAutomate.API.Tests.ControllerTests
 {
-    public class AuthenControllerTests
+    public class AuthControllerTests
     {
-        private readonly Mock<IUserService> _mockUserService;
-        private readonly Mock<ILogger<AuthenController>> _mockLogger;
+        private readonly Mock<IAuthService> _mockAuthService;
+        private readonly Mock<ILogger<AuthController>> _mockLogger;
         private readonly Mock<ITenantContext> _mockTenantContext;
-        private readonly AuthenController _controller;
+        private readonly AuthController _controller;
         private readonly Dictionary<string, string> _cookies;
         private readonly Mock<IRequestCookieCollection> _mockCookieCollection;
 
-        public AuthenControllerTests()
+        public AuthControllerTests()
         {
-            _mockUserService = new Mock<IUserService>();
-            _mockLogger = new Mock<ILogger<AuthenController>>();
+            _mockAuthService = new Mock<IAuthService>();
+            _mockLogger = new Mock<ILogger<AuthController>>();
             _mockTenantContext = new Mock<ITenantContext>();
             _cookies = new Dictionary<string, string>();
 
@@ -50,8 +50,8 @@ namespace OpenAutomate.API.Tests.ControllerTests
             mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(mockHttpContext);
             mockHttpContext.Request.Cookies = _mockCookieCollection.Object;
 
-            _controller = new AuthenController(
-                _mockUserService.Object,
+            _controller = new AuthController(
+                _mockAuthService.Object,
                 _mockLogger.Object,
                 _mockTenantContext.Object)
             {
@@ -80,7 +80,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
                 RefreshTokenExpiration = DateTime.UtcNow.AddDays(7)
             };
 
-            _mockUserService
+            _mockAuthService
                 .Setup(s => s.AuthenticateAsync(It.IsAny<AuthenticationRequest>(), It.IsAny<string>()))
                 .ReturnsAsync(expectedResponse);
 
@@ -144,7 +144,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
                 Password = "WrongPassword"
             };
 
-            _mockUserService
+            _mockAuthService
                 .Setup(s => s.AuthenticateAsync(It.IsAny<AuthenticationRequest>(), It.IsAny<string>()))
                 .ThrowsAsync(new AuthenticationException("Invalid email or password"));
 
@@ -167,7 +167,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
                 Password = "Password123!"
             };
 
-            _mockUserService
+            _mockAuthService
                 .Setup(s => s.AuthenticateAsync(It.IsAny<AuthenticationRequest>(), It.IsAny<string>()))
                 .ThrowsAsync(new EmailVerificationRequiredException("Email not verified"));
 
@@ -190,7 +190,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
                 Password = "Password123!"
             };
 
-            _mockUserService
+            _mockAuthService
                 .Setup(s => s.AuthenticateAsync(It.IsAny<AuthenticationRequest>(), It.IsAny<string>()))
                 .ThrowsAsync(new Exception("Unexpected error"));
 
@@ -225,7 +225,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
             // Set up the mock cookie
             _cookies["refreshToken"] = refreshToken;
 
-            _mockUserService
+            _mockAuthService
                 .Setup(s => s.RefreshTokenAsync(refreshToken, It.IsAny<string>()))
                 .ReturnsAsync(expectedResponse);
 
@@ -264,7 +264,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
             var refreshToken = "invalid.refresh.token";
             _cookies["refreshToken"] = refreshToken;
 
-            _mockUserService
+            _mockAuthService
                 .Setup(s => s.RefreshTokenAsync(refreshToken, It.IsAny<string>()))
                 .ThrowsAsync(new SecurityTokenException("Invalid token"));
 
@@ -286,7 +286,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
             var refreshToken = "valid.refresh.token";
             _cookies["refreshToken"] = refreshToken;
 
-            _mockUserService
+            _mockAuthService
                 .Setup(s => s.RefreshTokenAsync(refreshToken, It.IsAny<string>()))
                 .ThrowsAsync(new Exception("Unexpected error"));
 
@@ -314,7 +314,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
                 Reason = "User logout"
             };
 
-            _mockUserService
+            _mockAuthService
                 .Setup(s => s.RevokeTokenAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync(true);
 
@@ -340,7 +340,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
             // Set up cookie
             _cookies["refreshToken"] = cookieToken;
 
-            _mockUserService
+            _mockAuthService
                 .Setup(s => s.RevokeTokenAsync(cookieToken, It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync(true);
 
@@ -353,7 +353,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
             Assert.Contains("Token revoked", okResult.Value.ToString());
             
             // Verify service was called with the cookie token
-            _mockUserService.Verify(s => s.RevokeTokenAsync(cookieToken, It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+            _mockAuthService.Verify(s => s.RevokeTokenAsync(cookieToken, It.IsAny<string>(), It.IsAny<string>()), Times.Once);
         }
 
         [Fact]
@@ -382,7 +382,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
                 Reason = "User logout"
             };
 
-            _mockUserService
+            _mockAuthService
                 .Setup(s => s.RevokeTokenAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync(false);
 
@@ -405,7 +405,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
                 Reason = "User logout"
             };
 
-            _mockUserService
+            _mockAuthService
                 .Setup(s => s.RevokeTokenAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
                 .ThrowsAsync(new Exception("Unexpected error"));
 
