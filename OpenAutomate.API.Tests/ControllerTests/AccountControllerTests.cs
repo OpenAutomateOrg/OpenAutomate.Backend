@@ -14,7 +14,7 @@ using System.Collections.Generic;
 
 namespace OpenAutomate.API.Tests.ControllerTests
 {
-    public class UserControllerTests
+    public class AccountControllerTests
     {
         [Fact]
         public async Task UpdateUserInfo_WithValidRequest_ReturnsOkWithUserResponse()
@@ -22,7 +22,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
             // Arrange
             var userId = Guid.NewGuid();
             var mockAccountService = new Mock<IAccountService>();
-            var mockLogger = new Mock<ILogger<UserController>>();
+            var mockLogger = new Mock<ILogger<AccountController>>();
             var request = new UpdateUserInfoRequest { FirstName = "John", LastName = "Doe" };
             var expectedResponse = new UserResponse
             {
@@ -35,7 +35,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
             mockAccountService.Setup(s => s.UpdateUserInfoAsync(userId, request))
                 .ReturnsAsync(expectedResponse);
 
-            var controller = new UserController(mockAccountService.Object, mockLogger.Object);
+            var controller = new AccountController(mockAccountService.Object, mockLogger.Object);
 
             // Mock HttpContext and set current user
             var httpContext = new DefaultHttpContext();
@@ -43,7 +43,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
             controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
 
             // Act
-            var result = await controller.UpdateUserInfo(request);
+            var result = await controller.UpdateInfo(request);
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
@@ -61,11 +61,11 @@ namespace OpenAutomate.API.Tests.ControllerTests
             // Arrange
             var userId = Guid.NewGuid();
             var mockAccountService = new Mock<IAccountService>();
-            var mockLogger = new Mock<ILogger<UserController>>();
+            var mockLogger = new Mock<ILogger<AccountController>>();
             var request = new ChangePasswordRequest { CurrentPassword = "oldpass", NewPassword = "newpass" };
             mockAccountService.Setup(s => s.ChangePasswordAsync(userId, request)).ReturnsAsync(true);
 
-            var controller = new UserController(mockAccountService.Object, mockLogger.Object);
+            var controller = new AccountController(mockAccountService.Object, mockLogger.Object);
             var httpContext = new DefaultHttpContext();
             httpContext.Items["User"] = new User { Id = userId };
             controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
@@ -86,13 +86,13 @@ namespace OpenAutomate.API.Tests.ControllerTests
         {
             // Arrange
             var mockAccountService = new Mock<IAccountService>();
-            var mockLogger = new Mock<ILogger<UserController>>();
-            var controller = new UserController(mockAccountService.Object, mockLogger.Object);
+            var mockLogger = new Mock<ILogger<AccountController>>();
+            var controller = new AccountController(mockAccountService.Object, mockLogger.Object);
             controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
             var request = new UpdateUserInfoRequest { FirstName = "John", LastName = "Doe" };
 
             // Act
-            var result = await controller.UpdateUserInfo(request);
+            var result = await controller.UpdateInfo(request);
 
             // Assert
             var unauthorizedResult = Assert.IsType<UnauthorizedObjectResult>(result);
@@ -105,16 +105,16 @@ namespace OpenAutomate.API.Tests.ControllerTests
             // Arrange
             var userId = Guid.NewGuid();
             var mockAccountService = new Mock<IAccountService>();
-            var mockLogger = new Mock<ILogger<UserController>>();
+            var mockLogger = new Mock<ILogger<AccountController>>();
             var request = new UpdateUserInfoRequest { FirstName = "John", LastName = "Doe" };
             mockAccountService.Setup(s => s.UpdateUserInfoAsync(userId, request)).ThrowsAsync(new Exception("Unexpected error"));
-            var controller = new UserController(mockAccountService.Object, mockLogger.Object);
+            var controller = new AccountController(mockAccountService.Object, mockLogger.Object);
             var httpContext = new DefaultHttpContext();
             httpContext.Items["User"] = new User { Id = userId };
             controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
 
             // Act
-            var result = await controller.UpdateUserInfo(request);
+            var result = await controller.UpdateInfo(request);
 
             // Assert
             var objectResult = Assert.IsType<ObjectResult>(result);
@@ -127,10 +127,10 @@ namespace OpenAutomate.API.Tests.ControllerTests
             // Arrange
             var userId = Guid.NewGuid();
             var mockAccountService = new Mock<IAccountService>();
-            var mockLogger = new Mock<ILogger<UserController>>();
+            var mockLogger = new Mock<ILogger<AccountController>>();
             var request = new ChangePasswordRequest { CurrentPassword = "oldpass", NewPassword = "newpass" };
             mockAccountService.Setup(s => s.ChangePasswordAsync(userId, request)).ReturnsAsync(false);
-            var controller = new UserController(mockAccountService.Object, mockLogger.Object);
+            var controller = new AccountController(mockAccountService.Object, mockLogger.Object);
             var httpContext = new DefaultHttpContext();
             httpContext.Items["User"] = new User { Id = userId };
             controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
@@ -148,8 +148,8 @@ namespace OpenAutomate.API.Tests.ControllerTests
         {
             // Arrange
             var mockAccountService = new Mock<IAccountService>();
-            var mockLogger = new Mock<ILogger<UserController>>();
-            var controller = new UserController(mockAccountService.Object, mockLogger.Object);
+            var mockLogger = new Mock<ILogger<AccountController>>();
+            var controller = new AccountController(mockAccountService.Object, mockLogger.Object);
             controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
             var request = new ChangePasswordRequest { CurrentPassword = "oldpass", NewPassword = "newpass" };
 
@@ -167,10 +167,10 @@ namespace OpenAutomate.API.Tests.ControllerTests
             // Arrange
             var userId = Guid.NewGuid();
             var mockAccountService = new Mock<IAccountService>();
-            var mockLogger = new Mock<ILogger<UserController>>();
+            var mockLogger = new Mock<ILogger<AccountController>>();
             var request = new ChangePasswordRequest { CurrentPassword = "oldpass", NewPassword = "newpass" };
             mockAccountService.Setup(s => s.ChangePasswordAsync(userId, request)).ThrowsAsync(new ServiceException("Service error"));
-            var controller = new UserController(mockAccountService.Object, mockLogger.Object);
+            var controller = new AccountController(mockAccountService.Object, mockLogger.Object);
             var httpContext = new DefaultHttpContext();
             httpContext.Items["User"] = new User { Id = userId };
             controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
@@ -193,10 +193,10 @@ namespace OpenAutomate.API.Tests.ControllerTests
             // Arrange
             var userId = Guid.NewGuid();
             var mockAccountService = new Mock<IAccountService>();
-            var mockLogger = new Mock<ILogger<UserController>>();
+            var mockLogger = new Mock<ILogger<AccountController>>();
             var request = new ChangePasswordRequest { CurrentPassword = "oldpass", NewPassword = "newpass" };
             mockAccountService.Setup(s => s.ChangePasswordAsync(userId, request)).ThrowsAsync(new Exception("Unexpected error"));
-            var controller = new UserController(mockAccountService.Object, mockLogger.Object);
+            var controller = new AccountController(mockAccountService.Object, mockLogger.Object);
             var httpContext = new DefaultHttpContext();
             httpContext.Items["User"] = new User { Id = userId };
             controller.ControllerContext = new ControllerContext { HttpContext = httpContext };

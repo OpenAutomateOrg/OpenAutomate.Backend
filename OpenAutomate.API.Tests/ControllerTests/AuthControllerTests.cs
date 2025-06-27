@@ -14,19 +14,19 @@ using Xunit;
 
 namespace OpenAutomate.API.Tests.ControllerTests
 {
-    public class AuthenControllerTests
+    public class AuthControllerTests
     {
         private readonly Mock<IAuthService> _mockAuthService;
-        private readonly Mock<ILogger<AuthenController>> _mockLogger;
+        private readonly Mock<ILogger<AuthController>> _mockLogger;
         private readonly Mock<ITenantContext> _mockTenantContext;
-        private readonly AuthenController _controller;
+        private readonly AuthController _controller;
         private readonly Dictionary<string, string> _cookies;
         private readonly Mock<IRequestCookieCollection> _mockCookieCollection;
 
-        public AuthenControllerTests()
+        public AuthControllerTests()
         {
             _mockAuthService = new Mock<IAuthService>();
-            _mockLogger = new Mock<ILogger<AuthenController>>();
+            _mockLogger = new Mock<ILogger<AuthController>>();
             _mockTenantContext = new Mock<ITenantContext>();
             _cookies = new Dictionary<string, string>();
 
@@ -50,7 +50,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
             mockHttpContextAccessor.Setup(x => x.HttpContext).Returns(mockHttpContext);
             mockHttpContext.Request.Cookies = _mockCookieCollection.Object;
 
-            _controller = new AuthenController(
+            _controller = new AuthController(
                 _mockAuthService.Object,
                 _mockLogger.Object,
                 _mockTenantContext.Object)
