@@ -10,11 +10,11 @@ using Xunit;
 
 namespace OpenAutomate.Core.Tests.IserviceTest
 {
-    public class AssetServiceTests
+    public class IAssetServiceTests
     {
         private readonly Mock<IAssetService> _mockAssetService;
 
-        public AssetServiceTests()
+        public IAssetServiceTests()
         {
             _mockAssetService = new Mock<IAssetService>();
         }
