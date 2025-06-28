@@ -542,6 +542,76 @@ namespace OpenAutomate.Infrastructure.Services
             }
         }
 
+        private static RecurrenceDto ParseRecurrence(
+            RecurrenceType type,
+            string? cron,
+            DateTime? oneTimeExecution
+        )
+        {
+            var dto = new RecurrenceDto { Type = type.ToString() };
+            var parts = cron?.Split(' ') ?? Array.Empty<string>();
+            switch (type)
+            {
+                case RecurrenceType.Once:
+                    if (oneTimeExecution.HasValue)
+                    {
+                        dto.StartTime = oneTimeExecution.Value.ToString("HH:mm");
+                    }
+                    break;
+                case RecurrenceType.Daily:
+                    if (parts.Length >= 6)
+                    {
+                        dto.DailyHour = parts[2];
+                        dto.DailyMinute = parts[1];
+                    }
+                    break;
+                case RecurrenceType.Weekly:
+                    if (parts.Length >= 6)
+                    {
+                        dto.WeeklyHour = parts[2];
+                        dto.WeeklyMinute = parts[1];
+                        dto.SelectedDays = parts[5].Split(',').Select(MapDayOfWeek).ToList();
+                    }
+                    break;
+                case RecurrenceType.Monthly:
+                    if (parts.Length >= 6)
+                    {
+                        dto.MonthlyHour = parts[2];
+                        dto.MonthlyMinute = parts[1];
+                        dto.SelectedDay = parts[3];
+                    }
+                    break;
+                case RecurrenceType.Hourly:
+                    if (parts.Length >= 6)
+                    {
+                        dto.Value = parts[2];
+                    }
+                    break;
+                case RecurrenceType.Minutes:
+                    if (parts.Length >= 6)
+                    {
+                        dto.Value = parts[1];
+                    }
+                    break;
+            }
+            return dto;
+        }
+
+        private static string MapDayOfWeek(string num)
+        {
+            return num switch
+            {
+                "0" => "Sunday",
+                "1" => "Monday",
+                "2" => "Tuesday",
+                "3" => "Wednesday",
+                "4" => "Thursday",
+                "5" => "Friday",
+                "6" => "Saturday",
+                _ => num
+            };
+        }
+
         private async Task<ScheduleResponseDto> MapToResponseDto(Schedule schedule)
         {
             // Ensure navigation properties are loaded
@@ -570,7 +640,8 @@ namespace OpenAutomate.Infrastructure.Services
                 BotAgentName = schedule.BotAgent?.Name,
                 OrganizationUnitId = schedule.OrganizationUnitId,
                 CreatedAt = schedule.CreatedAt ?? DateTime.UtcNow,
-                UpdatedAt = schedule.LastModifyAt ?? DateTime.UtcNow
+                UpdatedAt = schedule.LastModifyAt ?? DateTime.UtcNow,
+                Recurrence = ParseRecurrence(schedule.RecurrenceType, schedule.CronExpression, schedule.OneTimeExecution)
             };
 
             // Calculate next run time

@@ -87,5 +87,32 @@ namespace OpenAutomate.Core.Dto.Schedule
         /// Date and time when the schedule was last updated
         /// </summary>
         public DateTime UpdatedAt { get; set; }
+
+        /// <summary>
+        /// Recurrence object for FE to fill edit form
+        /// </summary>
+        public RecurrenceDto? Recurrence { get; set; }
+    }
+
+    /// <summary>
+    /// Recurrence details for schedule
+    /// </summary>
+    public class RecurrenceDto
+    {
+        public string Type { get; set; } = string.Empty;
+        public string? Value { get; set; }
+        public string? StartTime { get; set; }
+        public string? DailyHour { get; set; }
+        public string? DailyMinute { get; set; }
+        public string? WeeklyHour { get; set; }
+        public string? WeeklyMinute { get; set; }
+        public List<string>? SelectedDays { get; set; }
+        public string? MonthlyHour { get; set; }
+        public string? MonthlyMinute { get; set; }
+        public string? MonthlyOnType { get; set; }
+        public string? SelectedDay { get; set; }
+        public string? SelectedOrdinal { get; set; }
+        public string? SelectedWeekday { get; set; }
+        public List<string>? SelectedMonths { get; set; }
     }
 } 
