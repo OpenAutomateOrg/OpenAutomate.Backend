@@ -36,7 +36,7 @@ jobs:
         source: "publish/**,docker-compose.redis.prod.yml,redis.conf"
         target: "/var/www/openautomate/backend"
 
-    - name: Setup and restart services
+    - name: Setup Docker and Redis services
       uses: appleboy/ssh-action@v0.1.6
       with:
         host: ${{ secrets.SSH_HOST }}
@@ -44,6 +44,31 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         script: |
           cd /var/www/openautomate/backend
+
+          # Install Docker if not already installed
+          if ! command -v docker &> /dev/null; then
+            echo "Installing Docker..."
+            curl -fsSL https://get.docker.com -o get-docker.sh
+            sudo sh get-docker.sh
+            sudo usermod -aG docker $USER
+            echo "Docker installed successfully"
+          else
+            echo "Docker is already installed"
+          fi
+
+          # Install Docker Compose if not already installed
+          if ! command -v docker-compose &> /dev/null; then
+            echo "Installing Docker Compose..."
+            sudo apt-get update
+            sudo apt-get install -y docker-compose-plugin
+            echo "Docker Compose installed successfully"
+          else
+            echo "Docker Compose is already installed"
+          fi
+
+          # Ensure Docker service is running
+          sudo systemctl enable docker
+          sudo systemctl start docker
 
           # Setup Redis if not already running
           if ! docker ps | grep -q openautomae-redis-prod; then
@@ -58,4 +83,4 @@ jobs:
           timeout 30 bash -c 'until docker exec openautomae-redis-prod redis-cli ping | grep -q PONG; do sleep 1; done'
 
           # Restart backend service
-          systemctl restart openautomate-backend
+          sudo systemctl restart openautomate-backend

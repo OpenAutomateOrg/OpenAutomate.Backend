@@ -7,19 +7,35 @@ set -e  # Exit on any error
 
 echo "🚀 Setting up Redis for OpenAutomate Backend..."
 
-# Check if Docker is installed
+# Install Docker if not already installed
 if ! command -v docker &> /dev/null; then
-    echo "❌ Docker is not installed. Please install Docker first."
-    echo "Run: curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh"
-    exit 1
+    echo "🐳 Installing Docker..."
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sudo sh get-docker.sh
+    sudo usermod -aG docker $USER
+    echo "✅ Docker installed successfully"
+    echo "⚠️  You may need to log out and log back in for Docker group permissions to take effect"
+else
+    echo "✅ Docker is already installed"
 fi
 
-# Check if Docker Compose is installed
+# Install Docker Compose if not already installed
 if ! command -v docker-compose &> /dev/null; then
-    echo "❌ Docker Compose is not installed. Please install Docker Compose first."
-    echo "Run: sudo apt-get update && sudo apt-get install docker-compose-plugin"
-    exit 1
+    echo "🔧 Installing Docker Compose..."
+    sudo apt-get update
+    sudo apt-get install -y docker-compose-plugin
+    echo "✅ Docker Compose installed successfully"
+else
+    echo "✅ Docker Compose is already installed"
 fi
+
+# Ensure Docker service is running
+echo "🔄 Ensuring Docker service is running..."
+sudo systemctl enable docker
+sudo systemctl start docker
+
+# Wait a moment for Docker to be ready
+sleep 2
 
 # Create directory structure
 BACKEND_DIR="/var/www/openautomate/backend"
