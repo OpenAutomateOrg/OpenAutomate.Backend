@@ -73,13 +73,13 @@ namespace OpenAutomate.API.Controllers
         {
             try
             {
-                // Validate bot agent exists and is available
+                // Validate bot agent exists and is not disconnected
                 var botAgent = await _botAgentService.GetBotAgentByIdAsync(dto.BotAgentId);
                 if (botAgent == null)
                     return NotFound("Bot agent not found");
 
-                if (botAgent.Status != "Available")
-                    return BadRequest($"Bot agent is not available (Status: {botAgent.Status})");
+                if (botAgent.Status == "Disconnected")
+                    return BadRequest($"Bot agent is disconnected (Status: {botAgent.Status})");
 
                 // Validate package exists
                 var package = await _packageService.GetPackageByIdAsync(dto.PackageId);

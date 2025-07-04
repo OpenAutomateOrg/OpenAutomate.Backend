@@ -39,13 +39,13 @@ namespace OpenAutomate.Infrastructure.Services
 
         public async Task<ExecutionResponseDto> TriggerExecutionAsync(TriggerExecutionDto dto)
         {
-            // Validate bot agent exists and is available
+            // Validate bot agent exists and is not disconnected
             var botAgent = await _botAgentService.GetBotAgentByIdAsync(dto.BotAgentId);
             if (botAgent == null)
                 throw new ArgumentException("Bot agent not found");
 
-            if (botAgent.Status != "Available")
-                throw new InvalidOperationException($"Bot agent is not available (Status: {botAgent.Status})");
+            if (botAgent.Status == "Disconnected")
+                throw new InvalidOperationException($"Bot agent is disconnected (Status: {botAgent.Status})");
 
             // Validate package exists
             var package = await _packageService.GetPackageByIdAsync(dto.PackageId);

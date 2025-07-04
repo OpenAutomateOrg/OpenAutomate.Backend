@@ -33,14 +33,29 @@ jobs:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_KEY }}
-        source: "publish/**"
+        source: "publish/**,docker-compose.redis.prod.yml,redis.conf"
         target: "/var/www/openautomate/backend"
 
-    - name: Restart backend service
+    - name: Setup and restart services
       uses: appleboy/ssh-action@v0.1.6
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_KEY }}
         script: |
+          cd /var/www/openautomate/backend
+
+          # Setup Redis if not already running
+          if ! docker ps | grep -q openautomae-redis-prod; then
+            echo "Setting up Redis..."
+            docker-compose -f docker-compose.redis.prod.yml up -d
+          else
+            echo "Redis already running"
+          fi
+
+          # Wait for Redis to be ready
+          echo "Waiting for Redis to be ready..."
+          timeout 30 bash -c 'until docker exec openautomae-redis-prod redis-cli ping | grep -q PONG; do sleep 1; done'
+
+          # Restart backend service
           systemctl restart openautomate-backend
