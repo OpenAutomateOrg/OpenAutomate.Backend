@@ -20,6 +20,7 @@ using Microsoft.AspNetCore.SignalR;
 using Serilog;
 using Microsoft.OpenApi.Models;
 using Quartz;
+using StackExchange.Redis;
 
 namespace OpenAutomate.API
 {
@@ -68,6 +69,7 @@ namespace OpenAutomate.API
             builder.Services.Configure<JwtSettings>(appSettingsSection.GetSection("Jwt"));
             builder.Services.Configure<DatabaseSettings>(appSettingsSection.GetSection("Database"));
             builder.Services.Configure<CorsSettings>(appSettingsSection.GetSection("Cors"));
+            builder.Services.Configure<RedisSettings>(appSettingsSection.GetSection("Redis"));
             builder.Services.Configure<EmailSettings>(appSettingsSection.GetSection("EmailSettings"));
         }
         
@@ -100,6 +102,9 @@ namespace OpenAutomate.API
             {
                 options.UseSqlServer(dbSettings.DefaultConnection);
             });
+            
+            // Configure Redis
+            ConfigureRedis(builder);
             
             // Configure CORS
             ConfigureCors(builder);
@@ -134,41 +139,8 @@ namespace OpenAutomate.API
             
             builder.Services.AddEndpointsApiExplorer();
 
-            // Add SignalR services with optimized connection settings
-            builder.Services.AddSignalR(options => 
-            {
-                // Enable detailed errors only in development
-                options.EnableDetailedErrors = builder.Environment.IsDevelopment();
-                
-                // Increase keepalive interval to reduce network traffic
-                // This matches the client-side timing in BotAgentSignalRClient
-                options.KeepAliveInterval = TimeSpan.FromMinutes(2);
-                
-                // Set client timeout to be longer than the keepalive interval
-                // to prevent premature disconnections
-                options.ClientTimeoutInterval = TimeSpan.FromMinutes(5);
-                
-                // Set maximum message size (default is 32KB)
-                options.MaximumReceiveMessageSize = 64 * 1024; // 64KB
-                
-                // Reduce streaming buffer capacity for more efficient memory usage
-                options.StreamBufferCapacity = 8;
-
-                // Add enhanced logging for connections
-                if (builder.Environment.IsDevelopment())
-                {
-                    options.HandshakeTimeout = TimeSpan.FromSeconds(30);
-                }
-            })
-            // Add diagnostics to help debug connection issues
-            .AddJsonProtocol(options => {
-                // Configure SignalR JSON protocol to use camelCase for consistency
-                options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
-                options.PayloadSerializerOptions.DictionaryKeyPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
-                
-                // Configure enums to be serialized as strings for consistency with API
-                options.PayloadSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
-            });
+            // Configure SignalR with Redis backplane
+            ConfigureSignalR(builder);
         }
         
         private static void ConfigureCors(WebApplicationBuilder builder)
@@ -195,6 +167,8 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
             builder.Services.AddScoped<ITokenService, TokenService>();
             builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IAuthService, AuthService>();
+            builder.Services.AddScoped<IAccountService, AccountService>();
             builder.Services.AddScoped<IAdminService, AdminService>();
             builder.Services.AddScoped<IOrganizationUnitService, OrganizationUnitService>();
             builder.Services.AddScoped<IBotAgentService, BotAgentService>();
@@ -504,6 +478,81 @@ namespace OpenAutomate.API
             {
                 options.WaitForJobsToComplete = true;
                 options.AwaitApplicationStarted = true;
+            });
+        }
+
+        private static void ConfigureRedis(WebApplicationBuilder builder)
+        {
+            // Get Redis settings
+            var redisSettings = builder.Configuration
+                .GetSection("AppSettings")
+                .GetSection("Redis")
+                .Get<RedisSettings>();
+
+            // Add Redis distributed cache
+            builder.Services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = redisSettings.ConnectionString;
+                options.InstanceName = redisSettings.InstanceName;
+            });
+
+            // Add Redis connection multiplexer as singleton for SignalR backplane
+            builder.Services.AddSingleton<IConnectionMultiplexer>(provider =>
+            {
+                var configuration = ConfigurationOptions.Parse(redisSettings.ConnectionString);
+                configuration.AbortOnConnectFail = redisSettings.AbortOnConnectFail;
+                
+                return ConnectionMultiplexer.Connect(configuration);
+            });
+        }
+
+        private static void ConfigureSignalR(WebApplicationBuilder builder)
+        {
+            // Get Redis settings for SignalR backplane
+            var redisSettings = builder.Configuration
+                .GetSection("AppSettings")
+                .GetSection("Redis")
+                .Get<RedisSettings>();
+
+            // Add SignalR services with optimized connection settings and Redis backplane
+            builder.Services.AddSignalR(options => 
+            {
+                // Enable detailed errors only in development
+                options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+                
+                // Increase keepalive interval to reduce network traffic
+                // This matches the client-side timing in BotAgentSignalRClient
+                options.KeepAliveInterval = TimeSpan.FromMinutes(2);
+                
+                // Set client timeout to be longer than the keepalive interval
+                // to prevent premature disconnections
+                options.ClientTimeoutInterval = TimeSpan.FromMinutes(5);
+                
+                // Set maximum message size (default is 32KB)
+                options.MaximumReceiveMessageSize = 64 * 1024; // 64KB
+                
+                // Reduce streaming buffer capacity for more efficient memory usage
+                options.StreamBufferCapacity = 8;
+
+                // Add enhanced logging for connections
+                if (builder.Environment.IsDevelopment())
+                {
+                    options.HandshakeTimeout = TimeSpan.FromSeconds(30);
+                }
+            })
+            // Add Redis backplane for scaling across multiple server instances
+            .AddStackExchangeRedis(redisSettings.ConnectionString, options =>
+            {
+                options.Configuration.ChannelPrefix = "OpenAutomate";
+            })
+            // Add diagnostics to help debug connection issues
+            .AddJsonProtocol(options => {
+                // Configure SignalR JSON protocol to use camelCase for consistency
+                options.PayloadSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+                options.PayloadSerializerOptions.DictionaryKeyPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+                
+                // Configure enums to be serialized as strings for consistency with API
+                options.PayloadSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
             });
         }
     }

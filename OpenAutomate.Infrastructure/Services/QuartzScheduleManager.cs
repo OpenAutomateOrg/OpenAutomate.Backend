@@ -196,15 +196,25 @@ namespace OpenAutomate.Infrastructure.Services
                 return null;
             }
 
-            var startTime = TimeZoneInfo.ConvertTimeToUtc(schedule.OneTimeExecution.Value, timeZone);
-            if (startTime <= DateTimeOffset.UtcNow)
+            var oneTime = schedule.OneTimeExecution.Value;
+
+            if (oneTime.Kind == DateTimeKind.Local && timeZone != TimeZoneInfo.Local)
+            {
+                oneTime = DateTime.SpecifyKind(oneTime, DateTimeKind.Unspecified);
+            }
+
+            DateTime utcTime = (oneTime.Kind == DateTimeKind.Utc)
+                ? oneTime
+                : TimeZoneInfo.ConvertTimeToUtc(oneTime, timeZone);
+
+            if (utcTime <= DateTime.UtcNow)
             {
                 _logger.LogWarning("One-time execution date is in the past for schedule {ScheduleId}", schedule.Id);
                 return null;
             }
 
             return triggerBuilder
-                .StartAt(startTime)
+                .StartAt(utcTime)
                 .WithSimpleSchedule(x => x.WithRepeatCount(0))
                 .Build();
         }
