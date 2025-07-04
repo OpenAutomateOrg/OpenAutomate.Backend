@@ -149,15 +149,54 @@ namespace OpenAutomate.API
                 .GetSection("AppSettings")
                 .GetSection("Cors")
                 .Get<CorsSettings>();
-                
+
+            // Get frontend URL for additional CORS origins
+            var frontendUrl = builder.Configuration["FrontendUrl"] ?? "http://localhost:3001";
+
+            // Create comprehensive allowed origins list
+            var allAllowedOrigins = new List<string>(corsSettings.AllowedOrigins ?? Array.Empty<string>());
+
+            // Add frontend URL if not already present
+            if (!allAllowedOrigins.Contains(frontendUrl))
+            {
+                allAllowedOrigins.Add(frontendUrl);
+            }
+
+            // Add common localhost variations for development
+            var localhostOrigins = new[]
+            {
+                "http://localhost:3000", "http://localhost:3001",
+                "https://localhost:3000", "https://localhost:3001",
+                "http://localhost:5252", "https://localhost:5252"  // Backend URLs
+            };
+
+            foreach (var origin in localhostOrigins)
+            {
+                if (!allAllowedOrigins.Contains(origin))
+                {
+                    allAllowedOrigins.Add(origin);
+                }
+            }
+
             builder.Services.AddCors(options =>
             {
+                // Default policy for API endpoints - restrictive but comprehensive
                 options.AddDefaultPolicy(policy =>
-                    policy.WithOrigins(corsSettings.AllowedOrigins)
+                    policy.WithOrigins(allAllowedOrigins.ToArray())
                           .AllowAnyMethod()
                           .AllowAnyHeader()
                           .AllowCredentials()
                           .WithExposedHeaders("Token-Expired"));
+
+                // SignalR hub policy - must allow credentials for authentication
+                // Cannot use AllowAnyOrigin() with AllowCredentials()
+                options.AddPolicy("SignalRHubPolicy", policy =>
+                    policy.WithOrigins(allAllowedOrigins.ToArray())  // Use same origins as default
+                          .AllowAnyMethod()
+                          .AllowAnyHeader()
+                          .AllowCredentials()  // Required for SignalR authentication
+                          .WithExposedHeaders("Token-Expired")
+                          .SetPreflightMaxAge(TimeSpan.FromMinutes(10)));  // Cache preflight for performance
             });
         }
         
@@ -381,21 +420,25 @@ namespace OpenAutomate.API
                 app.UseODataRouteDebug();
             }
             
-            // Apply CORS policy globally
-            app.UseCors();
-            
             app.UseHttpsRedirection();
-            
+
             // Enable OData query capabilities
             app.UseODataQueryRequest();
-            
+
             // Add routing
             app.UseRouting();
-            
-            // Add authentication and authorization middleware
+
+            // Apply CORS policy after routing but before authentication
+            app.UseCors();
+
+            // Add authentication middleware
             app.UseAuthentication();
+
+            // Add custom middleware after authentication but before authorization
             app.UseJwtAuthentication();
             app.UseTenantResolution();
+
+            // Add authorization middleware
             app.UseAuthorization();
             
             // Map controller endpoints
@@ -403,7 +446,9 @@ namespace OpenAutomate.API
 
             // Map SignalR hubs with tenant slug in the path
             // Configure to support both JWT and machine key auth
-            app.MapHub<BotAgentHub>("/{tenant}/hubs/botagent");
+            // Use permissive CORS policy for direct agent connections
+            app.MapHub<BotAgentHub>("/{tenant}/hubs/botagent")
+                .RequireCors("SignalRHubPolicy");
         }
         
         private static async Task ApplyDatabaseMigrationsAsync(WebApplication app)

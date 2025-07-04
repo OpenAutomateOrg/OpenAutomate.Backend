@@ -16,9 +16,14 @@ namespace OpenAutomate.API.Controllers
 {
     /// <summary>
     /// Controller for Bot Agent real-time connection and command operations
+    ///
+    /// DEPRECATED: This controller is deprecated as of the direct connection refactor.
+    /// Bot Agents now connect directly to the backend SignalR hub using the discovery endpoint.
+    /// This controller is kept temporarily for backward compatibility.
     /// </summary>
     [ApiController]
     [Route("{tenant}/api/agent-connection")]
+    [Obsolete("This controller is deprecated. Bot Agents should connect directly to the SignalR hub using the discovery endpoint.")]
     public class BotAgentConnectionController : ControllerBase
     {
         private readonly IBotAgentService _botAgentService;
