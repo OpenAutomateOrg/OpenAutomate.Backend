@@ -57,7 +57,7 @@ jobs:
           fi
 
           # Install Docker Compose if not already installed
-          if ! command -v docker-compose &> /dev/null; then
+          if ! docker compose version &> /dev/null; then
             echo "Installing Docker Compose..."
             sudo apt-get update
             sudo apt-get install -y docker-compose-plugin
@@ -73,7 +73,7 @@ jobs:
           # Setup Redis if not already running
           if ! docker ps | grep -q openautomae-redis-prod; then
             echo "Setting up Redis..."
-            docker-compose -f docker-compose.redis.prod.yml up -d
+            docker compose -f docker-compose.redis.prod.yml up -d
           else
             echo "Redis already running"
           fi

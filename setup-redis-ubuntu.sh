@@ -20,7 +20,7 @@ else
 fi
 
 # Install Docker Compose if not already installed
-if ! command -v docker-compose &> /dev/null; then
+if ! docker compose version &> /dev/null; then
     echo "🔧 Installing Docker Compose..."
     sudo apt-get update
     sudo apt-get install -y docker-compose-plugin
@@ -58,11 +58,11 @@ fi
 
 # Stop existing Redis containers if any
 echo "🛑 Stopping existing Redis containers..."
-docker-compose -f docker-compose.redis.prod.yml down || true
+docker compose -f docker-compose.redis.prod.yml down || true
 
 # Start Redis
 echo "🔄 Starting Redis..."
-docker-compose -f docker-compose.redis.prod.yml up -d
+docker compose -f docker-compose.redis.prod.yml up -d
 
 # Wait for Redis to be ready
 echo "⏳ Waiting for Redis to be ready..."
@@ -96,8 +96,8 @@ echo ""
 echo "🔧 Useful commands:"
 echo "   - Check Redis logs: docker logs openautomae-redis-prod"
 echo "   - Connect to Redis CLI: docker exec -it openautomae-redis-prod redis-cli"
-echo "   - Stop Redis: docker-compose -f docker-compose.redis.prod.yml down"
-echo "   - Restart Redis: docker-compose -f docker-compose.redis.prod.yml restart"
+echo "   - Stop Redis: docker compose -f docker-compose.redis.prod.yml down"
+echo "   - Restart Redis: docker compose -f docker-compose.redis.prod.yml restart"
 echo ""
 echo "🔄 You can now restart your OpenAutomate backend service:"
 echo "   sudo systemctl restart openautomate-backend"
