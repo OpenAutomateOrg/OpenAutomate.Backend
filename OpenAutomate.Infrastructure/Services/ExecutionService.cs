@@ -16,7 +16,7 @@ namespace OpenAutomate.Infrastructure.Services
     public class ExecutionService : IExecutionService
     {
         private const string TenantNotAvailableMessage = "Current tenant ID is not available";
-        
+
         private readonly IUnitOfWork _unitOfWork;
         private readonly ITenantContext _tenantContext;
         private readonly ILogger<ExecutionService> _logger;
@@ -27,7 +27,8 @@ namespace OpenAutomate.Infrastructure.Services
         public ExecutionService(
             IUnitOfWork unitOfWork,
             ITenantContext tenantContext,
-            ILogger<ExecutionService> logger)        {
+            ILogger<ExecutionService> logger)
+        {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _tenantContext = tenantContext ?? throw new ArgumentNullException(nameof(tenantContext));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -42,9 +43,9 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 throw new InvalidOperationException(TenantNotAvailableMessage);
             }
-            
+
             var currentTenantId = _tenantContext.CurrentTenantId;
-            
+
             var execution = new Execution
             {
                 BotAgentId = dto.BotAgentId,
@@ -61,20 +62,22 @@ namespace OpenAutomate.Infrastructure.Services
                 execution.Id, dto.BotAgentId, dto.PackageId);
 
             return execution;
-        }        /// <summary>
+        }
+
+        /// <summary>
         /// Gets an execution by ID
         /// </summary>
         public async Task<Execution?> GetExecutionByIdAsync(Guid id)
         {
             var execution = await _unitOfWork.Executions.GetByIdAsync(id);
-            
+
             if (!_tenantContext.HasTenant)
             {
                 return null;
             }
-            
+
             var currentTenantId = _tenantContext.CurrentTenantId;
-            
+
             // Ensure the execution belongs to the current tenant
             if (execution?.OrganizationUnitId != currentTenantId)
             {
@@ -82,7 +85,9 @@ namespace OpenAutomate.Infrastructure.Services
             }
 
             return execution;
-        }        /// <summary>
+        }
+
+        /// <summary>
         /// Gets all executions for the current tenant
         /// </summary>
         public async Task<IEnumerable<Execution>> GetAllExecutionsAsync()
@@ -91,18 +96,21 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 throw new InvalidOperationException(TenantNotAvailableMessage);
             }
-            
+
             var currentTenantId = _tenantContext.CurrentTenantId;
-            
+
             var executions = await _unitOfWork.Executions.GetAllAsync(
                 e => e.OrganizationUnitId == currentTenantId,
                 null,
-                e => e.BotAgent,
-                e => e.Package,
-                e => e.Package.Versions);
+                e => e.BotAgent!,
+                e => e.Package!,
+                e => e.Package != null ? e.Package.Versions! : null!);
 
             return executions ?? Enumerable.Empty<Execution>();
-        }        /// <summary>
+        }
+
+
+        /// <summary>
         /// Gets executions for a specific bot agent
         /// </summary>
         public async Task<IEnumerable<Execution>> GetExecutionsByBotAgentIdAsync(Guid botAgentId)
@@ -111,15 +119,16 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 throw new InvalidOperationException(TenantNotAvailableMessage);
             }
-            
+
             var currentTenantId = _tenantContext.CurrentTenantId;
-            
+
             var executions = await _unitOfWork.Executions.GetAllAsync(
-                e => e.BotAgentId == botAgentId && e.OrganizationUnitId == currentTenantId,
-                null,
-                e => e.BotAgent,
-                e => e.Package,
-                e => e.Package.Versions);
+    e => e.BotAgentId == botAgentId && e.OrganizationUnitId == currentTenantId,
+    null,
+    e => e.BotAgent!,
+    e => e.Package!,
+    e => e.Package != null ? e.Package.Versions! : null!);
+
 
             return executions ?? Enumerable.Empty<Execution>();
         }
@@ -190,7 +199,7 @@ namespace OpenAutomate.Infrastructure.Services
             if (!execution.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase) &&
                 !execution.Status.Equals("Running", StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogWarning("Cannot cancel execution {ExecutionId} with status {Status}", 
+                _logger.LogWarning("Cannot cancel execution {ExecutionId} with status {Status}",
                     execution.Id, execution.Status);
                 return execution;
             }
@@ -203,7 +212,9 @@ namespace OpenAutomate.Infrastructure.Services
             _logger.LogInformation("Execution cancelled: {ExecutionId}", execution.Id);
 
             return execution;
-        }        /// <summary>
+        }
+
+        /// <summary>
         /// Gets active executions for a bot agent
         /// </summary>
         public async Task<IEnumerable<Execution>> GetActiveExecutionsByBotAgentIdAsync(Guid botAgentId)
@@ -212,19 +223,20 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 throw new InvalidOperationException(TenantNotAvailableMessage);
             }
-            
+
             var currentTenantId = _tenantContext.CurrentTenantId;
-            
+
             var executions = await _unitOfWork.Executions.GetAllAsync(
-                e => e.BotAgentId == botAgentId && 
-                     e.OrganizationUnitId == currentTenantId &&
-                     (e.Status == "Pending" || e.Status == "Running"),
-                null,
-                e => e.BotAgent,
-                e => e.Package,
-                e => e.Package.Versions);
+    e => e.BotAgentId == botAgentId &&
+         e.OrganizationUnitId == currentTenantId &&
+         (e.Status == "Pending" || e.Status == "Running"),
+    null,
+    e => e.BotAgent!,
+    e => e.Package!,
+    e => e.Package != null ? e.Package.Versions! : null!);
+
 
             return executions ?? Enumerable.Empty<Execution>();
         }
     }
-} 
+}
