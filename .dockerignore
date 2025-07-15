@@ -1,0 +1,51 @@
+# Exclude build artifacts and temporary files
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/node_modules/
+**/npm-debug.log
+**/yarn-error.log
+
+# Exclude Git files
+.git/
+.gitignore
+.gitattributes
+
+# Exclude documentation and non-essential files
+**/*.md
+**/README*
+**/LICENSE*
+**/CHANGELOG*
+
+# Exclude test files and coverage reports
+**/TestResults/
+**/coverage/
+**/*.trx
+**/*.coverage
+
+# Exclude Docker files (except the one being used)
+**/Dockerfile*
+**/docker-compose*
+**/.dockerignore
+
+# Exclude IDE and editor files
+**/.idea/
+**/*.swp
+**/*.swo
+**/*~
+
+# Exclude OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Exclude temporary and cache files
+**/tmp/
+**/temp/
+**/.cache/
+**/logs/ 

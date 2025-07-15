@@ -19,7 +19,7 @@ namespace OpenAutomate.API.Middleware
         }
 
         public async Task InvokeAsync(HttpContext context, IUnitOfWork unitOfWork, ITokenService tokenService,
-            IConfiguration configuration)
+            IJwtBlocklistService jwtBlocklistService, IConfiguration configuration)
         {
             var token = GetTokenFromRequest(context.Request);
 
@@ -27,14 +27,36 @@ namespace OpenAutomate.API.Middleware
             {
                 if (tokenService.ValidateToken(token))
                 {
-                    // Extract user ID from token
+                    // Extract JWT ID and user ID from token
                     var tokenHandler = new JwtSecurityTokenHandler();
                     var jwtToken = tokenHandler.ReadJwtToken(token);
 
+                    var jtiClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == JwtRegisteredClaimNames.Jti);
                     var userIdClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == JwtRegisteredClaimNames.Sub);
+
+                    // Check if token is blocklisted
+                    if (jtiClaim != null)
+                    {
+                        var isBlocklisted = await jwtBlocklistService.IsTokenBlocklistedAsync(jtiClaim.Value);
+                        if (isBlocklisted)
+                        {
+                            // Token is blocklisted, do not authenticate
+                            await _next(context);
+                            return;
+                        }
+                    }
 
                     if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out Guid userId))
                     {
+                        // Check if all user tokens are blocked
+                        var isUserBlocked = await jwtBlocklistService.IsUserBlocklistedAsync(userId);
+                        if (isUserBlocked)
+                        {
+                            // All user tokens are blocked, do not authenticate
+                            await _next(context);
+                            return;
+                        }
+
                         // Get user from database
                         var user = await unitOfWork.Users.GetByIdAsync(userId);
 

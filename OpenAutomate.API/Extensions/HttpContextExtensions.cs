@@ -57,9 +57,16 @@ namespace OpenAutomate.API.Extensions
             {
                 var potentialSlug = segments[0];
                 
-                // Skip system endpoints
-                if (potentialSlug == "api" || potentialSlug == "admin")
+                // Skip system endpoints that don't require tenant resolution
+                var systemEndpoints = new[] { 
+                    "api", "admin", "health", "ping", "swagger", "hubs" 
+                };
+                
+                if (Array.Exists(systemEndpoints, endpoint => 
+                    string.Equals(endpoint, potentialSlug, StringComparison.OrdinalIgnoreCase)))
+                {
                     return null;
+                }
                     
                 return potentialSlug;
             }
