@@ -57,4 +57,12 @@ public interface ICacheService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if expiry was updated, false if key doesn't exist or error occurred</returns>
     Task<bool> RefreshAsync(string key, TimeSpan expiry, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes cache keys matching a pattern using Redis SCAN
+    /// </summary>
+    /// <param name="pattern">Pattern to match (supports wildcards like *)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Number of keys that were removed</returns>
+    Task<long> RemoveByPatternAsync(string pattern, CancellationToken cancellationToken = default);
 } 

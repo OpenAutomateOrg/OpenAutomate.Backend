@@ -30,6 +30,8 @@ public class RedisCacheService : ICacheService
         public const string CacheExistsError = "Failed to check existence of cache key {CacheKey}";
         public const string CacheRefreshError = "Failed to refresh cache key {CacheKey}";
         public const string CacheRefreshSuccess = "Successfully refreshed cache key {CacheKey} with expiry {ExpiryMs}ms";
+        public const string CacheRemovePatternError = "Failed to remove cache keys matching pattern {Pattern}";
+        public const string CacheRemovePatternSuccess = "Successfully removed {RemovedCount} cache keys matching pattern {Pattern}";
         public const string SerializationError = "Failed to serialize object for cache key {CacheKey}";
         public const string DeserializationError = "Failed to deserialize object for cache key {CacheKey}";
     }
@@ -174,6 +176,48 @@ public class RedisCacheService : ICacheService
         {
             _logger.LogWarning(ex, LogMessages.CacheRefreshError, key);
             return false;
+        }
+    }
+
+    public async Task<long> RemoveByPatternAsync(string pattern, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var database = _connectionMultiplexer.GetDatabase();
+            var server = _connectionMultiplexer.GetServer(_connectionMultiplexer.GetEndPoints().First());
+            
+            // Use SCAN to find keys matching the pattern
+            var keys = new List<RedisKey>();
+            long totalRemoved = 0;
+            
+            // Scan for keys matching the pattern
+            foreach (var key in server.Keys(pattern: pattern))
+            {
+                keys.Add(key);
+                
+                // Process in batches to avoid memory issues
+                if (keys.Count >= 1000)
+                {
+                    var removed = await database.KeyDeleteAsync(keys.ToArray());
+                    totalRemoved += removed;
+                    keys.Clear();
+                }
+            }
+            
+            // Remove any remaining keys
+            if (keys.Count > 0)
+            {
+                var removed = await database.KeyDeleteAsync(keys.ToArray());
+                totalRemoved += removed;
+            }
+            
+            _logger.LogDebug(LogMessages.CacheRemovePatternSuccess, totalRemoved, pattern);
+            return totalRemoved;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, LogMessages.CacheRemovePatternError, pattern);
+            return 0;
         }
     }
 } 

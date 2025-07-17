@@ -16,12 +16,17 @@ namespace OpenAutomate.API.Tests.ControllerTests
     public class OrganizationUnitControllerTests
     {
         private readonly Mock<IOrganizationUnitService> _mockOrgUnitService;
+        private readonly Mock<ICacheInvalidationService> _mockCacheInvalidationService;
         private readonly OrganizationUnitController _controller;
 
         public OrganizationUnitControllerTests()
         {
             _mockOrgUnitService = new Mock<IOrganizationUnitService>();
-            _controller = new OrganizationUnitController(_mockOrgUnitService.Object);
+            _mockCacheInvalidationService = new Mock<ICacheInvalidationService>();
+            
+            _controller = new OrganizationUnitController(
+                _mockOrgUnitService.Object,
+                _mockCacheInvalidationService.Object);
         }
 
         [Fact]

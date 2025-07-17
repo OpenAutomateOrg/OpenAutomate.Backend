@@ -210,15 +210,19 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
         var permissionPattern = GetPermissionCacheKeyPattern(_tenantContext.CurrentTenantId, userId);
         var authorityPattern = GetAuthorityCacheKeyPattern(_tenantContext.CurrentTenantId, userId);
         
-        // Note: This is a simplified implementation. In a production system,
-        // you might want to track all keys for a user or use Redis SCAN command
-        // For now, we'll invalidate common permission and authority combinations
-        
-        _logger.LogDebug(LogMessages.CacheInvalidated, $"{permissionPattern}* and {authorityPattern}*");
-        
-        // Since we can't easily pattern-match delete in this simple cache implementation,
-        // we'll let the TTL handle cleanup and rely on cache misses to refresh data
-        // A more advanced implementation could maintain key sets for users
+        // Use Redis pattern-based invalidation to remove all matching keys
+        try
+        {
+            await _cacheService.RemoveByPatternAsync($"{permissionPattern}*");
+            await _cacheService.RemoveByPatternAsync($"{authorityPattern}*");
+            
+            _logger.LogDebug(LogMessages.CacheInvalidated, $"{permissionPattern}* and {authorityPattern}*");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to invalidate user caches for user {UserId}, falling back to TTL expiration", userId);
+            // Fallback: TTL will handle cleanup if pattern removal fails
+        }
     }
 
     /// <summary>
@@ -229,10 +233,17 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
         if (!_tenantContext.HasTenant) return;
 
         var pattern = GetTenantCacheKeyPattern(_tenantContext.CurrentTenantId);
-        _logger.LogDebug(LogMessages.CacheInvalidated, $"{pattern}*");
         
-        // In a production system, you would want to implement proper cache invalidation
-        // For now, we rely on TTL and cache misses to refresh data
+        try
+        {
+            await _cacheService.RemoveByPatternAsync($"{pattern}*");
+            _logger.LogDebug(LogMessages.CacheInvalidated, $"{pattern}*");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to invalidate authority caches for tenant {TenantId}, falling back to TTL expiration", _tenantContext.CurrentTenantId);
+            // Fallback: TTL will handle cleanup if pattern removal fails
+        }
     }
 
     #endregion

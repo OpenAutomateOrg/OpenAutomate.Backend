@@ -224,6 +224,12 @@ namespace OpenAutomate.API
             // Register caching service
             builder.Services.AddScoped<ICacheService, RedisCacheService>();
             
+            // Register cache invalidation services
+            builder.Services.AddScoped<CacheInvalidationService>();
+            builder.Services.AddScoped<ICacheInvalidationService>(provider => 
+                provider.GetRequiredService<CacheInvalidationService>());
+            builder.Services.AddHostedService<CacheInvalidationBackgroundService>();
+            
             // Register JWT blocklist service
             builder.Services.AddScoped<IJwtBlocklistService, JwtBlocklistService>();
             
