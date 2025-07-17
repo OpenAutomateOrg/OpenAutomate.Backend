@@ -1,6 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using OpenAutomate.Core.IServices;
+using OpenAutomate.Core.Models;
 using StackExchange.Redis;
 using System.Text.Json;
 
@@ -74,7 +76,7 @@ public class CacheInvalidationBackgroundService : BackgroundService
 
                     // Process the invalidation message using a scoped service
                     using var scope = _serviceProvider.CreateScope();
-                    var cacheInvalidationService = scope.ServiceProvider.GetRequiredService<CacheInvalidationService>();
+                    var cacheInvalidationService = scope.ServiceProvider.GetRequiredService<ICacheInvalidationService>();
                     
                     await cacheInvalidationService.ProcessInvalidationMessageAsync(invalidationMessage, stoppingToken);
                     

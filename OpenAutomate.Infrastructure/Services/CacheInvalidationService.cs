@@ -1,6 +1,9 @@
 using Microsoft.Extensions.Logging;
 using OpenAutomate.Core.IServices;
+using OpenAutomate.Core.Models;
 using StackExchange.Redis;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace OpenAutomate.Infrastructure.Services;
@@ -154,16 +157,107 @@ public class CacheInvalidationService : ICacheInvalidationService
     {
         try
         {
-            var pattern = tenantId.HasValue 
-                ? $"api-cache:*{pathPattern}*tenant:{tenantId}*"
-                : $"api-cache:*{pathPattern}*";
+            // Since EnableResponseCacheAttribute uses hashed keys, we need to generate the possible cache keys
+            // that would match the given path pattern and tenant. The cache key generation logic needs to 
+            // mirror the logic in EnableResponseCacheAttribute.GenerateCacheKey()
             
-            await InvalidateCachePatternAsync(pattern, cancellationToken);
+            var keysToInvalidate = new List<string>();
+            
+            if (tenantId.HasValue)
+            {
+                // Generate cache keys for common request patterns that would match this path and tenant
+                var commonPatterns = GenerateCommonCacheKeyPatterns(pathPattern, tenantId.Value);
+                keysToInvalidate.AddRange(commonPatterns);
+            }
+            else
+            {
+                // For global invalidation, invalidate all api-cache keys
+                await InvalidateCachePatternAsync("api-cache:*", cancellationToken);
+                _logger.LogInformation(LogMessages.ApiResponseCacheInvalidated, pathPattern);
+                return;
+            }
+            
+            if (keysToInvalidate.Any())
+            {
+                // Use pattern matching to find and delete matching keys
+                await InvalidateApiResponseCacheByPatternAsync(keysToInvalidate, cancellationToken);
+            }
+            
             _logger.LogInformation(LogMessages.ApiResponseCacheInvalidated, pathPattern);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, LogMessages.InvalidationError);
+            throw;
+        }
+    }
+
+    private List<string> GenerateCommonCacheKeyPatterns(string pathPattern, Guid tenantId)
+    {
+        var patterns = new List<string>();
+        
+        // Since the cache key is hashed, we need to generate the hash for common request patterns
+        // This is a simplified approach - in a production system, you might want to store
+        // reverse lookup mappings or use a more sophisticated cache key structure
+        
+        var commonQueryPatterns = new[]
+        {
+            "", // No query parameters
+            "?$top=10&$skip=0",
+            "?$top=20&$skip=0", 
+            "?$top=50&$skip=0",
+            "?$orderby=Name%20asc",
+            "?$orderby=CreatedAt%20desc",
+            "?$count=true",
+            "?$filter=IsSystemAuthority%20eq%20false",
+            "?$select=Id,Name,Description"
+        };
+        
+        foreach (var queryPattern in commonQueryPatterns)
+        {
+            var keyBuilder = new StringBuilder();
+            keyBuilder.Append($"resp:GET:{pathPattern}");
+            
+            if (!string.IsNullOrEmpty(queryPattern))
+            {
+                keyBuilder.Append(queryPattern);
+            }
+            
+            keyBuilder.Append($":tenant:{tenantId}");
+            
+            // Hash the key to match EnableResponseCacheAttribute logic
+            var keyString = keyBuilder.ToString();
+            using var sha256 = SHA256.Create();
+            var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(keyString));
+            var hashedKey = Convert.ToHexString(hashedBytes).ToLowerInvariant();
+            
+            patterns.Add($"api-cache:{hashedKey}");
+        }
+        
+        return patterns;
+    }
+
+    private async Task InvalidateApiResponseCacheByPatternAsync(List<string> cacheKeys, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var database = _redis.GetDatabase();
+            var deletedCount = 0;
+            
+            foreach (var key in cacheKeys)
+            {
+                var deleted = await database.KeyDeleteAsync(key);
+                if (deleted)
+                {
+                    deletedCount++;
+                }
+            }
+            
+            _logger.LogDebug("Deleted {DeletedCount} out of {TotalCount} API response cache keys", deletedCount, cacheKeys.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error invalidating API response cache keys");
             throw;
         }
     }
@@ -254,25 +348,4 @@ public class CacheInvalidationService : ICacheInvalidationService
             throw;
         }
     }
-}
-
-/// <summary>
-/// Message format for cache invalidation
-/// </summary>
-public class CacheInvalidationMessage
-{
-    public CacheInvalidationType Type { get; set; }
-    public string[]? Keys { get; set; }
-    public string? Pattern { get; set; }
-    public DateTimeOffset Timestamp { get; set; }
-}
-
-/// <summary>
-/// Types of cache invalidation
-/// </summary>
-public enum CacheInvalidationType
-{
-    Key,
-    Keys,
-    Pattern
 } 

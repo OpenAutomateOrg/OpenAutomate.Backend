@@ -232,12 +232,16 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
     {
         if (!_tenantContext.HasTenant) return;
 
-        var pattern = GetTenantCacheKeyPattern(_tenantContext.CurrentTenantId);
+        // Invalidate both permission and authority caches for the tenant
+        var permissionPattern = GetTenantCacheKeyPattern(_tenantContext.CurrentTenantId);
+        var authorityPattern = GetTenantAuthorityCacheKeyPattern(_tenantContext.CurrentTenantId);
         
         try
         {
-            await _cacheService.RemoveByPatternAsync($"{pattern}*");
-            _logger.LogDebug(LogMessages.CacheInvalidated, $"{pattern}*");
+            await _cacheService.RemoveByPatternAsync($"{permissionPattern}*");
+            await _cacheService.RemoveByPatternAsync($"{authorityPattern}*");
+            
+            _logger.LogDebug(LogMessages.CacheInvalidated, $"{permissionPattern}* and {authorityPattern}*");
         }
         catch (Exception ex)
         {
@@ -273,6 +277,11 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
     private static string GetTenantCacheKeyPattern(Guid tenantId)
     {
         return $"perm:{tenantId}";
+    }
+
+    private static string GetTenantAuthorityCacheKeyPattern(Guid tenantId)
+    {
+        return $"auth:{tenantId}";
     }
 
     #endregion

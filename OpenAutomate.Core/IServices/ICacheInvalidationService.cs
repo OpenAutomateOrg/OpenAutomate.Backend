@@ -1,3 +1,5 @@
+using OpenAutomate.Core.Models;
+
 namespace OpenAutomate.Core.IServices;
 
 /// <summary>
@@ -55,4 +57,11 @@ public interface ICacheInvalidationService
     /// <param name="tenantId">Optional tenant ID to scope invalidation</param>
     /// <param name="cancellationToken">Cancellation token</param>
     Task InvalidateApiResponseCacheAsync(string pathPattern, Guid? tenantId = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Processes a cache invalidation message received from Redis pub/sub
+    /// </summary>
+    /// <param name="message">The cache invalidation message</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    Task ProcessInvalidationMessageAsync(CacheInvalidationMessage message, CancellationToken cancellationToken = default);
 } 
