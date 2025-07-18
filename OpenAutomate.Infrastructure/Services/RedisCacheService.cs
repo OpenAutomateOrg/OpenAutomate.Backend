@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.IServices;
 using System.Text.Json;
 using StackExchange.Redis;
@@ -15,6 +17,7 @@ public class RedisCacheService : ICacheService
     private readonly IConnectionMultiplexer _connectionMultiplexer;
     private readonly ILogger<RedisCacheService> _logger;
     private readonly JsonSerializerOptions _jsonOptions;
+    private readonly RedisCacheConfiguration _cacheConfig;
 
     // Log message templates
     private static class LogMessages
@@ -32,6 +35,8 @@ public class RedisCacheService : ICacheService
         public const string CacheRefreshSuccess = "Successfully refreshed cache key {CacheKey} with expiry {ExpiryMs}ms";
         public const string CacheRemovePatternError = "Failed to remove cache keys matching pattern {Pattern}";
         public const string CacheRemovePatternSuccess = "Successfully removed {RemovedCount} cache keys matching pattern {Pattern}";
+        public const string CacheRemovePatternStarted = "Started removing cache keys matching pattern {Pattern}";
+        public const string CacheRemovePatternProgress = "Processed {ProcessedKeys} keys, removed {RemovedCount} keys for pattern {Pattern}";
         public const string SerializationError = "Failed to serialize object for cache key {CacheKey}";
         public const string DeserializationError = "Failed to deserialize object for cache key {CacheKey}";
     }
@@ -39,11 +44,13 @@ public class RedisCacheService : ICacheService
     public RedisCacheService(
         IDistributedCache distributedCache,
         IConnectionMultiplexer connectionMultiplexer,
-        ILogger<RedisCacheService> logger)
+        ILogger<RedisCacheService> logger,
+        IOptions<RedisCacheConfiguration> cacheConfig)
     {
         _distributedCache = distributedCache;
         _connectionMultiplexer = connectionMultiplexer;
         _logger = logger;
+        _cacheConfig = cacheConfig.Value;
         
         // Configure JSON options for consistent serialization
         _jsonOptions = new JsonSerializerOptions
@@ -186,22 +193,50 @@ public class RedisCacheService : ICacheService
             var database = _connectionMultiplexer.GetDatabase();
             var server = _connectionMultiplexer.GetServer(_connectionMultiplexer.GetEndPoints().First());
             
-            // Use SCAN to find keys matching the pattern
+            var batchSize = _cacheConfig.BatchSize;
+            var scanCount = _cacheConfig.ScanCount;
+            var batchDelayMs = _cacheConfig.BatchDelayMs;
+            
             var keys = new List<RedisKey>();
             long totalRemoved = 0;
+            long totalProcessed = 0;
             
-            // Scan for keys matching the pattern
-            foreach (var key in server.Keys(pattern: pattern))
+            _logger.LogInformation(LogMessages.CacheRemovePatternStarted, pattern);
+            
+            // Use server.Keys with pattern and pageSize for cursor-based iteration
+            var keyEnumerator = server.Keys(database: database.Database, pattern: pattern, pageSize: scanCount);
+            
+            foreach (var key in keyEnumerator)
             {
                 keys.Add(key);
+                totalProcessed++;
                 
-                // Process in batches to avoid memory issues
-                if (keys.Count >= 1000)
+                // Process in batches to avoid memory issues and reduce Redis blocking
+                if (keys.Count >= batchSize)
                 {
                     var removed = await database.KeyDeleteAsync(keys.ToArray());
                     totalRemoved += removed;
                     keys.Clear();
+                    
+                    // Log progress for large operations
+                    if (totalProcessed % (batchSize * 10) == 0)
+                    {
+                        _logger.LogDebug(LogMessages.CacheRemovePatternProgress, totalProcessed, totalRemoved, pattern);
+                    }
+                    
+                    // Add configurable delay to prevent overwhelming Redis
+                    if (batchDelayMs > 0)
+                    {
+                        await Task.Delay(batchDelayMs, cancellationToken);
+                    }
+                    
+                    if (cancellationToken.IsCancellationRequested)
+                        break;
                 }
+                
+                // Check for cancellation between iterations
+                if (cancellationToken.IsCancellationRequested)
+                    break;
             }
             
             // Remove any remaining keys

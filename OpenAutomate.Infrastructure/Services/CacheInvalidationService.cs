@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Models;
 using StackExchange.Redis;
@@ -17,6 +19,7 @@ public class CacheInvalidationService : ICacheInvalidationService
     private readonly ICacheService _cacheService;
     private readonly ILogger<CacheInvalidationService> _logger;
     private readonly ISubscriber _subscriber;
+    private readonly RedisCacheConfiguration _cacheConfig;
 
     private static class LogMessages
     {
@@ -31,17 +34,22 @@ public class CacheInvalidationService : ICacheInvalidationService
         public const string TenantPermissionsCacheInvalidated = "Tenant permissions cache invalidated for tenant {TenantId}";
         public const string TenantResolutionCacheInvalidated = "Tenant resolution cache invalidated for slug {TenantSlug}";
         public const string ApiResponseCacheInvalidated = "API response cache invalidated for pattern {PathPattern}";
+        public const string PatternScanStarted = "Started scanning for keys matching pattern {Pattern}";
+        public const string PatternScanProgress = "Processed {ProcessedKeys} keys, removed {RemovedCount} keys for pattern {Pattern}";
+        public const string PatternScanCompleted = "Completed scanning for pattern {Pattern}, removed {TotalRemoved} keys in {ElapsedMs}ms";
     }
 
     public CacheInvalidationService(
         IConnectionMultiplexer redis,
         ICacheService cacheService,
-        ILogger<CacheInvalidationService> logger)
+        ILogger<CacheInvalidationService> logger,
+        IOptions<RedisCacheConfiguration> cacheConfig)
     {
         _redis = redis;
         _cacheService = cacheService;
         _logger = logger;
         _subscriber = _redis.GetSubscriber();
+        _cacheConfig = cacheConfig.Value;
     }
 
     public async Task InvalidateCacheKeyAsync(string cacheKey, CancellationToken cancellationToken = default)
@@ -334,13 +342,55 @@ public class CacheInvalidationService : ICacheInvalidationService
             var database = _redis.GetDatabase();
             var server = _redis.GetServer(_redis.GetEndPoints().First());
             
-            // Use SCAN to find keys matching the pattern
-            var keys = server.Keys(pattern: pattern);
+            var batchSize = _cacheConfig.BatchSize;
+            var scanCount = _cacheConfig.ScanCount;
+            var batchDelayMs = _cacheConfig.BatchDelayMs;
             
-            foreach (var key in keys)
+            var keys = new List<RedisKey>();
+            long totalRemoved = 0;
+            long totalProcessed = 0;
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            
+            _logger.LogInformation(LogMessages.PatternScanStarted, pattern);
+            
+            // Use server.Keys with pattern and pageSize for cursor-based iteration
+            var keyEnumerator = server.Keys(database: database.Database, pattern: pattern, pageSize: scanCount);
+            
+            foreach (var key in keyEnumerator)
             {
-                await database.KeyDeleteAsync(key);
+                keys.Add(key);
+                totalProcessed++;
+                
+                // Process in batches to avoid memory issues and reduce Redis blocking
+                if (keys.Count >= batchSize)
+                {
+                    var removed = await database.KeyDeleteAsync(keys.ToArray());
+                    totalRemoved += removed;
+                    keys.Clear();
+                    
+                    // Log progress for large operations
+                    if (totalProcessed % (batchSize * 10) == 0)
+                    {
+                        _logger.LogDebug(LogMessages.PatternScanProgress, totalProcessed, totalRemoved, pattern);
+                    }
+                    
+                    // Add configurable delay to prevent overwhelming Redis
+                    if (batchDelayMs > 0)
+                    {
+                        await Task.Delay(batchDelayMs);
+                    }
+                }
             }
+            
+            // Remove any remaining keys
+            if (keys.Count > 0)
+            {
+                var removed = await database.KeyDeleteAsync(keys.ToArray());
+                totalRemoved += removed;
+            }
+            
+            stopwatch.Stop();
+            _logger.LogInformation(LogMessages.PatternScanCompleted, pattern, totalRemoved, stopwatch.ElapsedMilliseconds);
         }
         catch (Exception ex)
         {

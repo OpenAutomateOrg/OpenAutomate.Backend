@@ -70,6 +70,7 @@ namespace OpenAutomate.API
             builder.Services.Configure<DatabaseSettings>(appSettingsSection.GetSection("Database"));
             builder.Services.Configure<CorsSettings>(appSettingsSection.GetSection("Cors"));
             builder.Services.Configure<RedisSettings>(appSettingsSection.GetSection("Redis"));
+            builder.Services.Configure<RedisCacheConfiguration>(appSettingsSection.GetSection("RedisCache"));
             builder.Services.Configure<EmailSettings>(appSettingsSection.GetSection("EmailSettings"));
         }
         
