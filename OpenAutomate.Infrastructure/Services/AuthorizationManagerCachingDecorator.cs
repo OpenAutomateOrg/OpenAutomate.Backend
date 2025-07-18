@@ -1,7 +1,10 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Dto.Authority;
 using OpenAutomate.Core.IServices;
+using OpenAutomate.Core.Utilities;
 
 namespace OpenAutomate.Infrastructure.Services;
 
@@ -14,10 +17,7 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
     private readonly ICacheService _cacheService;
     private readonly ITenantContext _tenantContext;
     private readonly ILogger<AuthorizationManagerCachingDecorator> _logger;
-
-    // Cache TTL settings
-    private static readonly TimeSpan PermissionCacheTtl = TimeSpan.FromMinutes(15);
-    private static readonly TimeSpan AuthorityCacheTtl = TimeSpan.FromMinutes(15);
+    private readonly RedisCacheConfiguration _cacheConfig;
 
     // Log message templates
     private static class LogMessages
@@ -33,12 +33,14 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
         IAuthorizationManager innerManager,
         ICacheService cacheService,
         ITenantContext tenantContext,
-        ILogger<AuthorizationManagerCachingDecorator> logger)
+        ILogger<AuthorizationManagerCachingDecorator> logger,
+        IOptions<RedisCacheConfiguration> cacheConfig)
     {
         _innerManager = innerManager;
         _cacheService = cacheService;
         _tenantContext = tenantContext;
         _logger = logger;
+        _cacheConfig = cacheConfig.Value;
     }
 
     #region Permission Checking (Cached)
@@ -50,7 +52,7 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
             return await _innerManager.HasPermissionAsync(userId, resourceName, permission);
         }
 
-        var cacheKey = GetPermissionCacheKey(_tenantContext.CurrentTenantId, userId, resourceName, permission);
+        var cacheKey = CacheKeyUtility.GeneratePermissionKey(_tenantContext.CurrentTenantId.ToString(), userId.ToString(), $"{resourceName}:{permission}");
         
         // Try to get from cache first
         var cachedResult = await _cacheService.GetAsync<CachedPermissionResult>(cacheKey);
@@ -66,7 +68,7 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
         var result = await _innerManager.HasPermissionAsync(userId, resourceName, permission);
         
         var cacheValue = new CachedPermissionResult { HasPermission = result };
-        await _cacheService.SetAsync(cacheKey, cacheValue, PermissionCacheTtl);
+                    await _cacheService.SetAsync(cacheKey, cacheValue, _cacheConfig.PermissionCacheTtl);
 
         return result;
     }
@@ -78,7 +80,7 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
             return await _innerManager.HasAuthorityAsync(userId, authorityName);
         }
 
-        var cacheKey = GetAuthorityCacheKey(_tenantContext.CurrentTenantId, userId, authorityName);
+        var cacheKey = CacheKeyUtility.GenerateAuthorityKey(_tenantContext.CurrentTenantId.ToString(), userId.ToString()) + $":{authorityName}";
         
         // Try to get from cache first
         var cachedResult = await _cacheService.GetAsync<CachedAuthorityResult>(cacheKey);
@@ -94,7 +96,7 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
         var result = await _innerManager.HasAuthorityAsync(userId, authorityName);
         
         var cacheValue = new CachedAuthorityResult { HasAuthority = result };
-        await _cacheService.SetAsync(cacheKey, cacheValue, AuthorityCacheTtl);
+                    await _cacheService.SetAsync(cacheKey, cacheValue, _cacheConfig.AuthorityCacheTtl);
 
         return result;
     }
@@ -207,8 +209,8 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
     {
         if (!_tenantContext.HasTenant) return;
 
-        var permissionPattern = GetPermissionCacheKeyPattern(_tenantContext.CurrentTenantId, userId);
-        var authorityPattern = GetAuthorityCacheKeyPattern(_tenantContext.CurrentTenantId, userId);
+        var permissionPattern = $"{CacheKeyUtility.Prefixes.Permission}:{_tenantContext.CurrentTenantId}:{userId}";
+        var authorityPattern = $"{CacheKeyUtility.Prefixes.Authority}:{_tenantContext.CurrentTenantId}:{userId}";
         
         // Use Redis pattern-based invalidation to remove all matching keys
         try
@@ -233,15 +235,15 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
         if (!_tenantContext.HasTenant) return;
 
         // Invalidate both permission and authority caches for the tenant
-        var permissionPattern = GetTenantCacheKeyPattern(_tenantContext.CurrentTenantId);
-        var authorityPattern = GetTenantAuthorityCacheKeyPattern(_tenantContext.CurrentTenantId);
+        var permissionPattern = string.Format(CacheKeyUtility.Patterns.TenantPermissions, _tenantContext.CurrentTenantId);
+        var authorityPattern = string.Format(CacheKeyUtility.Patterns.TenantAuthorities, _tenantContext.CurrentTenantId);
         
         try
         {
-            await _cacheService.RemoveByPatternAsync($"{permissionPattern}*");
-            await _cacheService.RemoveByPatternAsync($"{authorityPattern}*");
+            await _cacheService.RemoveByPatternAsync(permissionPattern);
+            await _cacheService.RemoveByPatternAsync(authorityPattern);
             
-            _logger.LogDebug(LogMessages.CacheInvalidated, $"{permissionPattern}* and {authorityPattern}*");
+            _logger.LogDebug(LogMessages.CacheInvalidated, $"{permissionPattern} and {authorityPattern}");
         }
         catch (Exception ex)
         {
@@ -252,39 +254,7 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
 
     #endregion
 
-    #region Cache Key Generation
 
-    private static string GetPermissionCacheKey(Guid tenantId, Guid userId, string resourceName, int permission)
-    {
-        return $"perm:{tenantId}:{userId}:{resourceName}:{permission}";
-    }
-
-    private static string GetAuthorityCacheKey(Guid tenantId, Guid userId, string authorityName)
-    {
-        return $"auth:{tenantId}:{userId}:{authorityName}";
-    }
-
-    private static string GetPermissionCacheKeyPattern(Guid tenantId, Guid userId)
-    {
-        return $"perm:{tenantId}:{userId}";
-    }
-
-    private static string GetAuthorityCacheKeyPattern(Guid tenantId, Guid userId)
-    {
-        return $"auth:{tenantId}:{userId}";
-    }
-
-    private static string GetTenantCacheKeyPattern(Guid tenantId)
-    {
-        return $"perm:{tenantId}";
-    }
-
-    private static string GetTenantAuthorityCacheKeyPattern(Guid tenantId)
-    {
-        return $"auth:{tenantId}";
-    }
-
-    #endregion
 
     #region Cache DTOs
 

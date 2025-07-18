@@ -196,6 +196,7 @@ public class RedisCacheService : ICacheService
             var batchSize = _cacheConfig.BatchSize;
             var scanCount = _cacheConfig.ScanCount;
             var batchDelayMs = _cacheConfig.BatchDelayMs;
+            var maxKeysPerPattern = _cacheConfig.MaxKeysPerPattern;
             
             var keys = new List<RedisKey>();
             long totalRemoved = 0;
@@ -210,6 +211,14 @@ public class RedisCacheService : ICacheService
             {
                 keys.Add(key);
                 totalProcessed++;
+                
+                // Check if we've reached the maximum key limit for safety
+                if (totalProcessed >= maxKeysPerPattern)
+                {
+                    _logger.LogWarning("Reached maximum key limit ({MaxKeys}) for pattern {Pattern}. Stopping to prevent performance issues.", 
+                        maxKeysPerPattern, pattern);
+                    break;
+                }
                 
                 // Process in batches to avoid memory issues and reduce Redis blocking
                 if (keys.Count >= batchSize)
@@ -247,6 +256,14 @@ public class RedisCacheService : ICacheService
             }
             
             _logger.LogDebug(LogMessages.CacheRemovePatternSuccess, totalRemoved, pattern);
+            
+            // Log warning if we processed a large number of keys
+            if (totalProcessed >= maxKeysPerPattern)
+            {
+                _logger.LogWarning("Pattern removal stopped at maximum key limit. Pattern: {Pattern}, Processed: {ProcessedKeys}, Removed: {RemovedKeys}", 
+                    pattern, totalProcessed, totalRemoved);
+            }
+            
             return totalRemoved;
         }
         catch (Exception ex)

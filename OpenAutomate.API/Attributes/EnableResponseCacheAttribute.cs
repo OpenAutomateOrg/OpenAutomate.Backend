@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using OpenAutomate.Core.IServices;
-using System.Security.Cryptography;
-using System.Text;
+using OpenAutomate.Core.Utilities;
 using System.Text.Json;
 
 namespace OpenAutomate.API.Attributes;
@@ -106,22 +105,13 @@ public class EnableResponseCacheAttribute : Attribute, IAsyncActionFilter
 
     private string GenerateCacheKey(HttpContext context)
     {
-        var keyBuilder = new StringBuilder();
+        // Use the centralized cache key utility
+        var method = context.Request.Method;
+        var path = context.Request.Path.Value ?? string.Empty;
+        var queryString = context.Request.QueryString.Value?.TrimStart('?');
+        var tenantId = _varyByTenant ? context.Items["TenantId"]?.ToString() : null;
         
-        // Base path and method
-        keyBuilder.Append($"resp:{context.Request.Method}:{context.Request.Path}");
-
-        // Add query parameters (sorted for consistency)
-        if (context.Request.Query.Any())
-        {
-            var sortedQuery = context.Request.Query
-                .OrderBy(q => q.Key)
-                .Select(q => $"{q.Key}={string.Join(",", q.Value)}")
-                .ToList();
-            keyBuilder.Append($"?{string.Join("&", sortedQuery)}");
-        }
-
-        // Add user context if required
+        // Add user context to query string if required
         if (_varyByUser && context.User.Identity?.IsAuthenticated == true)
         {
             var userId = context.User.FindFirst("sub")?.Value ?? 
@@ -129,27 +119,13 @@ public class EnableResponseCacheAttribute : Attribute, IAsyncActionFilter
                         context.User.FindFirst("user_id")?.Value;
             if (!string.IsNullOrEmpty(userId))
             {
-                keyBuilder.Append($":user:{userId}");
+                queryString = string.IsNullOrEmpty(queryString) 
+                    ? $"user={userId}" 
+                    : $"{queryString}&user={userId}";
             }
         }
-
-        // Add tenant context if required
-        if (_varyByTenant)
-        {
-            var tenantId = context.Items["TenantId"]?.ToString();
-            if (!string.IsNullOrEmpty(tenantId))
-            {
-                keyBuilder.Append($":tenant:{tenantId}");
-            }
-        }
-
-        // Hash the key to ensure it's not too long and is consistent
-        var keyString = keyBuilder.ToString();
-        using var sha256 = SHA256.Create();
-        var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(keyString));
-        var hashedKey = Convert.ToHexString(hashedBytes).ToLowerInvariant();
-
-        return $"api-cache:{hashedKey}";
+            
+        return CacheKeyUtility.GenerateApiResponseKey(method, path, queryString, tenantId);
     }
 
     /// <summary>

@@ -3,9 +3,8 @@ using Microsoft.Extensions.Options;
 using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Models;
+using OpenAutomate.Core.Utilities;
 using StackExchange.Redis;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 
 namespace OpenAutomate.Infrastructure.Services;
@@ -174,7 +173,7 @@ public class CacheInvalidationService : ICacheInvalidationService
             if (tenantId.HasValue)
             {
                 // Generate cache keys for common request patterns that would match this path and tenant
-                var commonPatterns = GenerateCommonCacheKeyPatterns(pathPattern, tenantId.Value);
+                var commonPatterns = CacheKeyUtility.GenerateApiResponseKeyPatterns("GET", pathPattern, tenantId.Value.ToString());
                 keysToInvalidate.AddRange(commonPatterns);
             }
             else
@@ -200,50 +199,7 @@ public class CacheInvalidationService : ICacheInvalidationService
         }
     }
 
-    private List<string> GenerateCommonCacheKeyPatterns(string pathPattern, Guid tenantId)
-    {
-        var patterns = new List<string>();
-        
-        // Since the cache key is hashed, we need to generate the hash for common request patterns
-        // This is a simplified approach - in a production system, you might want to store
-        // reverse lookup mappings or use a more sophisticated cache key structure
-        
-        var commonQueryPatterns = new[]
-        {
-            "", // No query parameters
-            "?$top=10&$skip=0",
-            "?$top=20&$skip=0", 
-            "?$top=50&$skip=0",
-            "?$orderby=Name%20asc",
-            "?$orderby=CreatedAt%20desc",
-            "?$count=true",
-            "?$filter=IsSystemAuthority%20eq%20false",
-            "?$select=Id,Name,Description"
-        };
-        
-        foreach (var queryPattern in commonQueryPatterns)
-        {
-            var keyBuilder = new StringBuilder();
-            keyBuilder.Append($"resp:GET:{pathPattern}");
-            
-            if (!string.IsNullOrEmpty(queryPattern))
-            {
-                keyBuilder.Append(queryPattern);
-            }
-            
-            keyBuilder.Append($":tenant:{tenantId}");
-            
-            // Hash the key to match EnableResponseCacheAttribute logic
-            var keyString = keyBuilder.ToString();
-            using var sha256 = SHA256.Create();
-            var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(keyString));
-            var hashedKey = Convert.ToHexString(hashedBytes).ToLowerInvariant();
-            
-            patterns.Add($"api-cache:{hashedKey}");
-        }
-        
-        return patterns;
-    }
+
 
     private async Task InvalidateApiResponseCacheByPatternAsync(List<string> cacheKeys, CancellationToken cancellationToken)
     {

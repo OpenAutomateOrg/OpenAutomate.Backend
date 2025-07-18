@@ -1,5 +1,6 @@
 // OpenAutomate.API/Program.cs
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using OpenAutomate.Infrastructure.DbContext;
 using OpenAutomate.Infrastructure.Services;
 using OpenAutomate.API.Middleware;
@@ -102,8 +103,9 @@ namespace OpenAutomate.API
                 var innerContext = provider.GetRequiredService<TenantContext>();
                 var cacheService = provider.GetRequiredService<ICacheService>();
                 var logger = provider.GetRequiredService<ILogger<TenantContextCachingDecorator>>();
+                var cacheConfig = provider.GetRequiredService<IOptions<RedisCacheConfiguration>>();
                 
-                return new TenantContextCachingDecorator(innerContext, cacheService, logger);
+                return new TenantContextCachingDecorator(innerContext, cacheService, logger, cacheConfig);
             });
             
             // Add DbContext
@@ -232,7 +234,14 @@ namespace OpenAutomate.API
             builder.Services.AddHostedService<CacheInvalidationBackgroundService>();
             
             // Register JWT blocklist service
-            builder.Services.AddScoped<IJwtBlocklistService, JwtBlocklistService>();
+            builder.Services.AddScoped<IJwtBlocklistService>(provider =>
+            {
+                var cacheService = provider.GetRequiredService<ICacheService>();
+                var logger = provider.GetRequiredService<ILogger<JwtBlocklistService>>();
+                var cacheConfig = provider.GetRequiredService<IOptions<RedisCacheConfiguration>>();
+                
+                return new JwtBlocklistService(cacheService, logger, cacheConfig);
+            });
             
             // Register authorization manager with caching decorator
             builder.Services.AddScoped<AuthorizationManager>();
@@ -242,8 +251,9 @@ namespace OpenAutomate.API
                 var cacheService = provider.GetRequiredService<ICacheService>();
                 var tenantContext = provider.GetRequiredService<ITenantContext>();
                 var logger = provider.GetRequiredService<ILogger<AuthorizationManagerCachingDecorator>>();
+                var cacheConfig = provider.GetRequiredService<IOptions<RedisCacheConfiguration>>();
                 
-                return new AuthorizationManagerCachingDecorator(innerManager, cacheService, tenantContext, logger);
+                return new AuthorizationManagerCachingDecorator(innerManager, cacheService, tenantContext, logger, cacheConfig);
             });
 
             builder.Services.AddScoped<IExecutionService, ExecutionService>();

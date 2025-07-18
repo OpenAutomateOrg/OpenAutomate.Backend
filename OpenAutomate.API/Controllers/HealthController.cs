@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Options;
+using OpenAutomate.Core.Configurations;
 using StackExchange.Redis;
 
 namespace OpenAutomate.API.Controllers
@@ -14,15 +16,18 @@ namespace OpenAutomate.API.Controllers
         private readonly IDistributedCache _cache;
         private readonly IConnectionMultiplexer _redis;
         private readonly ILogger<HealthController> _logger;
+        private readonly RedisCacheConfiguration _cacheConfig;
 
         public HealthController(
             IDistributedCache cache, 
             IConnectionMultiplexer redis,
+            IOptions<RedisCacheConfiguration> cacheConfig,
             ILogger<HealthController> logger)
         {
             _cache = cache;
             _redis = redis;
             _logger = logger;
+            _cacheConfig = cacheConfig.Value;
         }
 
         /// <summary>
@@ -89,10 +94,10 @@ namespace OpenAutomate.API.Controllers
                 var demoKey = "demo-key";
                 var demoValue = $"Demo value created at {DateTime.UtcNow}";
                 
-                // Create with 5 minute expiration
+                // Create with configurable expiration
                 var options = new DistributedCacheEntryOptions
                 {
-                    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
+                    AbsoluteExpirationRelativeToNow = _cacheConfig.HealthCheckCacheTtl
                 };
                 
                 await _cache.SetStringAsync(demoKey, demoValue, options);

@@ -1,5 +1,8 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.IServices;
+using OpenAutomate.Core.Utilities;
 
 namespace OpenAutomate.Infrastructure.Services;
 
@@ -11,9 +14,7 @@ public class TenantContextCachingDecorator : ITenantContext
     private readonly ITenantContext _innerContext;
     private readonly ICacheService _cacheService;
     private readonly ILogger<TenantContextCachingDecorator> _logger;
-
-    // Cache TTL settings
-    private static readonly TimeSpan TenantCacheTtl = TimeSpan.FromMinutes(30);
+    private readonly RedisCacheConfiguration _cacheConfig;
 
     // Log message templates
     private static class LogMessages
@@ -27,11 +28,13 @@ public class TenantContextCachingDecorator : ITenantContext
     public TenantContextCachingDecorator(
         ITenantContext innerContext,
         ICacheService cacheService,
-        ILogger<TenantContextCachingDecorator> logger)
+        ILogger<TenantContextCachingDecorator> logger,
+        IOptions<RedisCacheConfiguration> cacheConfig)
     {
         _innerContext = innerContext;
         _cacheService = cacheService;
         _logger = logger;
+        _cacheConfig = cacheConfig.Value;
     }
 
     #region ITenantContext Implementation (Pass-through)
@@ -59,7 +62,7 @@ public class TenantContextCachingDecorator : ITenantContext
             return await _innerContext.ResolveTenantFromSlugAsync(tenantSlug);
         }
 
-        var cacheKey = GetTenantCacheKey(tenantSlug);
+        var cacheKey = CacheKeyUtility.GenerateTenantSlugKey(tenantSlug);
         
         // Try to get from cache first
         var cachedResult = await _cacheService.GetAsync<CachedTenantResult>(cacheKey);
@@ -86,7 +89,7 @@ public class TenantContextCachingDecorator : ITenantContext
                 TenantSlug = tenantSlug 
             };
             
-            await _cacheService.SetAsync(cacheKey, cacheValue, TenantCacheTtl);
+            await _cacheService.SetAsync(cacheKey, cacheValue, _cacheConfig.TenantCacheTtl);
             _logger.LogDebug(LogMessages.TenantCacheSet, tenantSlug, _innerContext.CurrentTenantId);
         }
 
@@ -105,7 +108,7 @@ public class TenantContextCachingDecorator : ITenantContext
     {
         if (string.IsNullOrEmpty(tenantSlug)) return;
 
-        var cacheKey = GetTenantCacheKey(tenantSlug);
+        var cacheKey = CacheKeyUtility.GenerateTenantSlugKey(tenantSlug);
         await _cacheService.RemoveAsync(cacheKey);
         _logger.LogDebug(LogMessages.TenantCacheInvalidated, tenantSlug);
     }
@@ -126,14 +129,7 @@ public class TenantContextCachingDecorator : ITenantContext
 
     #endregion
 
-    #region Cache Key Generation
 
-    private static string GetTenantCacheKey(string tenantSlug)
-    {
-        return $"tenant:slug:{tenantSlug.ToLowerInvariant()}";
-    }
-
-    #endregion
 
     #region Cache DTOs
 

@@ -1,5 +1,8 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.IServices;
+using OpenAutomate.Core.Utilities;
 
 namespace OpenAutomate.Infrastructure.Services;
 
@@ -10,6 +13,7 @@ public class JwtBlocklistService : IJwtBlocklistService
 {
     private readonly ICacheService _cacheService;
     private readonly ILogger<JwtBlocklistService> _logger;
+    private readonly RedisCacheConfiguration _cacheConfig;
 
     // Log message templates
     private static class LogMessages
@@ -24,10 +28,12 @@ public class JwtBlocklistService : IJwtBlocklistService
 
     public JwtBlocklistService(
         ICacheService cacheService,
-        ILogger<JwtBlocklistService> logger)
+        ILogger<JwtBlocklistService> logger,
+        IOptions<RedisCacheConfiguration> cacheConfig)
     {
         _cacheService = cacheService;
         _logger = logger;
+        _cacheConfig = cacheConfig.Value;
     }
 
     public async Task<bool> BlocklistTokenAsync(string jwtTokenId, DateTime expiresAt, string reason = "")
@@ -39,7 +45,7 @@ public class JwtBlocklistService : IJwtBlocklistService
                 return false;
             }
 
-            var cacheKey = GetBlocklistCacheKey(jwtTokenId);
+            var cacheKey = CacheKeyUtility.GenerateJwtBlocklistKey(jwtTokenId);
             var ttl = expiresAt - DateTime.UtcNow;
 
             // Only cache if the token hasn't already expired
@@ -81,7 +87,7 @@ public class JwtBlocklistService : IJwtBlocklistService
                 return false;
             }
 
-            var cacheKey = GetBlocklistCacheKey(jwtTokenId);
+            var cacheKey = CacheKeyUtility.GenerateJwtBlocklistKey(jwtTokenId);
             var blocklistEntry = await _cacheService.GetAsync<BlocklistEntry>(cacheKey);
 
             var isBlocklisted = blocklistEntry != null;
@@ -114,7 +120,7 @@ public class JwtBlocklistService : IJwtBlocklistService
                 return false;
             }
 
-            var cacheKey = GetBlocklistCacheKey(jwtTokenId);
+            var cacheKey = CacheKeyUtility.GenerateJwtBlocklistKey(jwtTokenId);
             var success = await _cacheService.RemoveAsync(cacheKey);
             
             if (success)
@@ -142,7 +148,7 @@ public class JwtBlocklistService : IJwtBlocklistService
             // For now, we'll create a user-level blocklist entry that can be checked
             // This would require modifying the token validation to also check user-level blocks
             
-            var userBlocklistKey = GetUserBlocklistCacheKey(userId);
+            var userBlocklistKey = CacheKeyUtility.GenerateUserJwtBlocklistKey(userId.ToString());
             var blocklistEntry = new UserBlocklistEntry
             {
                 UserId = userId,
@@ -150,9 +156,9 @@ public class JwtBlocklistService : IJwtBlocklistService
                 Reason = reason
             };
 
-            // Set a long TTL for user-level blocks (24 hours)
+            // Set a long TTL for user-level blocks (configurable)
             // This gives time for all tokens to naturally expire
-            var ttl = TimeSpan.FromHours(24);
+            var ttl = _cacheConfig.JwtBlocklistTtl;
             var success = await _cacheService.SetAsync(userBlocklistKey, blocklistEntry, ttl);
             
             if (success)
@@ -177,7 +183,7 @@ public class JwtBlocklistService : IJwtBlocklistService
     {
         try
         {
-            var userBlocklistKey = GetUserBlocklistCacheKey(userId);
+            var userBlocklistKey = CacheKeyUtility.GenerateUserJwtBlocklistKey(userId.ToString());
             var blocklistEntry = await _cacheService.GetAsync<UserBlocklistEntry>(userBlocklistKey);
             return blocklistEntry != null;
         }
@@ -188,19 +194,7 @@ public class JwtBlocklistService : IJwtBlocklistService
         }
     }
 
-    #region Cache Key Generation
 
-    private static string GetBlocklistCacheKey(string jwtTokenId)
-    {
-        return $"jwt-blocklist:{jwtTokenId}";
-    }
-
-    private static string GetUserBlocklistCacheKey(Guid userId)
-    {
-        return $"jwt-user-blocklist:{userId}";
-    }
-
-    #endregion
 
     #region Cache DTOs
 
