@@ -109,7 +109,17 @@ public class EnableResponseCacheAttribute : Attribute, IAsyncActionFilter
         var method = context.Request.Method;
         var path = context.Request.Path.Value ?? string.Empty;
         var queryString = context.Request.QueryString.Value?.TrimStart('?');
-        var tenantId = _varyByTenant ? context.Items["TenantId"]?.ToString() : null;
+        
+        // Get tenant ID from ITenantContext service instead of HttpContext.Items
+        string? tenantId = null;
+        if (_varyByTenant)
+        {
+            var tenantContext = context.RequestServices.GetService<ITenantContext>();
+            if (tenantContext?.HasTenant == true)
+            {
+                tenantId = tenantContext.CurrentTenantId.ToString();
+            }
+        }
         
         // Add user context to query string if required
         if (_varyByUser && context.User.Identity?.IsAuthenticated == true)
