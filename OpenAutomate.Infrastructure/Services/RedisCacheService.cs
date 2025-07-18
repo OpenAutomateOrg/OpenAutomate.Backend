@@ -192,78 +192,51 @@ public class RedisCacheService : ICacheService
         {
             var database = _connectionMultiplexer.GetDatabase();
             var server = _connectionMultiplexer.GetServer(_connectionMultiplexer.GetEndPoints().First());
-            
             var batchSize = _cacheConfig.BatchSize;
             var scanCount = _cacheConfig.ScanCount;
             var batchDelayMs = _cacheConfig.BatchDelayMs;
             var maxKeysPerPattern = _cacheConfig.MaxKeysPerPattern;
-            
+
             var keys = new List<RedisKey>();
             long totalRemoved = 0;
             long totalProcessed = 0;
-            
+
             _logger.LogInformation(LogMessages.CacheRemovePatternStarted, pattern);
-            
-            // Use server.Keys with pattern and pageSize for cursor-based iteration
             var keyEnumerator = server.Keys(database: database.Database, pattern: pattern, pageSize: scanCount);
-            
+
             foreach (var key in keyEnumerator)
             {
-                keys.Add(key);
-                totalProcessed++;
-                
-                // Check if we've reached the maximum key limit for safety
-                if (totalProcessed >= maxKeysPerPattern)
-                {
-                    _logger.LogWarning("Reached maximum key limit ({MaxKeys}) for pattern {Pattern}. Stopping to prevent performance issues.", 
-                        maxKeysPerPattern, pattern);
-                    break;
-                }
-                
-                // Process in batches to avoid memory issues and reduce Redis blocking
-                if (keys.Count >= batchSize)
-                {
-                    var removed = await database.KeyDeleteAsync(keys.ToArray());
-                    totalRemoved += removed;
-                    keys.Clear();
-                    
-                    // Log progress for large operations
-                    if (totalProcessed % (batchSize * 10) == 0)
-                    {
-                        _logger.LogDebug(LogMessages.CacheRemovePatternProgress, totalProcessed, totalRemoved, pattern);
-                    }
-                    
-                    // Add configurable delay to prevent overwhelming Redis
-                    if (batchDelayMs > 0)
-                    {
-                        await Task.Delay(batchDelayMs, cancellationToken);
-                    }
-                    
-                    if (cancellationToken.IsCancellationRequested)
-                        break;
-                }
-                
-                // Check for cancellation between iterations
                 if (cancellationToken.IsCancellationRequested)
                     break;
+
+                keys.Add(key);
+                totalProcessed++;
+
+                if (totalProcessed >= maxKeysPerPattern)
+                {
+                    LogMaxKeyLimit(pattern, maxKeysPerPattern, totalProcessed, totalRemoved);
+                    break;
+                }
+
+                if (keys.Count >= batchSize)
+                {
+                    totalRemoved += await DeleteBatchAsync(database, keys, cancellationToken);
+                    keys.Clear();
+                    LogProgressIfNeeded(totalProcessed, totalRemoved, pattern, batchSize);
+                    await DelayIfNeeded(batchDelayMs, cancellationToken);
+                }
             }
-            
-            // Remove any remaining keys
+
             if (keys.Count > 0)
             {
-                var removed = await database.KeyDeleteAsync(keys.ToArray());
-                totalRemoved += removed;
+                totalRemoved += await DeleteBatchAsync(database, keys, cancellationToken);
             }
-            
+
             _logger.LogDebug(LogMessages.CacheRemovePatternSuccess, totalRemoved, pattern);
-            
-            // Log warning if we processed a large number of keys
             if (totalProcessed >= maxKeysPerPattern)
             {
-                _logger.LogWarning("Pattern removal stopped at maximum key limit. Pattern: {Pattern}, Processed: {ProcessedKeys}, Removed: {RemovedKeys}", 
-                    pattern, totalProcessed, totalRemoved);
+                LogMaxKeyLimit(pattern, maxKeysPerPattern, totalProcessed, totalRemoved);
             }
-            
             return totalRemoved;
         }
         catch (Exception ex)
@@ -271,5 +244,33 @@ public class RedisCacheService : ICacheService
             _logger.LogWarning(ex, LogMessages.CacheRemovePatternError, pattern);
             return 0;
         }
+    }
+
+    private async Task<long> DeleteBatchAsync(IDatabase database, List<RedisKey> keys, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested) return 0;
+        return await database.KeyDeleteAsync(keys.ToArray());
+    }
+
+    private void LogProgressIfNeeded(long totalProcessed, long totalRemoved, string pattern, int batchSize)
+    {
+        if (totalProcessed % (batchSize * 10) == 0)
+        {
+            _logger.LogDebug(LogMessages.CacheRemovePatternProgress, totalProcessed, totalRemoved, pattern);
+        }
+    }
+
+    private async Task DelayIfNeeded(int batchDelayMs, CancellationToken cancellationToken)
+    {
+        if (batchDelayMs > 0)
+        {
+            await Task.Delay(batchDelayMs, cancellationToken);
+        }
+    }
+
+    private void LogMaxKeyLimit(string pattern, int maxKeys, long processed, long removed)
+    {
+        _logger.LogWarning("Pattern removal stopped at maximum key limit. Pattern: {Pattern}, Processed: {ProcessedKeys}, Removed: {RemovedKeys}",
+            pattern, processed, removed);
     }
 } 
