@@ -23,5 +23,18 @@ RUN dotnet publish "OpenAutomate.API.csproj" -c Release -o /app/publish
 
 FROM base AS final
 WORKDIR /app
+
+# Create a non-root user
+RUN addgroup -g 1001 -S appuser && \
+    adduser -S appuser -G appuser -u 1001
+
+# Copy application files
 COPY --from=publish /app/publish .
+
+# Change ownership to non-root user
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
 ENTRYPOINT ["dotnet", "OpenAutomate.API.dll"]

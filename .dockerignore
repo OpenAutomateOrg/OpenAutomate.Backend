@@ -1,41 +1,35 @@
-# Exclude build artifacts and temporary files
-**/bin/
-**/obj/
-**/.vs/
-**/.vscode/
-**/node_modules/
-**/npm-debug.log
-**/yarn-error.log
+# Development files
+.env
+.env.*
 
-# Exclude Git files
-.git/
+# User secrets and certificates
+*.pfx
+*.p12
+*.key
+*.pem
+secrets.json
+
+# Version control
+.git
 .gitignore
 .gitattributes
 
-# Exclude documentation and non-essential files
-**/*.md
-**/README*
-**/LICENSE*
-**/CHANGELOG*
+# IDE and editor files
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
 
-# Exclude test files and coverage reports
-**/TestResults/
-**/coverage/
-**/*.trx
-**/*.coverage
+# Build artifacts
+bin/
+obj/
+TestResults/
+*.log
+*.tmp
 
-# Exclude Docker files (except the one being used)
-**/Dockerfile*
-**/docker-compose*
-**/.dockerignore
-
-# Exclude IDE and editor files
-**/.idea/
-**/*.swp
-**/*.swo
-**/*~
-
-# Exclude OS generated files
+# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -44,8 +38,19 @@
 ehthumbs.db
 Thumbs.db
 
-# Exclude temporary and cache files
-**/tmp/
-**/temp/
-**/.cache/
-**/logs/ 
+# Documentation (if sensitive)
+docs/
+README.md
+*.md
+
+# Test files
+*Tests/
+*.Tests/
+
+# Package files
+*.nupkg
+*.snupkg
+
+# Backup files
+*.bak
+*.backup 
