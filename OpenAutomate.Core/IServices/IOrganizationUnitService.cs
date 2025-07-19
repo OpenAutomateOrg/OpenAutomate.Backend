@@ -48,5 +48,20 @@ namespace OpenAutomate.Core.IServices
         /// <param name="userId">The ID of the user</param>
         /// <returns>A response containing organization units and the total count</returns>
         Task<UserOrganizationUnitsResponseDto> GetUserOrganizationUnitsAsync(Guid userId);
+
+        /// <summary>
+        /// Request deletion of organization unit (7 days delayed)
+        /// </summary>
+        Task<DeletionRequestDto> RequestDeletionAsync(Guid id, Guid userId);
+
+        /// <summary>
+        /// Cancel pending deletion
+        /// </summary>
+        Task<DeletionRequestDto> CancelDeletionAsync(Guid id);
+
+        /// <summary>
+        /// Get deletion status with countdown
+        /// </summary>
+        Task<DeletionStatusDto> GetDeletionStatusAsync(Guid id);
     }
 } 
