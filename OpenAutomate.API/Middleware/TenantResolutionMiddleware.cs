@@ -54,7 +54,16 @@ namespace OpenAutomate.API.Middleware
                 _logger.LogDebug("[{RequestId}] Path does not require tenant resolution: {Path}", 
                     requestId, context.Request.Path);
             }
-            
+
+            if (!tenantContext.HasTenant)
+            {
+                if (context.Request.RouteValues.TryGetValue("id", out var idObj) && Guid.TryParse(idObj?.ToString(), out var ouId))
+                {
+                    tenantContext.SetTenant(ouId);
+                    _logger.LogDebug("[{RequestId}] Tenant context set from route id: {TenantId}", requestId, ouId);
+                }
+            }
+
             await _next(context);
         }
         
