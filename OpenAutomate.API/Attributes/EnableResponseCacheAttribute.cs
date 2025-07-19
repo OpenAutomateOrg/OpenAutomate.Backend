@@ -35,6 +35,7 @@ public class EnableResponseCacheAttribute : Attribute, IAsyncActionFilter
         var cacheService = context.HttpContext.RequestServices.GetRequiredService<ICacheService>();
         var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<EnableResponseCacheAttribute>>();
 
+        bool actionExecuted = false;
         try
         {
             // Generate cache key based on request
@@ -60,6 +61,7 @@ public class EnableResponseCacheAttribute : Attribute, IAsyncActionFilter
 
             // Execute the action
             var executedContext = await next();
+            actionExecuted = true;
 
             // Cache the response if it's successful
             if (executedContext.Result is ObjectResult objectResult && 
@@ -97,7 +99,10 @@ public class EnableResponseCacheAttribute : Attribute, IAsyncActionFilter
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Error occurred during response caching. Continuing without cache.");
-            // Do not call await next() here to avoid double execution
+            if (!actionExecuted)
+            {
+                await next();
+            }
         }
     }
 
