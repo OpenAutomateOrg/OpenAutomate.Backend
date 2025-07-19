@@ -25,17 +25,20 @@ namespace OpenAutomate.Infrastructure.Services
         private readonly JwtSettings _jwtSettings;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ITenantContext _tenantContext;
+        private readonly IJwtBlocklistService _jwtBlocklistService;
         private readonly ILogger<TokenService> _logger;
 
         public TokenService(
             IOptions<JwtSettings> jwtSettings,
             IUnitOfWork unitOfWork,
             ITenantContext tenantContext,
+            IJwtBlocklistService jwtBlocklistService,
             ILogger<TokenService> logger)
         {
             _jwtSettings = jwtSettings.Value;
             _unitOfWork = unitOfWork;
             _tenantContext = tenantContext;
+            _jwtBlocklistService = jwtBlocklistService;
             _logger = logger;
         }
 
@@ -200,6 +203,47 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 _logger.LogError(ex, "Error revoking token");
                 return Task.FromResult(false);
+            }
+        }
+
+        public async Task<bool> RevokeJwtTokenAsync(string jwtToken, string reason = "")
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(jwtToken))
+                {
+                    return false;
+                }
+
+                _logger.LogDebug("Revoking JWT token");
+
+                // Parse the JWT token to extract JTI and expiration
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var token = tokenHandler.ReadJwtToken(jwtToken);
+
+                var jtiClaim = token.Claims.FirstOrDefault(x => x.Type == JwtRegisteredClaimNames.Jti);
+                if (jtiClaim == null)
+                {
+                    _logger.LogWarning("JWT token does not contain JTI claim");
+                    return false;
+                }
+
+                var expiration = token.ValidTo;
+                
+                // Add token to blocklist
+                var success = await _jwtBlocklistService.BlocklistTokenAsync(jtiClaim.Value, expiration, reason);
+                
+                if (success)
+                {
+                    _logger.LogInformation("Successfully blocklisted JWT token {JTI}", jtiClaim.Value);
+                }
+                
+                return success;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error revoking JWT token");
+                return false;
             }
         }
 

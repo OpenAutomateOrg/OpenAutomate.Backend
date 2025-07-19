@@ -23,14 +23,19 @@ namespace OpenAutomate.API.Controllers
     public class OrganizationUnitController : CustomControllerBase
     {
         private readonly IOrganizationUnitService _organizationUnitService;
+        private readonly ICacheInvalidationService _cacheInvalidationService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="OrganizationUnitController"/> class
         /// </summary>
         /// <param name="organizationUnitService">The organization unit service</param>
-        public OrganizationUnitController(IOrganizationUnitService organizationUnitService)
+        /// <param name="cacheInvalidationService">The cache invalidation service</param>
+        public OrganizationUnitController(
+            IOrganizationUnitService organizationUnitService,
+            ICacheInvalidationService cacheInvalidationService)
         {
             _organizationUnitService = organizationUnitService;
+            _cacheInvalidationService = cacheInvalidationService;
         }
 
         /// <summary>
@@ -209,7 +214,16 @@ namespace OpenAutomate.API.Controllers
                 if (organizationUnit == null)
                     return NotFound();
 
+                var oldSlug = organizationUnit.Slug;
                 var result = await _organizationUnitService.UpdateOrganizationUnitAsync(id, dto);
+                
+                // Invalidate tenant resolution cache for both old and new slugs
+                await _cacheInvalidationService.InvalidateTenantResolutionCacheAsync(oldSlug);
+                if (result.Slug != oldSlug)
+                {
+                    await _cacheInvalidationService.InvalidateTenantResolutionCacheAsync(result.Slug);
+                }
+                
                 return Ok(result);
             }
             catch (KeyNotFoundException)

@@ -56,6 +56,7 @@ namespace OpenAutomate.API.Controllers.OData
         [HttpGet]
         [RequirePermission(Resources.AgentResource, Permissions.View)]
         [EnableQuery]
+        [EnableResponseCache(180)] // Cache for 3 minutes - bot agents status changes more frequently
         public async Task<IActionResult> Get()
         {
             try
@@ -103,6 +104,7 @@ namespace OpenAutomate.API.Controllers.OData
         [HttpGet("{key}")]
         [RequirePermission(Resources.AgentResource, Permissions.View)]
         [EnableQuery]
+        [EnableResponseCache(300)] // Cache for 5 minutes
         public async Task<IActionResult> Get([FromRoute] Guid key)
         {
             try

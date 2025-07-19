@@ -58,6 +58,7 @@ namespace OpenAutomate.API.Controllers.OData
         [HttpGet]
         [RequirePermission(Resources.OrganizationUnitResource, Permissions.View)]
         [EnableQuery]
+        [EnableResponseCache(900)] // Cache for 15 minutes - authorities change less frequently
         public async Task<IActionResult> Get()
         {
             try
@@ -104,6 +105,7 @@ namespace OpenAutomate.API.Controllers.OData
         [HttpGet("{key}")]
         [RequirePermission(Resources.OrganizationUnitResource, Permissions.View)]
         [EnableQuery]
+        [EnableResponseCache(1800)] // Cache for 30 minutes - individual authorities are stable
         public async Task<IActionResult> Get([FromRoute] Guid key)
         {
             try

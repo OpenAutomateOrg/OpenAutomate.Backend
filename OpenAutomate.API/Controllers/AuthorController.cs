@@ -28,16 +28,26 @@ namespace OpenAutomate.API.Controllers
     {
         private readonly IAuthorizationManager _authorizationManager;
         private readonly IOrganizationUnitService _organizationUnitService;
+        private readonly ICacheInvalidationService _cacheInvalidationService;
+        private readonly ITenantContext _tenantContext;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AuthorController"/> class
         /// </summary>
         /// <param name="authorizationManager">The authorization manager service</param>
         /// <param name="organizationUnitService">The organization unit service</param>
-        public AuthorController(IAuthorizationManager authorizationManager, IOrganizationUnitService organizationUnitService)
+        /// <param name="cacheInvalidationService">The cache invalidation service</param>
+        /// <param name="tenantContext">The tenant context</param>
+        public AuthorController(
+            IAuthorizationManager authorizationManager, 
+            IOrganizationUnitService organizationUnitService,
+            ICacheInvalidationService cacheInvalidationService,
+            ITenantContext tenantContext)
         {
             _authorizationManager = authorizationManager;
             _organizationUnitService = organizationUnitService;
+            _cacheInvalidationService = cacheInvalidationService;
+            _tenantContext = tenantContext;
         }
 
         /// <summary>
@@ -58,6 +68,14 @@ namespace OpenAutomate.API.Controllers
             try
             {
                 var result = await _authorizationManager.CreateAuthorityAsync(dto);
+                
+                // Invalidate tenant permissions cache and API response cache
+                if (_tenantContext.HasTenant)
+                {
+                    await _cacheInvalidationService.InvalidateTenantPermissionsCacheAsync(_tenantContext.CurrentTenantId);
+                    await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/odata/Roles", _tenantContext.CurrentTenantId);
+                }
+                
                 return StatusCode(StatusCodes.Status201Created, result);
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
@@ -124,6 +142,14 @@ namespace OpenAutomate.API.Controllers
             try
             {
                 await _authorizationManager.UpdateAuthorityAsync(authorityId, dto);
+                
+                // Invalidate tenant permissions cache and API response cache
+                if (_tenantContext.HasTenant)
+                {
+                    await _cacheInvalidationService.InvalidateTenantPermissionsCacheAsync(_tenantContext.CurrentTenantId);
+                    await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/odata/Roles", _tenantContext.CurrentTenantId);
+                }
+                
                 return Ok();
             }
             catch (NotFoundException ex)
@@ -162,6 +188,14 @@ namespace OpenAutomate.API.Controllers
             try
             {
                 await _authorizationManager.DeleteAuthorityAsync(authorityId);
+                
+                // Invalidate tenant permissions cache and API response cache
+                if (_tenantContext.HasTenant)
+                {
+                    await _cacheInvalidationService.InvalidateTenantPermissionsCacheAsync(_tenantContext.CurrentTenantId);
+                    await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/odata/Roles", _tenantContext.CurrentTenantId);
+                }
+                
                 return Ok();
             }
             catch (NotFoundException ex)
@@ -221,6 +255,13 @@ namespace OpenAutomate.API.Controllers
         public async Task<IActionResult> AssignAuthorityToUser(Guid userId, [FromBody] AssignAuthorityDto dto)
         {
             await _authorizationManager.AssignAuthorityToUserAsync(userId, dto.AuthorityId);
+            
+            // Invalidate user permissions cache
+            if (_tenantContext.HasTenant)
+            {
+                await _cacheInvalidationService.InvalidateUserPermissionsCacheAsync(_tenantContext.CurrentTenantId, userId);
+            }
+            
             return Ok();
         }
 
@@ -243,6 +284,13 @@ namespace OpenAutomate.API.Controllers
         public async Task<IActionResult> RemoveAuthorityFromUser(Guid userId, Guid authorityId)
         {
             await _authorizationManager.RemoveAuthorityFromUserAsync(userId, authorityId);
+            
+            // Invalidate user permissions cache
+            if (_tenantContext.HasTenant)
+            {
+                await _cacheInvalidationService.InvalidateUserPermissionsCacheAsync(_tenantContext.CurrentTenantId, userId);
+            }
+            
             return Ok();
         }
 
@@ -286,6 +334,14 @@ namespace OpenAutomate.API.Controllers
                 dto.ResourceName,
                 dto.Permission
             );
+            
+            // Invalidate tenant permissions cache and API response cache
+            if (_tenantContext.HasTenant)
+            {
+                await _cacheInvalidationService.InvalidateTenantPermissionsCacheAsync(_tenantContext.CurrentTenantId);
+                await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/odata/Roles", _tenantContext.CurrentTenantId);
+            }
+            
             return Ok();
         }
 
@@ -308,6 +364,14 @@ namespace OpenAutomate.API.Controllers
         public async Task<IActionResult> RemoveResourcePermission(string authorityName, string resourceName)
         {
             await _authorizationManager.RemoveResourcePermissionAsync(authorityName, resourceName);
+            
+            // Invalidate tenant permissions cache and API response cache
+            if (_tenantContext.HasTenant)
+            {
+                await _cacheInvalidationService.InvalidateTenantPermissionsCacheAsync(_tenantContext.CurrentTenantId);
+                await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/odata/Roles", _tenantContext.CurrentTenantId);
+            }
+            
             return Ok();
         }
 
@@ -336,6 +400,10 @@ namespace OpenAutomate.API.Controllers
             if (ou == null)
                 return NotFound(new { message = $"Organization unit '{tenant}' not found." });
             await _authorizationManager.AssignAuthoritiesToUserAsync(userId, dto.AuthorityIds, ou.Id);
+            
+            // Invalidate user permissions cache
+            await _cacheInvalidationService.InvalidateUserPermissionsCacheAsync(ou.Id, userId);
+            
             return Ok();
         }
     }

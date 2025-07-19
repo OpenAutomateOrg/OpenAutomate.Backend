@@ -1,0 +1,56 @@
+# Development files
+.env
+.env.*
+
+# User secrets and certificates
+*.pfx
+*.p12
+*.key
+*.pem
+secrets.json
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# IDE and editor files
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build artifacts
+bin/
+obj/
+TestResults/
+*.log
+*.tmp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Documentation (if sensitive)
+docs/
+README.md
+*.md
+
+# Test files
+*Tests/
+*.Tests/
+
+# Package files
+*.nupkg
+*.snupkg
+
+# Backup files
+*.bak
+*.backup 

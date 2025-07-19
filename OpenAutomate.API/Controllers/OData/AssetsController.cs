@@ -44,6 +44,7 @@ namespace OpenAutomate.API.Controllers.OData
         [HttpGet]
         [RequirePermission(Resources.AssetResource, Permissions.View)]
         [EnableQuery]
+        [EnableResponseCache(300)] // Cache for 5 minutes
         public async Task<IActionResult> Get()
         {
             try
@@ -70,6 +71,7 @@ namespace OpenAutomate.API.Controllers.OData
         [HttpGet("{key}")]
         [RequirePermission(Resources.AssetResource, Permissions.View)]
         [EnableQuery]
+        [EnableResponseCache(600)] // Cache for 10 minutes
         public async Task<IActionResult> Get([FromRoute] Guid key)
         {
             try

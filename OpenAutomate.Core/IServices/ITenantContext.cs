@@ -30,6 +30,13 @@ namespace OpenAutomate.Core.IServices
         void SetTenant(Guid tenantId);
 
         /// <summary>
+        /// Sets the current tenant ID and slug
+        /// </summary>
+        /// <param name="tenantId">The tenant ID to set</param>
+        /// <param name="tenantSlug">The tenant slug to set</param>
+        void SetTenant(Guid tenantId, string? tenantSlug);
+
+        /// <summary>
         /// Clears the current tenant
         /// </summary>
         void ClearTenant();
