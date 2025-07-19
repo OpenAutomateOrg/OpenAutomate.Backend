@@ -191,7 +191,13 @@ public class RedisCacheService : ICacheService
         try
         {
             var database = _connectionMultiplexer.GetDatabase();
-            var server = _connectionMultiplexer.GetServer(_connectionMultiplexer.GetEndPoints().First());
+            var endpoints = _connectionMultiplexer.GetEndPoints();
+            if (endpoints == null || endpoints.Length == 0)
+            {
+                _logger.LogError("No Redis endpoints available for pattern removal. Pattern: {Pattern}", pattern);
+                return 0;
+            }
+            var server = _connectionMultiplexer.GetServer(endpoints.First());
             var batchSize = _cacheConfig.BatchSize;
             var scanCount = _cacheConfig.ScanCount;
             var batchDelayMs = _cacheConfig.BatchDelayMs;

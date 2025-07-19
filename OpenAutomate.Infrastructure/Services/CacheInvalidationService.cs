@@ -296,7 +296,13 @@ public class CacheInvalidationService : ICacheInvalidationService
         try
         {
             var database = _redis.GetDatabase();
-            var server = _redis.GetServer(_redis.GetEndPoints().First());
+            var endpoints = _redis.GetEndPoints();
+            if (endpoints == null || endpoints.Length == 0)
+            {
+                _logger.LogError("No Redis endpoints available for pattern removal. Pattern: {Pattern}", pattern);
+                return;
+            }
+            var server = _redis.GetServer(endpoints.First());
             
             var batchSize = _cacheConfig.BatchSize;
             var scanCount = _cacheConfig.ScanCount;

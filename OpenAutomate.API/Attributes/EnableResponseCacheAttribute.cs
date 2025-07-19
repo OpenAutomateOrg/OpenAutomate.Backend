@@ -97,9 +97,7 @@ public class EnableResponseCacheAttribute : Attribute, IAsyncActionFilter
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Error occurred during response caching. Continuing without cache.");
-            
-            // Continue execution if caching fails
-            await next();
+            // Do not call await next() here to avoid double execution
         }
     }
 
