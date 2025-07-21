@@ -23,26 +23,18 @@ namespace OpenAutomate.API.Controllers
     {
         private readonly IAssetService _assetService;
         private readonly ILogger<AssetController> _logger;
-        private readonly ICacheInvalidationService _cacheInvalidationService;
-        private readonly ITenantContext _tenantContext;
         
         /// <summary>
         /// Initializes a new instance of the <see cref="AssetController"/> class
         /// </summary>
         /// <param name="assetService">The Asset service</param>
         /// <param name="logger">The logger</param>
-        /// <param name="cacheInvalidationService">The cache invalidation service</param>
-        /// <param name="tenantContext">The tenant context</param>
         public AssetController(
             IAssetService assetService, 
-            ILogger<AssetController> logger,
-            ICacheInvalidationService cacheInvalidationService,
-            ITenantContext tenantContext)
+            ILogger<AssetController> logger)
         {
             _assetService = assetService;
             _logger = logger;
-            _cacheInvalidationService = cacheInvalidationService;
-            _tenantContext = tenantContext;
         }
         
         /// <summary>
@@ -61,12 +53,6 @@ namespace OpenAutomate.API.Controllers
             try
             {
                 var asset = await _assetService.CreateAssetAsync(dto);
-                
-                // Invalidate assets cache
-                if (_tenantContext.HasTenant)
-                {
-                    await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/odata/Assets", _tenantContext.CurrentTenantId);
-                }
                 
                 // Get the tenant from the route data
                 var tenant = RouteData.Values["tenant"]?.ToString();
@@ -185,12 +171,6 @@ namespace OpenAutomate.API.Controllers
             {
                 var asset = await _assetService.UpdateAssetAsync(id, dto);
                 
-                // Invalidate assets cache
-                if (_tenantContext.HasTenant)
-                {
-                    await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/odata/Assets", _tenantContext.CurrentTenantId);
-                }
-                
                 return Ok(asset);
             }
             catch (KeyNotFoundException ex)
@@ -221,12 +201,6 @@ namespace OpenAutomate.API.Controllers
                 var deleted = await _assetService.DeleteAssetAsync(id);
                 if (!deleted)
                     return NotFound(new { message = $"Asset with ID {id} not found." });
-                
-                // Invalidate assets cache
-                if (_tenantContext.HasTenant)
-                {
-                    await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/odata/Assets", _tenantContext.CurrentTenantId);
-                }
                     
                 return NoContent();
             }

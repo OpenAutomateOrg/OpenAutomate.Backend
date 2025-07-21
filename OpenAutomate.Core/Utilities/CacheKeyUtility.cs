@@ -108,42 +108,79 @@ public static class CacheKeyUtility
     }
     
     /// <summary>
-    /// Generates an API response cache key with hashing for consistent length
+    /// Generates an API response cache key with predictable prefix and hashed suffix
     /// </summary>
     /// <param name="method">HTTP method</param>
     /// <param name="path">Request path</param>
     /// <param name="queryString">Query string</param>
     /// <param name="tenantId">Tenant identifier</param>
-    /// <returns>Hashed API response cache key</returns>
-    public static string GenerateApiResponseKey(string method, string path, string? queryString = null, string? tenantId = null)
+    /// <param name="additionalParams">Additional parameters to include in hash (e.g., user ID)</param>
+    /// <returns>API response cache key with format: api-cache:{tenantId}:{basePath}:{hash}</returns>
+    public static string GenerateApiResponseKey(string method, string path, string? queryString = null, string? tenantId = null, string? additionalParams = null)
     {
-        var keyBuilder = new StringBuilder();
-        keyBuilder.Append($"{method.ToUpperInvariant()}:{path}");
+        // Extract base path (remove query parameters if they're part of the path)
+        var basePath = path;
+        if (basePath.Contains('?'))
+        {
+            basePath = basePath.Split('?')[0];
+        }
+        
+        // Build the predictable prefix: api-cache:{tenantId}:{basePath}
+        var prefixBuilder = new StringBuilder();
+        prefixBuilder.Append(Prefixes.ApiResponse);
+        prefixBuilder.Append(':');
+        prefixBuilder.Append(tenantId ?? "global");
+        prefixBuilder.Append(':');
+        prefixBuilder.Append(basePath);
+        
+        // Build the variable part to be hashed: method + queryString + additionalParams
+        var hashBuilder = new StringBuilder();
+        hashBuilder.Append(method.ToUpperInvariant());
         
         if (!string.IsNullOrEmpty(queryString))
         {
-            keyBuilder.Append($"?{queryString}");
+            hashBuilder.Append($"?{queryString}");
         }
         
-        if (!string.IsNullOrEmpty(tenantId))
+        if (!string.IsNullOrEmpty(additionalParams))
         {
-            keyBuilder.Append($":tenant:{tenantId}");
+            hashBuilder.Append($":params:{additionalParams}");
         }
         
-        // Hash the key to ensure consistent length and avoid Redis key length issues
-        var keyString = keyBuilder.ToString();
-        var hashedKey = HashString(keyString);
+        // Hash only the variable part
+        var hashString = HashString(hashBuilder.ToString());
         
-        return $"{Prefixes.ApiResponse}:{hashedKey}";
+        return $"{prefixBuilder}:{hashString}";
     }
     
     /// <summary>
-    /// Generates common API response cache key patterns for invalidation
+    /// Generates an API response cache invalidation pattern for Redis pattern matching
+    /// </summary>
+    /// <param name="basePath">Base request path (e.g., "/odata/Assets")</param>
+    /// <param name="tenantId">Tenant identifier</param>
+    /// <returns>Cache invalidation pattern (e.g., "api-cache:tenant123:/odata/Assets:*")</returns>
+    public static string GenerateApiResponsePattern(string basePath, string? tenantId = null)
+    {
+        // Extract base path (remove query parameters if they're part of the path)
+        if (basePath.Contains('?'))
+        {
+            basePath = basePath.Split('?')[0];
+        }
+        
+        // Build the pattern: api-cache:{tenantId}:{basePath}:*
+        var pattern = $"{Prefixes.ApiResponse}:{tenantId ?? "global"}:{basePath}:*";
+        
+        return pattern;
+    }
+    
+    /// <summary>
+    /// Generates common API response cache key patterns for invalidation (DEPRECATED - use GenerateApiResponsePattern instead)
     /// </summary>
     /// <param name="method">HTTP method</param>
     /// <param name="basePath">Base request path</param>
     /// <param name="tenantId">Tenant identifier</param>
     /// <returns>List of hashed cache key patterns</returns>
+    [Obsolete("Use GenerateApiResponsePattern instead for reliable pattern-based cache invalidation")]
     public static List<string> GenerateApiResponseKeyPatterns(string method, string basePath, string tenantId)
     {
         var patterns = new List<string>();

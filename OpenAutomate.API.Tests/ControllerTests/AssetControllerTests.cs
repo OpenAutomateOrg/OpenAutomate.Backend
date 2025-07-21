@@ -29,9 +29,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
             
             _controller = new AssetController(
                 _mockAssetService.Object, 
-                _mockLogger.Object,
-                _mockCacheInvalidationService.Object,
-                _mockTenantContext.Object);
+                _mockLogger.Object);
             
             // Setup controller context
             var httpContext = new DefaultHttpContext();

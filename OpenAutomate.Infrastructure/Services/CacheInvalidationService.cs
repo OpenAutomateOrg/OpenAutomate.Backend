@@ -164,67 +164,49 @@ public class CacheInvalidationService : ICacheInvalidationService
     {
         try
         {
-            // Since EnableResponseCacheAttribute uses hashed keys, we need to generate the possible cache keys
-            // that would match the given path pattern and tenant. The cache key generation logic needs to 
-            // mirror the logic in EnableResponseCacheAttribute.GenerateCacheKey()
+            // Use the new pattern-based approach for reliable cache invalidation
+            // Generate the invalidation pattern: api-cache:{tenantId}:{basePath}:*
             
-            var keysToInvalidate = new List<string>();
-            
+            string invalidationPattern;
             if (tenantId.HasValue)
             {
-                // Generate cache keys for common request patterns that would match this path and tenant
-                var commonPatterns = CacheKeyUtility.GenerateApiResponseKeyPatterns("GET", pathPattern, tenantId.Value.ToString());
-                keysToInvalidate.AddRange(commonPatterns);
+                invalidationPattern = CacheKeyUtility.GenerateApiResponsePattern(pathPattern, tenantId.Value.ToString());
             }
             else
             {
                 // For global invalidation, invalidate all api-cache keys
-                await InvalidateCachePatternAsync("api-cache:*", cancellationToken);
-                _logger.LogInformation(LogMessages.ApiResponseCacheInvalidated, pathPattern);
-                return;
+                invalidationPattern = "api-cache:*";
             }
             
-            if (keysToInvalidate.Any())
+            _logger.LogInformation("Starting API response cache invalidation for path: {PathPattern}, tenant: {TenantId}, pattern: {Pattern}", 
+                pathPattern, tenantId, invalidationPattern);
+            
+            // For immediate cache invalidation, bypass pub/sub and invalidate directly
+            // Use the reliable pattern-based invalidation through RemoveByPatternAsync
+            var removedCount = await _cacheService.RemoveByPatternAsync(invalidationPattern, cancellationToken);
+            
+            // Also publish the invalidation message for other instances (if running in distributed mode)
+            var message = new CacheInvalidationMessage
             {
-                // Use pattern matching to find and delete matching keys
-                await InvalidateApiResponseCacheByPatternAsync(keysToInvalidate, cancellationToken);
-            }
+                Type = CacheInvalidationType.Pattern,
+                Pattern = invalidationPattern,
+                Timestamp = DateTimeOffset.UtcNow
+            };
+            await PublishInvalidationMessageAsync(message, cancellationToken);
+            
+            _logger.LogInformation("API response cache invalidation completed. Path: {PathPattern}, tenant: {TenantId}, pattern: {Pattern}, removed: {RemovedCount} keys", 
+                pathPattern, tenantId, invalidationPattern, removedCount);
             
             _logger.LogInformation(LogMessages.ApiResponseCacheInvalidated, pathPattern);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, LogMessages.InvalidationError);
+            _logger.LogError(ex, "Error during API response cache invalidation for path: {PathPattern}, tenant: {TenantId}", pathPattern, tenantId);
             throw;
         }
     }
 
 
-
-    private async Task InvalidateApiResponseCacheByPatternAsync(List<string> cacheKeys, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var database = _redis.GetDatabase();
-            var deletedCount = 0;
-            
-            foreach (var key in cacheKeys)
-            {
-                var deleted = await database.KeyDeleteAsync(key);
-                if (deleted)
-                {
-                    deletedCount++;
-                }
-            }
-            
-            _logger.LogDebug("Deleted {DeletedCount} out of {TotalCount} API response cache keys", deletedCount, cacheKeys.Count);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error invalidating API response cache keys");
-            throw;
-        }
-    }
 
     private async Task PublishInvalidationMessageAsync(CacheInvalidationMessage message, CancellationToken cancellationToken)
     {

@@ -45,7 +45,7 @@ public class EnableResponseCacheAttribute : Attribute, IAsyncActionFilter
             var cachedResponse = await cacheService.GetAsync<CachedApiResponse>(cacheKey);
             if (cachedResponse != null)
             {
-                logger.LogDebug("Cache hit for key: {CacheKey}", cacheKey);
+                logger.LogInformation("CACHE HIT - Response served from cache. Key: {CacheKey}, Path: {RequestPath}", cacheKey, context.HttpContext.Request.Path);
                 
                 // Return cached response
                 context.Result = new ContentResult
@@ -57,7 +57,7 @@ public class EnableResponseCacheAttribute : Attribute, IAsyncActionFilter
                 return;
             }
 
-            logger.LogDebug("Cache miss for key: {CacheKey}", cacheKey);
+            logger.LogInformation("CACHE MISS - Response will be cached. Key: {CacheKey}, Path: {RequestPath}", cacheKey, context.HttpContext.Request.Path);
 
             // Execute the action
             var executedContext = await next();
@@ -79,7 +79,7 @@ public class EnableResponseCacheAttribute : Attribute, IAsyncActionFilter
                 };
 
                 await cacheService.SetAsync(cacheKey, responseToCache, TimeSpan.FromSeconds(_durationInSeconds));
-                logger.LogDebug("Response cached with key: {CacheKey} for {Duration} seconds", cacheKey, _durationInSeconds);
+                logger.LogInformation("CACHE STORED - Response cached. Key: {CacheKey}, Path: {RequestPath}, Duration: {Duration}s", cacheKey, context.HttpContext.Request.Path, _durationInSeconds);
             }
             else if (executedContext.Result is ContentResult contentResult &&
                      contentResult.StatusCode >= 200 && contentResult.StatusCode < 300)
@@ -93,7 +93,7 @@ public class EnableResponseCacheAttribute : Attribute, IAsyncActionFilter
                 };
 
                 await cacheService.SetAsync(cacheKey, responseToCache, TimeSpan.FromSeconds(_durationInSeconds));
-                logger.LogDebug("Response cached with key: {CacheKey} for {Duration} seconds", cacheKey, _durationInSeconds);
+                logger.LogInformation("CACHE STORED - Response cached. Key: {CacheKey}, Path: {RequestPath}, Duration: {Duration}s", cacheKey, context.HttpContext.Request.Path, _durationInSeconds);
             }
         }
         catch (Exception ex)
@@ -124,7 +124,8 @@ public class EnableResponseCacheAttribute : Attribute, IAsyncActionFilter
             }
         }
         
-        // Add user context to query string if required
+        // Get user ID for additional parameters if required
+        string? additionalParams = null;
         if (_varyByUser && context.User.Identity?.IsAuthenticated == true)
         {
             var userId = context.User.FindFirst("sub")?.Value ?? 
@@ -132,13 +133,11 @@ public class EnableResponseCacheAttribute : Attribute, IAsyncActionFilter
                         context.User.FindFirst("user_id")?.Value;
             if (!string.IsNullOrEmpty(userId))
             {
-                queryString = string.IsNullOrEmpty(queryString) 
-                    ? $"user={userId}" 
-                    : $"{queryString}&user={userId}";
+                additionalParams = $"user={userId}";
             }
         }
             
-        return CacheKeyUtility.GenerateApiResponseKey(method, path, queryString, tenantId);
+        return CacheKeyUtility.GenerateApiResponseKey(method, path, queryString, tenantId, additionalParams);
     }
 
     /// <summary>
