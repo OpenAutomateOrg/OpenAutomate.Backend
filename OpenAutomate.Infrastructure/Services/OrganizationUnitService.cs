@@ -455,8 +455,8 @@ namespace OpenAutomate.Infrastructure.Services
                 await StopAllActivitiesAsync(id);
 
                 // Schedule deletion for 7 days later
-                //var deletionDate = DateTime.UtcNow.AddDays(7);
-                var deletionDate = DateTime.UtcNow.AddMinutes(1);
+                var deletionDate = DateTime.UtcNow.AddDays(7);
+                //var deletionDate = DateTime.UtcNow.AddMinutes(2);
                 var jobId = await ScheduleDeletionJobAsync(id, deletionDate);
 
                 // Update organization unit
