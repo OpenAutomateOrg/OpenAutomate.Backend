@@ -9,12 +9,28 @@ using System.Threading.Tasks;
 namespace OpenAutomate.API.Attributes
 {
     /// <summary>
+    /// Operation types for subscription requirements
+    /// </summary>
+    public enum SubscriptionOperationType
+    {
+        /// <summary>
+        /// Read operations (GET requests) - allowed for expired trials
+        /// </summary>
+        Read,
+        /// <summary>
+        /// Write operations (POST, PUT, DELETE, PATCH) - requires active subscription
+        /// </summary>
+        Write
+    }
+
+    /// <summary>
     /// Requires an active subscription (trial or paid) for authorization
     /// </summary>
     [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = true, AllowMultiple = false)]
     public class RequireSubscriptionAttribute : Attribute, IAsyncActionFilter
     {
         private readonly bool _allowTrial;
+        private readonly SubscriptionOperationType _operationType;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="RequireSubscriptionAttribute"/> class
@@ -23,6 +39,18 @@ namespace OpenAutomate.API.Attributes
         public RequireSubscriptionAttribute(bool allowTrial = true)
         {
             _allowTrial = allowTrial;
+            _operationType = SubscriptionOperationType.Write; // Default to more restrictive
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RequireSubscriptionAttribute"/> class with operation type
+        /// </summary>
+        /// <param name="operationType">The type of operation (Read allows expired trials, Write requires active subscription)</param>
+        /// <param name="allowTrial">Whether to allow trial subscriptions for write operations (default: true)</param>
+        public RequireSubscriptionAttribute(SubscriptionOperationType operationType, bool allowTrial = true)
+        {
+            _allowTrial = allowTrial;
+            _operationType = operationType;
         }
 
         /// <summary>
@@ -57,29 +85,47 @@ namespace OpenAutomate.API.Attributes
                 // Check subscription status
                 var subscriptionStatus = await subscriptionService.GetSubscriptionStatusAsync(tenantContext.CurrentTenantId);
 
-                // Determine if access should be granted
+                // Determine if access should be granted based on operation type
                 bool hasAccess = false;
                 string denialReason = "";
 
                 if (!subscriptionStatus.HasSubscription)
                 {
-                    denialReason = "No subscription found. Please start your free trial or upgrade to premium.";
+                    denialReason = "No subscription found. Please start your free trial or upgrade to Standard subscription.";
                 }
                 else if (!subscriptionStatus.IsActive)
                 {
-                    denialReason = subscriptionStatus.Status switch
+                    // For expired/cancelled subscriptions, allow read operations if it was a trial
+                    if (_operationType == SubscriptionOperationType.Read && 
+                        (subscriptionStatus.Status == "expired" && subscriptionStatus.TrialEndsAt.HasValue))
                     {
-                        "expired" => "Your subscription has expired. Please renew your subscription to continue using premium features.",
-                        "cancelled" => "Your subscription has been cancelled. Please reactivate your subscription to continue using premium features.",
-                        _ => "Your subscription is not active. Please check your subscription status."
-                    };
+                        hasAccess = true; // Allow read access for expired trials
+                    }
+                    else if (_operationType == SubscriptionOperationType.Write)
+                    {
+                        denialReason = subscriptionStatus.Status switch
+                        {
+                            "expired" => "Your trial has expired. Please upgrade to Standard subscription to create, modify, or delete resources.",
+                            "cancelled" => "Your subscription has been cancelled. Please reactivate your subscription to create, modify, or delete resources.",
+                            _ => "Your subscription is not active. Please upgrade to Standard subscription for full access."
+                        };
+                    }
+                    else
+                    {
+                        denialReason = subscriptionStatus.Status switch
+                        {
+                            "expired" => "Your subscription has expired. Please renew your subscription to continue using premium features.",
+                            "cancelled" => "Your subscription has been cancelled. Please reactivate your subscription to continue using premium features.",
+                            _ => "Your subscription is not active. Please check your subscription status."
+                        };
+                    }
                 }
                 else
                 {
-                    // Subscription is active, check if it's trial and if trials are allowed
-                    if (subscriptionStatus.IsInTrial && !_allowTrial)
+                    // Subscription is active, check if it's trial and if trials are allowed for write operations
+                    if (subscriptionStatus.IsInTrial && !_allowTrial && _operationType == SubscriptionOperationType.Write)
                     {
-                        denialReason = "This feature requires a paid subscription. Please upgrade from your trial.";
+                        denialReason = "This feature requires a Standard subscription. Please upgrade from your trial.";
                     }
                     else
                     {

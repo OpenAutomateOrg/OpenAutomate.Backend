@@ -68,6 +68,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="dto">Execution trigger data</param>
         /// <returns>Created execution response</returns>
         [HttpPost("trigger")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.ExecutionResource, Permissions.Create)]
         public async Task<ActionResult<ExecutionResponseDto>> TriggerExecution([FromBody] TriggerExecutionDto dto)
         {
@@ -202,6 +203,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="id">Execution ID</param>
         /// <returns>Download URL</returns>
         [HttpGet("{id}/logs/download")]
+        [RequireSubscription(SubscriptionOperationType.Read)]
         [RequirePermission(Resources.ExecutionResource, Permissions.View)]
         public async Task<ActionResult> GetExecutionLogDownloadUrl(Guid id)
         {
@@ -237,6 +239,7 @@ namespace OpenAutomate.API.Controllers
         /// </summary>
         /// <returns>List of executions</returns>
         [HttpGet]
+        [RequireSubscription(SubscriptionOperationType.Read)]
         [RequirePermission(Resources.ExecutionResource, Permissions.View)]
         public async Task<ActionResult<IEnumerable<ExecutionResponseDto>>> GetAllExecutions()
         {
@@ -259,6 +262,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="id">Execution ID</param>
         /// <returns>Execution details</returns>
         [HttpGet("{id}")]
+        [RequireSubscription(SubscriptionOperationType.Read)]
         [RequirePermission(Resources.ExecutionResource, Permissions.View)]
         public async Task<ActionResult<ExecutionResponseDto>> GetExecutionById(Guid id)
         {
@@ -284,6 +288,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="updateDto">Status update data</param>
         /// <returns>Updated execution</returns>
         [HttpPut("{id}/status")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.ExecutionResource, Permissions.Update)]
         public async Task<ActionResult<ExecutionResponseDto>> UpdateExecutionStatus(
             Guid id, 
@@ -325,6 +330,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="id">Execution ID</param>
         /// <returns>Updated execution</returns>
         [HttpPost("{id}/cancel")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.ExecutionResource, Permissions.Update)]
         public async Task<ActionResult<ExecutionResponseDto>> CancelExecution(Guid id)
         {
