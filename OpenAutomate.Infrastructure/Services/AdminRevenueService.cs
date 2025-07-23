@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using OpenAutomate.Core.Domain.IRepository;
 using OpenAutomate.Core.IServices;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
@@ -62,8 +63,8 @@ namespace OpenAutomate.Infrastructure.Services
                 var trialSubscriptions = subscriptions.Count(s => s.Status == "trialing");
 
                 // Calculate MRR (Monthly Recurring Revenue)
-                // Assuming all active subscriptions are monthly - this could be enhanced with plan pricing data
-                var monthlyRecurringRevenue = activeSubscriptions * GetAverageMonthlySubscriptionValue(payments, subscriptions);
+                // Use actual monthly revenue from recent payments rather than incorrect historical average
+                var monthlyRecurringRevenue = CalculateMonthlyRecurringRevenue(payments, activeSubscriptions);
 
                 // Calculate ARPU (Average Revenue Per User)
                 var uniqueOrganizations = subscriptions.Select(s => s.OrganizationUnitId).Distinct().Count();
@@ -236,22 +237,41 @@ namespace OpenAutomate.Infrastructure.Services
         }
 
         /// <summary>
-        /// Calculates the average monthly subscription value based on payment history
+        /// Calculates Monthly Recurring Revenue based on recent payment patterns
         /// </summary>
-        private decimal GetAverageMonthlySubscriptionValue(
-            IList<OpenAutomate.Core.Domain.Entities.Payment> payments, 
-            IList<OpenAutomate.Core.Domain.Entities.Subscription> subscriptions)
+        private decimal CalculateMonthlyRecurringRevenue(
+            IList<OpenAutomate.Core.Domain.Entities.Payment> payments,
+            int activeSubscriptions)
         {
-            if (!payments.Any() || !subscriptions.Any())
+            if (!payments.Any() || activeSubscriptions == 0)
                 return 0;
 
-            // This is a simplified calculation - in a real scenario, you'd want to 
-            // have plan pricing information stored in the database
-            var totalPayments = payments.Sum(p => p.Amount);
-            var uniquePayingOrganizations = payments.Select(p => p.OrganizationUnitId).Distinct().Count();
-
-            // Rough estimate - could be improved with actual plan data
-            return uniquePayingOrganizations > 0 ? totalPayments / uniquePayingOrganizations : 0;
+            var now = DateTime.UtcNow;
+            var thirtyDaysAgo = now.AddDays(-30);
+            
+            // Get payments from the last 30 days to estimate monthly revenue
+            var recentPayments = payments.Where(p => p.PaymentDate >= thirtyDaysAgo).ToList();
+            
+            if (!recentPayments.Any())
+            {
+                // Fallback: If no recent payments, estimate based on active subscriptions
+                // TODO: Replace with actual subscription plan pricing from configuration
+                // This assumes a default monthly subscription value - should be configurable
+                var estimatedMonthlyPrice = 299000m; // 299,000 VND placeholder - should be from config
+                return activeSubscriptions * estimatedMonthlyPrice;
+            }
+            
+            // Calculate average monthly revenue from recent payment patterns
+            var recentMonthlyRevenue = recentPayments.Sum(p => p.Amount);
+            
+            // If we have less than 30 days of data, extrapolate
+            var daysOfData = (now - recentPayments.Min(p => p.PaymentDate)).TotalDays;
+            if (daysOfData < 30 && daysOfData > 0)
+            {
+                recentMonthlyRevenue = recentMonthlyRevenue * (30m / (decimal)daysOfData);
+            }
+            
+            return recentMonthlyRevenue;
         }
     }
 }
