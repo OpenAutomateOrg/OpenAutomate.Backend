@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.IServices;
 using System;
+using System.Globalization;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
@@ -18,6 +19,7 @@ namespace OpenAutomate.Infrastructure.Services
     {
         private readonly HttpClient _httpClient;
         private readonly LemonSqueezySettings _settings;
+        private readonly AppSettings _appSettings;
         private readonly ISubscriptionService _subscriptionService;
         private readonly ILogger<LemonsqueezyService> _logger;
 
@@ -28,6 +30,7 @@ namespace OpenAutomate.Infrastructure.Services
             ILogger<LemonsqueezyService> logger)
         {
             _httpClient = httpClient;
+            _appSettings = appSettings.Value;
             _settings = appSettings.Value.LemonSqueezy;
             _subscriptionService = subscriptionService;
             _logger = logger;
@@ -36,7 +39,7 @@ namespace OpenAutomate.Infrastructure.Services
             _httpClient.BaseAddress = new Uri(_settings.ApiBaseUrl);
             _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_settings.ApiKey}");
             _httpClient.DefaultRequestHeaders.Add("Accept", "application/vnd.api+json");
-            _httpClient.DefaultRequestHeaders.Add("Content-Type", "application/vnd.api+json");
+            // Note: Content-Type is set per-request only for requests with body content
         }
 
         public async Task<string> CreateCheckoutUrlAsync(Guid organizationUnitId, string userEmail, string? redirectUrl = null)
@@ -55,9 +58,9 @@ namespace OpenAutomate.Infrastructure.Services
                                 name = "Premium Subscription",
                                 description = "OpenAutomate Premium Plan with unlimited AI messages",
                                 media = new string[0],
-                                redirect_url = redirectUrl ?? $"https://yourdomain.com/subscription/success",
+                                redirect_url = redirectUrl ?? $"{_appSettings.FrontendUrl}/subscription/success",
                                 receipt_button_text = "Go to Dashboard",
-                                receipt_link_url = redirectUrl ?? $"https://yourdomain.com/dashboard"
+                                receipt_link_url = redirectUrl ?? $"{_appSettings.FrontendUrl}/dashboard"
                             },
                             checkout_options = new
                             {
@@ -329,11 +332,11 @@ namespace OpenAutomate.Infrastructure.Services
                     Id = data.GetProperty("id").GetString() ?? "",
                     Status = attributes.GetProperty("status").GetString() ?? "",
                     RenewsAt = attributes.TryGetProperty("renews_at", out var renewsAt) && renewsAt.ValueKind != JsonValueKind.Null 
-                        ? DateTime.Parse(renewsAt.GetString()!) : null,
+                        ? ParseLemonSqueezyDate(renewsAt.GetString()) : null,
                     EndsAt = attributes.TryGetProperty("ends_at", out var endsAt) && endsAt.ValueKind != JsonValueKind.Null 
-                        ? DateTime.Parse(endsAt.GetString()!) : null,
+                        ? ParseLemonSqueezyDate(endsAt.GetString()) : null,
                     TrialEndsAt = attributes.TryGetProperty("trial_ends_at", out var trialEndsAt) && trialEndsAt.ValueKind != JsonValueKind.Null 
-                        ? DateTime.Parse(trialEndsAt.GetString()!) : null,
+                        ? ParseLemonSqueezyDate(trialEndsAt.GetString()) : null,
                     CustomerEmail = attributes.GetProperty("customer_email").GetString() ?? ""
                 };
             }
@@ -353,6 +356,32 @@ namespace OpenAutomate.Infrastructure.Services
             }
 
             return Guid.Empty;
+        }
+
+        /// <summary>
+        /// Safely parses a date string from Lemon Squeezy API using culture-invariant parsing
+        /// </summary>
+        /// <param name="dateString">The date string from Lemon Squeezy</param>
+        /// <returns>Parsed DateTime or null if parsing fails</returns>
+        private static DateTime? ParseLemonSqueezyDate(string? dateString)
+        {
+            if (string.IsNullOrWhiteSpace(dateString))
+                return null;
+
+            // Try parsing as ISO 8601 format with culture-invariant settings
+            if (DateTimeOffset.TryParse(dateString, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dateTimeOffset))
+            {
+                return dateTimeOffset.DateTime;
+            }
+
+            // Fallback: try standard DateTime parsing with invariant culture
+            if (DateTime.TryParse(dateString, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dateTime))
+            {
+                return dateTime;
+            }
+
+            // If all parsing attempts fail, return null
+            return null;
         }
     }
 }

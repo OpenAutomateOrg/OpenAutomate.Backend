@@ -21,12 +21,14 @@ namespace OpenAutomate.Infrastructure.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<OrganizationUnitService> _logger;
         private readonly ISchedulerFactory _schedulerFactory;
+        private readonly ISubscriptionService _subscriptionService;
 
-        public OrganizationUnitService(IUnitOfWork unitOfWork, ILogger<OrganizationUnitService> logger, ISchedulerFactory schedulerFactory)
+        public OrganizationUnitService(IUnitOfWork unitOfWork, ILogger<OrganizationUnitService> logger, ISchedulerFactory schedulerFactory, ISubscriptionService subscriptionService)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _schedulerFactory = schedulerFactory;
+            _subscriptionService = subscriptionService;
         }
 
         public async Task<OrganizationUnitResponseDto> CreateOrganizationUnitAsync(CreateOrganizationUnitDto dto, Guid userId)
@@ -56,6 +58,9 @@ namespace OpenAutomate.Infrastructure.Services
 
                 // Assign the OWNER authority to the user who CreatedAtthe organization unit
                 await AssignOwnerAuthorityToUserAsync(organizationUnit.Id, userId, ownerAuthority);
+
+                // Check if this is the user's first organization unit and create trial subscription
+                await CreateTrialSubscriptionForFirstOrgUnitAsync(organizationUnit.Id, userId);
 
                 // Return response
                 return new OrganizationUnitResponseDto
@@ -637,6 +642,49 @@ namespace OpenAutomate.Infrastructure.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error cancelling deletion job {JobId}", jobId);
+            }
+        }
+
+        /// <summary>
+        /// Creates a 7-day trial subscription if this is the user's first organization unit
+        /// </summary>
+        /// <param name="organizationUnitId">The newly created organization unit ID</param>
+        /// <param name="userId">The user who created the organization unit</param>
+        private async Task CreateTrialSubscriptionForFirstOrgUnitAsync(Guid organizationUnitId, Guid userId)
+        {
+            try
+            {
+                _logger.LogInformation("Checking if user {UserId} is eligible for trial subscription", userId);
+
+                // Check if user has any existing organization units (excluding the current one)
+                var existingOrgUnits = await _unitOfWork.OrganizationUnitUsers
+                    .GetAllAsync(ouu => ouu.UserId == userId && ouu.OrganizationUnitId != organizationUnitId);
+                var existingOrgUnitsCount = existingOrgUnits.Count();
+
+                if (existingOrgUnitsCount == 0)
+                {
+                    // This is the user's first organization unit - create trial subscription
+                    _logger.LogInformation("Creating 7-day trial subscription for user's first organization unit {OrganizationUnitId}", organizationUnitId);
+
+                    var subscription = await _subscriptionService.CreateTrialSubscriptionAsync(organizationUnitId, trialDays: 7);
+
+                    _logger.LogInformation("Created trial subscription {SubscriptionId} for organization unit {OrganizationUnitId}", 
+                        subscription.Id, organizationUnitId);
+                }
+                else
+                {
+                    _logger.LogInformation("User {UserId} already has {Count} organization units - no trial subscription created", 
+                        userId, existingOrgUnitsCount);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the error but don't fail organization unit creation
+                // The organization unit should still be created successfully even if trial creation fails
+                _logger.LogError(ex, "Error creating trial subscription for organization unit {OrganizationUnitId}. " +
+                    "Organization unit creation will continue.", organizationUnitId);
+                
+                // We don't rethrow the exception to avoid failing the organization unit creation
             }
         }
     }
