@@ -11,8 +11,6 @@ using OpenAutomate.Core.Dto.OrganizationUnit;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Infrastructure.DbContext;
 using OpenAutomate.Infrastructure.Utilities;
-using Quartz;
-using OpenAutomate.Infrastructure.Jobs;
 
 namespace OpenAutomate.Infrastructure.Services
 {
@@ -20,13 +18,11 @@ namespace OpenAutomate.Infrastructure.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<OrganizationUnitService> _logger;
-        private readonly ISchedulerFactory _schedulerFactory;
 
-        public OrganizationUnitService(IUnitOfWork unitOfWork, ILogger<OrganizationUnitService> logger, ISchedulerFactory schedulerFactory)
+        public OrganizationUnitService(IUnitOfWork unitOfWork, ILogger<OrganizationUnitService> logger)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
-            _schedulerFactory = schedulerFactory;
         }
 
         public async Task<OrganizationUnitResponseDto> CreateOrganizationUnitAsync(CreateOrganizationUnitDto dto, Guid userId)
@@ -53,7 +49,7 @@ namespace OpenAutomate.Infrastructure.Services
 
                 // Create default authorities for the organization unit
                 var ownerAuthority = await CreateDefaultAuthoritiesAsync(organizationUnit.Id);
-
+                
                 // Assign the OWNER authority to the user who CreatedAtthe organization unit
                 await AssignOwnerAuthorityToUserAsync(organizationUnit.Id, userId, ownerAuthority);
 
@@ -170,7 +166,7 @@ namespace OpenAutomate.Infrastructure.Services
         {
             return SlugGenerator.GenerateSlug(name);
         }
-
+        
         /// <summary>
         /// Gets all organization units that a user belongs to, regardless of role
         /// </summary>
@@ -184,13 +180,13 @@ namespace OpenAutomate.Infrastructure.Services
                 // NOTE: We bypass tenant filtering here because this endpoint is specifically designed
                 // to discover which organization units a user belongs to across all tenants
                 var organizationUnitUsers = await _unitOfWork.OrganizationUnitUsers.GetAllIgnoringFiltersAsync(ou => ou.UserId == userId);
-
+                
                 // Extract the organization unit IDs
                 var organizationUnitIds = organizationUnitUsers.Select(ou => ou.OrganizationUnitId).ToList();
-
+                
                 // Get the actual organization units
                 var organizationUnits = new List<OrganizationUnit>();
-
+                
                 foreach (var ouId in organizationUnitIds)
                 {
                     var orgUnit = await _unitOfWork.OrganizationUnits.GetByIdAsync(ouId);
@@ -199,30 +195,30 @@ namespace OpenAutomate.Infrastructure.Services
                         organizationUnits.Add(orgUnit);
                     }
                 }
-
+                
                 // Map to DTOs
                 var organizationUnitDtos = organizationUnits.Select(MapToResponseDto).ToList();
-
+                
                 // Create the response DTO
                 var response = new UserOrganizationUnitsResponseDto
                 {
                     Count = organizationUnitDtos.Count,
                     OrganizationUnits = organizationUnitDtos
                 };
-
-                _logger.LogInformation("Retrieved {Count} organization units for user {UserId}",
+                
+                _logger.LogInformation("Retrieved {Count} organization units for user {UserId}", 
                     response.Count, userId);
-
+                
                 return response;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving organization units for user {UserId}: {Message}",
+                _logger.LogError(ex, "Error retrieving organization units for user {UserId}: {Message}", 
                     userId, ex.Message);
                 throw;
             }
         }
-
+        
         private async Task<string> EnsureUniqueSlugAsync(string baseSlug, Guid? excludeId = null)
         {
             // Check if base slug is unique
@@ -251,7 +247,7 @@ namespace OpenAutomate.Infrastructure.Services
             do
             {
                 newSlug = $"{baseSlug}-{counter}";
-
+                
                 if (excludeId.HasValue)
                 {
                     var result = await _unitOfWork.OrganizationUnits
@@ -264,7 +260,7 @@ namespace OpenAutomate.Infrastructure.Services
                         .GetFirstOrDefaultAsync(o => o.Slug == newSlug);
                     slugExists = result != null;
                 }
-
+                
                 counter++;
             } while (slugExists);
 
@@ -273,7 +269,7 @@ namespace OpenAutomate.Infrastructure.Services
 
         private OrganizationUnitResponseDto MapToResponseDto(OrganizationUnit organizationUnit)
         {
-            var dto = new OrganizationUnitResponseDto
+            return new OrganizationUnitResponseDto
             {
                 Id = organizationUnit.Id,
                 Name = organizationUnit.Name,
@@ -281,19 +277,8 @@ namespace OpenAutomate.Infrastructure.Services
                 Slug = organizationUnit.Slug,
                 IsActive = organizationUnit.IsActive,
                 CreatedAt = organizationUnit.CreatedAt ?? DateTime.Now,
-                UpdatedAt = organizationUnit.LastModifyAt,
-                IsPendingDeletion = organizationUnit.ScheduledDeletionAt.HasValue,
-                ScheduledDeletionAt = organizationUnit.ScheduledDeletionAt
+                UpdatedAt = organizationUnit.LastModifyAt
             };
-
-            // Calculate days until deletion if scheduled
-            if (organizationUnit.ScheduledDeletionAt.HasValue)
-            {
-                var timeUntilDeletion = organizationUnit.ScheduledDeletionAt.Value - DateTime.UtcNow;
-                dto.DaysUntilDeletion = Math.Max(0, (int)timeUntilDeletion.TotalDays);
-            }
-
-            return dto;
         }
 
         private async Task<Authority> CreateDefaultAuthoritiesAsync(Guid organizationUnitId)
@@ -388,7 +373,7 @@ namespace OpenAutomate.Infrastructure.Services
 
             await _unitOfWork.CompleteAsync();
             _logger.LogInformation("Created default authorities for organization unit {OrganizationUnitId}", organizationUnitId);
-
+            
             return ownerAuthority;
         }
 
@@ -401,7 +386,7 @@ namespace OpenAutomate.Infrastructure.Services
                     _logger.LogError("OWNER authority is null for organization unit {OrganizationUnitId}", organizationUnitId);
                     throw new InvalidOperationException($"OWNER authority is null for organization unit {organizationUnitId}");
                 }
-
+                
                 // Create the user-authority association
                 var userAuthority = new UserAuthority
                 {
@@ -409,235 +394,28 @@ namespace OpenAutomate.Infrastructure.Services
                     AuthorityId = ownerAuthority.Id,
                     OrganizationUnitId = organizationUnitId
                 };
-
+                
                 await _unitOfWork.UserAuthorities.AddAsync(userAuthority);
-
+                
                 // Create the direct user-organization association
                 var organizationUnitUser = new OrganizationUnitUser
                 {
                     UserId = userId,
                     OrganizationUnitId = organizationUnitId
                 };
-
+                
                 await _unitOfWork.OrganizationUnitUsers.AddAsync(organizationUnitUser);
                 await _unitOfWork.CompleteAsync();
-
-                _logger.LogInformation("User {UserId} assigned as OWNER of organization unit {OrganizationUnitId} and added to organization",
+                
+                _logger.LogInformation("User {UserId} assigned as OWNER of organization unit {OrganizationUnitId} and added to organization", 
                     userId, organizationUnitId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error assigning OWNER authority to user {UserId} for organization unit {OrganizationUnitId}",
+                _logger.LogError(ex, "Error assigning OWNER authority to user {UserId} for organization unit {OrganizationUnitId}", 
                     userId, organizationUnitId);
                 throw;
-            }
-        }
-
-        public async Task<DeletionRequestDto> RequestDeletionAsync(Guid id, Guid userId)
-        {
-            try
-            {
-                var organizationUnit = await _unitOfWork.OrganizationUnits.GetByIdAsync(id);
-                if (organizationUnit == null)
-                    throw new KeyNotFoundException($"Organization unit with ID {id} not found");
-
-                // Check if already scheduled for deletion
-                if (organizationUnit.ScheduledDeletionAt.HasValue)
-                {
-                    return new DeletionRequestDto
-                    {
-                        Success = false,
-                        Message = "Organization unit is already scheduled for deletion"
-                    };
-                }
-
-                // Stop all activities first
-                await StopAllActivitiesAsync(id);
-
-                // Schedule deletion for 7 days later
-                var deletionDate = DateTime.UtcNow.AddDays(7);
-                //var deletionDate = DateTime.UtcNow.AddMinutes(2);
-                var jobId = await ScheduleDeletionJobAsync(id, deletionDate);
-
-                // Update organization unit
-                organizationUnit.IsActive = false;
-                organizationUnit.ScheduledDeletionAt = deletionDate;
-                organizationUnit.DeletionJobId = jobId;
-
-                await _unitOfWork.CompleteAsync();
-
-                _logger.LogInformation("Organization unit {OrganizationUnitId} scheduled for deletion on {DeletionDate}",
-                    id, deletionDate);
-
-                return new DeletionRequestDto
-                {
-                    Success = true,
-                    Message = "Organization unit scheduled for deletion in 7 days",
-                    ScheduledDeletionAt = deletionDate,
-                    DaysUntilDeletion = 7
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error requesting deletion for organization unit {OrganizationUnitId}", id);
-                throw;
-            }
-        }
-
-        public async Task<DeletionRequestDto> CancelDeletionAsync(Guid id)
-        {
-            try
-            {
-                var organizationUnit = await _unitOfWork.OrganizationUnits.GetByIdAsync(id);
-                if (organizationUnit == null)
-                    throw new KeyNotFoundException($"Organization unit with ID {id} not found");
-
-                if (!organizationUnit.ScheduledDeletionAt.HasValue)
-                {
-                    return new DeletionRequestDto
-                    {
-                        Success = false,
-                        Message = "Organization unit is not scheduled for deletion"
-                    };
-                }
-
-                // Cancel Quartz job
-                if (!string.IsNullOrEmpty(organizationUnit.DeletionJobId))
-                {
-                    await CancelDeletionJobAsync(organizationUnit.DeletionJobId);
-                }
-
-                // Reset organization unit
-                organizationUnit.IsActive = true;
-                organizationUnit.ScheduledDeletionAt = null;
-                organizationUnit.DeletionJobId = null;
-
-                await _unitOfWork.CompleteAsync();
-
-                _logger.LogInformation("Deletion cancelled for organization unit {OrganizationUnitId}", id);
-
-                return new DeletionRequestDto
-                {
-                    Success = true,
-                    Message = "Deletion cancelled successfully"
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error cancelling deletion for organization unit {OrganizationUnitId}", id);
-                throw;
-            }
-        }
-
-        public async Task<DeletionStatusDto> GetDeletionStatusAsync(Guid id)
-        {
-            try
-            {
-                var organizationUnit = await _unitOfWork.OrganizationUnits.GetByIdAsync(id);
-                if (organizationUnit == null)
-                    throw new KeyNotFoundException($"Organization unit with ID {id} not found");
-
-                var status = new DeletionStatusDto
-                {
-                    IsPendingDeletion = organizationUnit.ScheduledDeletionAt.HasValue
-                };
-
-                if (organizationUnit.ScheduledDeletionAt.HasValue)
-                {
-                    var timeUntilDeletion = organizationUnit.ScheduledDeletionAt.Value - DateTime.UtcNow;
-                    status.ScheduledDeletionAt = organizationUnit.ScheduledDeletionAt;
-                    status.DaysUntilDeletion = Math.Max(0, (int)timeUntilDeletion.TotalDays);
-                    status.HoursUntilDeletion = Math.Max(0, (int)timeUntilDeletion.TotalHours);
-                    status.CanCancel = timeUntilDeletion.TotalMinutes > 0;
-                }
-
-                return status;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting deletion status for organization unit {OrganizationUnitId}", id);
-                throw;
-            }
-        }
-
-        // Helper methods
-        private async Task StopAllActivitiesAsync(Guid organizationUnitId)
-        {
-            _logger.LogInformation("Stopping all activities for organization unit {OrganizationUnitId}", organizationUnitId);
-
-            // Stop running executions
-            var allExecutions = await _unitOfWork.Executions.GetAllAsync();
-            var runningExecutions = allExecutions
-                .Where(e => e.OrganizationUnitId == organizationUnitId &&
-                           (e.Status == "Running" || e.Status == "Pending"))
-                .ToList();
-
-            foreach (var execution in runningExecutions)
-            {
-                execution.Status = "Cancelled";
-                execution.EndTime = DateTime.UtcNow;
-            }
-
-            // Disable schedules
-            var scheduleRepository = _unitOfWork.GetRepository<Schedule>();
-            var allSchedules = await scheduleRepository.GetAllAsync();
-            var activeSchedules = allSchedules
-                .Where(s => s.OrganizationUnitId == organizationUnitId && s.IsEnabled)
-                .ToList();
-
-            foreach (var schedule in activeSchedules)
-            {
-                schedule.IsEnabled = false;
-            }
-
-            await _unitOfWork.CompleteAsync();
-
-            _logger.LogInformation("Stopped {ExecutionCount} executions and {ScheduleCount} schedules",
-                runningExecutions.Count, activeSchedules.Count);
-        }
-
-        private async Task<string> ScheduleDeletionJobAsync(Guid organizationUnitId, DateTime deletionDate)
-        {
-            var scheduler = await _schedulerFactory.GetScheduler();
-            if (!scheduler.IsStarted)
-                await scheduler.Start();
-
-            var jobId = $"ou-deletion-{organizationUnitId}-{DateTime.UtcNow.Ticks}";
-            var jobKey = new JobKey(jobId, "OU_DELETION");
-            var triggerKey = new TriggerKey($"{jobId}-trigger", "OU_DELETION");
-
-            var job = JobBuilder.Create<OrganizationUnitDeletionJob>()
-                .WithIdentity(jobKey)
-                .UsingJobData("OrganizationUnitId", organizationUnitId.ToString())
-                .Build();
-
-            var trigger = TriggerBuilder.Create()
-                .WithIdentity(triggerKey)
-                .StartAt(deletionDate)
-                .Build();
-
-            await scheduler.ScheduleJob(job, trigger);
-
-            _logger.LogInformation("Scheduled deletion job {JobId} for organization unit {OrganizationUnitId}",
-                jobId, organizationUnitId);
-
-            return jobId;
-        }
-
-        private async Task CancelDeletionJobAsync(string jobId)
-        {
-            try
-            {
-                var scheduler = await _schedulerFactory.GetScheduler();
-                var jobKey = new JobKey(jobId, "OU_DELETION");
-                await scheduler.DeleteJob(jobKey);
-
-                _logger.LogInformation("Cancelled deletion job {JobId}", jobId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error cancelling deletion job {JobId}", jobId);
             }
         }
     }
-}
+} 

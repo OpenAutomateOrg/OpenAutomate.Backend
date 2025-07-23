@@ -13,15 +13,9 @@ namespace OpenAutomate.Core.Configurations
             
             builder.Property(o => o.Name).IsRequired().HasMaxLength(100);
             builder.Property(o => o.Slug).IsRequired().HasMaxLength(100);
-            builder.Property(o => o.Description).HasMaxLength(500);
-
-            // Simple deletion fields
-            builder.Property(o => o.ScheduledDeletionAt).IsRequired(false);
-            builder.Property(o => o.DeletionJobId).HasMaxLength(100).IsRequired(false);
-
+            
             // Create index for faster lookups
             builder.HasIndex(o => o.Slug).IsUnique();
-            builder.HasIndex(o => o.ScheduledDeletionAt); // For finding pending deletions
         }
     }
 } 
