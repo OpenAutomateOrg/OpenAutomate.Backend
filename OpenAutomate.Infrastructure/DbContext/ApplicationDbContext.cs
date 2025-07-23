@@ -54,6 +54,11 @@ namespace OpenAutomate.Infrastructure.DbContext
             modelBuilder.ApplyConfiguration(new PasswordResetTokenConfiguration());
             modelBuilder.ApplyConfiguration(new ScheduleConfiguration());
             
+            // Apply subscription-related configurations
+            modelBuilder.ApplyConfiguration(new SubscriptionConfiguration());
+            modelBuilder.ApplyConfiguration(new UsageRecordConfiguration());
+            modelBuilder.ApplyConfiguration(new PaymentConfiguration());
+            
             // Configure all tenant entities to use NoAction for OrganizationUnit to prevent cascade cycles
             // This is important because each tenant entity inherits OrganizationUnitId from TenantEntity
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
@@ -114,5 +119,10 @@ namespace OpenAutomate.Infrastructure.DbContext
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
         public DbSet<OrganizationUnitInvitation> OrganizationUnitInvitations { get; set; }
         public DbSet<Schedule> Schedules { get; set; }
+        
+        // Subscription-related entities
+        public DbSet<Subscription> Subscriptions { get; set; }
+        public DbSet<UsageRecord> UsageRecords { get; set; }
+        public DbSet<Payment> Payments { get; set; }
     }
 }
