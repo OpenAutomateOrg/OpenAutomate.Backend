@@ -73,6 +73,7 @@ namespace OpenAutomate.API
             builder.Services.Configure<RedisSettings>(appSettingsSection.GetSection("Redis"));
             builder.Services.Configure<RedisCacheConfiguration>(appSettingsSection.GetSection("RedisCache"));
             builder.Services.Configure<EmailSettings>(appSettingsSection.GetSection("EmailSettings"));
+            builder.Services.Configure<LemonSqueezySettings>(appSettingsSection.GetSection("LemonSqueezy"));
         }
         
         private static void ConfigureLogging(WebApplicationBuilder builder)
@@ -224,6 +225,11 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<IBotAgentService, BotAgentService>();
             builder.Services.AddScoped<IAssetService, AssetService>();
             builder.Services.AddScoped<IEmailService, AwsSesEmailService>();
+            
+            // Register subscription services
+            builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+            builder.Services.AddHttpClient<ILemonsqueezyService, LemonsqueezyService>();
+            
             // Register caching service
             builder.Services.AddScoped<ICacheService, RedisCacheService>();
             
