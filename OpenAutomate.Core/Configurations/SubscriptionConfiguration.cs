@@ -40,8 +40,9 @@ namespace OpenAutomate.Core.Configurations
             // Relationships
             builder.HasOne(s => s.OrganizationUnit)
                    .WithMany()
-                   .HasForeignKey(s => s.OrganizationUnitId)
-                   .OnDelete(DeleteBehavior.Cascade);
+                   .HasForeignKey(s => s.OrganizationUnitId);
+                   // Note: DeleteBehavior is set to NoAction globally in ApplicationDbContext
+                   // to prevent cascade cycles in multi-tenant system
         }
     }
 }
