@@ -57,8 +57,8 @@ namespace OpenAutomate.Infrastructure.Services
                     ? ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) * 100 
                     : 0;
 
-                // Count subscription statuses
-                var activeSubscriptions = subscriptions.Count(s => s.IsActive);
+                // Count subscription statuses - use consistent logic across all methods
+                var activeSubscriptions = subscriptions.Count(s => s.Status == "active");
                 var trialSubscriptions = subscriptions.Count(s => s.Status == "trialing");
 
                 // Calculate MRR (Monthly Recurring Revenue)
@@ -187,8 +187,10 @@ namespace OpenAutomate.Infrastructure.Services
                 var thirtyDaysAgo = now.AddDays(-30);
                 var cancelledLastMonth = subscriptions.Count(s => 
                     s.Status == "cancelled" && s.LastModifyAt >= thirtyDaysAgo);
+                // Count subscriptions that were active at the start of the month (exclude those cancelled before the period)
                 var activeAtStartOfMonth = subscriptions.Count(s => 
-                    s.CreatedAt < thirtyDaysAgo && (s.Status == "active" || s.Status == "cancelled"));
+                    s.CreatedAt < thirtyDaysAgo && 
+                    (s.Status == "active" || (s.Status == "cancelled" && s.LastModifyAt >= thirtyDaysAgo)));
                 var monthlyChurnRate = activeAtStartOfMonth > 0 ? (decimal)cancelledLastMonth / activeAtStartOfMonth * 100 : 0;
 
                 // Count upcoming events
@@ -202,10 +204,10 @@ namespace OpenAutomate.Infrastructure.Services
 
                 // Calculate average subscription lifetime
                 var endedSubscriptions = subscriptions.Where(s => 
-                    s.Status == "cancelled" || s.Status == "expired").ToList();
+                    (s.Status == "cancelled" || s.Status == "expired") && s.CreatedAt.HasValue).ToList();
                 var averageLifetime = endedSubscriptions.Count > 0 
                     ? endedSubscriptions.Average(s => 
-                        (s.EndsAt ?? s.LastModifyAt ?? now).Subtract(s.CreatedAt ?? now).TotalDays)
+                        (s.EndsAt ?? s.LastModifyAt ?? s.CreatedAt!.Value.AddDays(1)).Subtract(s.CreatedAt!.Value).TotalDays)
                     : 0;
 
                 var analytics = new SubscriptionAnalytics
