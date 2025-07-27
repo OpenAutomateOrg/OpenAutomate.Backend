@@ -84,13 +84,6 @@ namespace OpenAutomate.Infrastructure.Jobs
                 .ToList();
             unitOfWork.Assets.RemoveRange(assets);
 
-            // Delete BotAgents
-            var allBotAgents = await unitOfWork.BotAgents.GetAllAsync();
-            var botAgents = allBotAgents
-                .Where(ba => ba.OrganizationUnitId == organizationUnitId)
-                .ToList();
-            unitOfWork.BotAgents.RemoveRange(botAgents);
-
             // Delete Executions
             var allExecutions = await unitOfWork.Executions.GetAllAsync();
             var executions = allExecutions
@@ -105,6 +98,13 @@ namespace OpenAutomate.Infrastructure.Jobs
                 .Where(s => s.OrganizationUnitId == organizationUnitId)
                 .ToList();
             scheduleRepository.RemoveRange(schedules);
+
+            // Delete BotAgents
+            var allBotAgents = await unitOfWork.BotAgents.GetAllAsync();
+            var botAgents = allBotAgents
+                .Where(ba => ba.OrganizationUnitId == organizationUnitId)
+                .ToList();
+            unitOfWork.BotAgents.RemoveRange(botAgents);
 
             // Delete AutomationPackages
             var allPackages = await unitOfWork.AutomationPackages.GetAllAsync();
