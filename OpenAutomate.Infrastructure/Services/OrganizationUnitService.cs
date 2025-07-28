@@ -678,9 +678,9 @@ namespace OpenAutomate.Infrastructure.Services
                     var trialMinutes = _lemonSqueezySettings.TrialDurationMinutes;
                     _logger.LogInformation("Creating {TrialMinutes}-minute trial subscription for user's first organization unit {OrganizationUnitId}", trialMinutes, organizationUnitId);
 
-                    await CreateTrialSubscriptionInternallyAsync(organizationUnitId, trialMinutes: trialMinutes);
+                    await CreateTrialSubscriptionInternallyAsync(organizationUnitId, userId, trialMinutes: trialMinutes);
 
-                    _logger.LogInformation("Created trial subscription for organization unit {OrganizationUnitId}", organizationUnitId);
+                    _logger.LogInformation("Created trial subscription for organization unit {OrganizationUnitId} by user {UserId}", organizationUnitId, userId);
                 }
                 else
                 {
@@ -702,7 +702,7 @@ namespace OpenAutomate.Infrastructure.Services
         /// <summary>
         /// Creates a trial subscription internally without committing the transaction
         /// </summary>
-        private async Task CreateTrialSubscriptionInternallyAsync(Guid organizationUnitId, int trialMinutes = 10080)
+        private async Task CreateTrialSubscriptionInternallyAsync(Guid organizationUnitId, Guid userId, int trialMinutes = 10080)
         {
             // Check if a subscription already exists
             var existingSubscription = await _unitOfWork.Subscriptions
@@ -720,13 +720,14 @@ namespace OpenAutomate.Infrastructure.Services
                 PlanName = "Premium", 
                 Status = "trialing",
                 TrialEndsAt = DateTime.UtcNow.AddMinutes(trialMinutes),
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = userId
             };
 
             await _unitOfWork.Subscriptions.AddAsync(subscription);
             
-            _logger.LogInformation("Prepared trial subscription for organization {OrganizationUnitId} ending {TrialEndsAt}", 
-                organizationUnitId, subscription.TrialEndsAt);
+            _logger.LogInformation("Prepared trial subscription for organization {OrganizationUnitId} by user {UserId} ending {TrialEndsAt}", 
+                organizationUnitId, userId, subscription.TrialEndsAt);
         }
     }
 }
