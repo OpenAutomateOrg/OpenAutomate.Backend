@@ -46,6 +46,6 @@ namespace OpenAutomate.Core.Domain.Entities
         /// <summary>
         /// Whether the subscription is in trial period
         /// </summary>
-        public bool IsInTrial => Status == "trialing" && TrialEndsAt.HasValue && TrialEndsAt.Value > DateTime.UtcNow;
+        public bool IsInTrial => Status == "trialing" && TrialEndsAt.HasValue && TrialEndsAt.Value >= DateTime.UtcNow;
     }
 }

@@ -43,6 +43,11 @@ namespace OpenAutomate.Core.Constants
         public const string OrganizationUnitResource = "OrganizationUnit";
         
         /// <summary>
+        /// Subscription resource
+        /// </summary>
+        public const string SubscriptionResource = "Subscription";
+        
+        /// <summary>
         /// Gets all available resources with their display information
         /// </summary>
         /// <returns>List of available resources for role creation</returns>
@@ -97,6 +102,13 @@ namespace OpenAutomate.Core.Constants
                     ResourceName = OrganizationUnitResource,
                     DisplayName = "Organization",
                     Description = "Manage organization settings and roles",
+                    AvailablePermissions = GetPermissionLevels()
+                },
+                new AvailableResourceDto
+                {
+                    ResourceName = SubscriptionResource,
+                    DisplayName = "Subscription",
+                    Description = "Manage subscription plans and billing",
                     AvailablePermissions = GetPermissionLevels()
                 }
             };

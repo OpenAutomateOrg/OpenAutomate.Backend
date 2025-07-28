@@ -32,6 +32,14 @@ namespace OpenAutomate.Core.IServices
         Task<Subscription> CreateTrialSubscriptionAsync(Guid organizationUnitId, int trialDays = 7);
 
         /// <summary>
+        /// Starts a new trial subscription for a tenant (for manual trial activation)
+        /// </summary>
+        /// <param name="organizationUnitId">The tenant ID</param>
+        /// <param name="userId">The user ID (to enforce one trial per user)</param>
+        /// <returns>True if trial was created successfully, false if subscription already exists or user already used trial</returns>
+        Task<bool> StartTrialSubscriptionAsync(Guid organizationUnitId, string userId);
+
+        /// <summary>
         /// Updates subscription from Lemon Squeezy webhook data
         /// </summary>
         /// <param name="lemonsqueezySubscriptionId">Lemon Squeezy subscription ID</param>
@@ -67,6 +75,14 @@ namespace OpenAutomate.Core.IServices
         /// <param name="organizationUnitId">The tenant ID</param>
         /// <returns>Subscription status information</returns>
         Task<SubscriptionStatus> GetSubscriptionStatusAsync(Guid organizationUnitId);
+
+        /// <summary>
+        /// Checks if an organization unit is eligible for a trial (must be user's first organization unit and user hasn't used trial)
+        /// </summary>
+        /// <param name="organizationUnitId">The organization unit ID</param>
+        /// <param name="userId">The user ID</param>
+        /// <returns>True if eligible for trial</returns>
+        Task<bool> IsOrganizationUnitEligibleForTrialAsync(Guid organizationUnitId, string userId);
     }
 
     /// <summary>
