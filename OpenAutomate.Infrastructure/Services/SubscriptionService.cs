@@ -128,12 +128,14 @@ namespace OpenAutomate.Infrastructure.Services
                 }
 
                 // Check if this user has already used a trial on any organization unit (cross-tenant check)
+                // Check for ANY past trial subscription regardless of current status (trialing, expired, active, etc.)
                 var userTrialSubscriptions = await _unitOfWork.Subscriptions
-                    .GetAllIgnoringFiltersAsync(s => s.CreatedBy == userGuid && s.Status == "trialing");
+                    .GetAllIgnoringFiltersAsync(s => s.CreatedBy == userGuid && s.TrialEndsAt != null);
                 
                 if (userTrialSubscriptions.Any())
                 {
-                    _logger.LogWarning("User {UserId} attempted to create trial subscription but already has used a trial", userId);
+                    _logger.LogWarning("User {UserId} attempted to create trial subscription but already has used a trial (found {TrialCount} past trials)", 
+                        userId, userTrialSubscriptions.Count());
                     return false;
                 }
 
@@ -148,9 +150,20 @@ namespace OpenAutomate.Infrastructure.Services
                 }
 
                 // Find the first (earliest) organization unit created by this user
+                // Handle nullable CreatedAt - units without CreatedAt go to end, then order by actual dates
                 var firstOrganizationUnit = userOrganizationUnits
-                    .OrderBy(ou => ou.CreatedAt)
-                    .First();
+                    .Where(ou => ou.CreatedAt.HasValue) // Only consider units with valid CreatedAt
+                    .OrderBy(ou => ou.CreatedAt.Value)
+                    .FirstOrDefault();
+
+                // If no units have CreatedAt, fall back to ordering by ID (which is always set)
+                if (firstOrganizationUnit == null)
+                {
+                    firstOrganizationUnit = userOrganizationUnits
+                        .OrderBy(ou => ou.Id)
+                        .First();
+                    _logger.LogWarning("No organization units with CreatedAt found for user {UserId}, using ID-based ordering", userId);
+                }
 
                 // Only allow trial on the first organization unit
                 if (firstOrganizationUnit.Id != organizationUnitId)
@@ -301,9 +314,9 @@ namespace OpenAutomate.Infrastructure.Services
                     return false;
                 }
 
-                // Check if user has already used a trial
+                // Check if user has already used a trial (ANY past trial, regardless of current status)
                 var userTrialSubscriptions = await _unitOfWork.Subscriptions
-                    .GetAllIgnoringFiltersAsync(s => s.CreatedBy == userGuid && s.Status == "trialing");
+                    .GetAllIgnoringFiltersAsync(s => s.CreatedBy == userGuid && s.TrialEndsAt != null);
                 
                 if (userTrialSubscriptions.Any())
                 {
@@ -320,9 +333,19 @@ namespace OpenAutomate.Infrastructure.Services
                 }
 
                 // Find the first organization unit created by this user
+                // Handle nullable CreatedAt - units without CreatedAt go to end, then order by actual dates
                 var firstOrganizationUnit = userOrganizationUnits
-                    .OrderBy(ou => ou.CreatedAt)
-                    .First();
+                    .Where(ou => ou.CreatedAt.HasValue) // Only consider units with valid CreatedAt
+                    .OrderBy(ou => ou.CreatedAt.Value)
+                    .FirstOrDefault();
+
+                // If no units have CreatedAt, fall back to ordering by ID (which is always set)
+                if (firstOrganizationUnit == null)
+                {
+                    firstOrganizationUnit = userOrganizationUnits
+                        .OrderBy(ou => ou.Id)
+                        .First();
+                }
 
                 // Only eligible if this is the first organization unit
                 return firstOrganizationUnit.Id == organizationUnitId;
