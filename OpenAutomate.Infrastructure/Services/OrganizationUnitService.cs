@@ -4,7 +4,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using OpenAutomate.Core.Constants;
+using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Domain.IRepository;
 using OpenAutomate.Core.Dto.OrganizationUnit;
@@ -22,13 +24,15 @@ namespace OpenAutomate.Infrastructure.Services
         private readonly ILogger<OrganizationUnitService> _logger;
         private readonly ISchedulerFactory _schedulerFactory;
         private readonly ISubscriptionService _subscriptionService;
+        private readonly LemonSqueezySettings _lemonSqueezySettings;
 
-        public OrganizationUnitService(IUnitOfWork unitOfWork, ILogger<OrganizationUnitService> logger, ISchedulerFactory schedulerFactory, ISubscriptionService subscriptionService)
+        public OrganizationUnitService(IUnitOfWork unitOfWork, ILogger<OrganizationUnitService> logger, ISchedulerFactory schedulerFactory, ISubscriptionService subscriptionService, IOptions<LemonSqueezySettings> lemonSqueezySettings)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _schedulerFactory = schedulerFactory;
             _subscriptionService = subscriptionService;
+            _lemonSqueezySettings = lemonSqueezySettings.Value;
         }
 
         public async Task<OrganizationUnitResponseDto> CreateOrganizationUnitAsync(CreateOrganizationUnitDto dto, Guid userId)
@@ -58,9 +62,13 @@ namespace OpenAutomate.Infrastructure.Services
                 // Assign the OWNER authority to the user who CreatedAtthe organization unit
                 await AssignOwnerAuthorityToUserAsync(organizationUnit.Id, userId, ownerAuthority);
 
-                // Check if this is the user's first organization unit and create trial subscription
-                // This must happen BEFORE CompleteAsync to ensure it's in the same transaction
-                await CreateTrialSubscriptionForFirstOrgUnitAsync(organizationUnit.Id, userId);
+                // Check if automatic trial creation is enabled
+                if (_lemonSqueezySettings.EnableAutoTrialCreation)
+                {
+                    // Check if this is the user's first organization unit and create trial subscription
+                    // This must happen BEFORE CompleteAsync to ensure it's in the same transaction
+                    await CreateTrialSubscriptionForFirstOrgUnitAsync(organizationUnit.Id, userId);
+                }
                 
                 // Commit everything in a single transaction
                 await _unitOfWork.CompleteAsync();
@@ -667,11 +675,12 @@ namespace OpenAutomate.Infrastructure.Services
                 if (existingOrgUnitsCount == 0)
                 {
                     // This is the user's first organization unit - create trial subscription
-                    _logger.LogInformation("Creating 7-day trial subscription for user's first organization unit {OrganizationUnitId}", organizationUnitId);
+                    var trialMinutes = _lemonSqueezySettings.TrialDurationMinutes;
+                    _logger.LogInformation("Creating {TrialMinutes}-minute trial subscription for user's first organization unit {OrganizationUnitId}", trialMinutes, organizationUnitId);
 
-                    await CreateTrialSubscriptionInternallyAsync(organizationUnitId, trialDays: 7);
+                    await CreateTrialSubscriptionInternallyAsync(organizationUnitId, userId, trialMinutes: trialMinutes);
 
-                    _logger.LogInformation("Created trial subscription for organization unit {OrganizationUnitId}", organizationUnitId);
+                    _logger.LogInformation("Created trial subscription for organization unit {OrganizationUnitId} by user {UserId}", organizationUnitId, userId);
                 }
                 else
                 {
@@ -693,7 +702,7 @@ namespace OpenAutomate.Infrastructure.Services
         /// <summary>
         /// Creates a trial subscription internally without committing the transaction
         /// </summary>
-        private async Task CreateTrialSubscriptionInternallyAsync(Guid organizationUnitId, int trialDays = 7)
+        private async Task CreateTrialSubscriptionInternallyAsync(Guid organizationUnitId, Guid userId, int trialMinutes = 10080)
         {
             // Check if a subscription already exists
             var existingSubscription = await _unitOfWork.Subscriptions
@@ -710,14 +719,15 @@ namespace OpenAutomate.Infrastructure.Services
                 OrganizationUnitId = organizationUnitId,
                 PlanName = "Premium", 
                 Status = "trialing",
-                TrialEndsAt = DateTime.UtcNow.AddDays(trialDays),
-                CreatedAt = DateTime.UtcNow
+                TrialEndsAt = DateTime.UtcNow.AddMinutes(trialMinutes),
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = userId
             };
 
             await _unitOfWork.Subscriptions.AddAsync(subscription);
             
-            _logger.LogInformation("Prepared trial subscription for organization {OrganizationUnitId} ending {TrialEndsAt}", 
-                organizationUnitId, subscription.TrialEndsAt);
+            _logger.LogInformation("Prepared trial subscription for organization {OrganizationUnitId} by user {UserId} ending {TrialEndsAt}", 
+                organizationUnitId, userId, subscription.TrialEndsAt);
         }
     }
 }

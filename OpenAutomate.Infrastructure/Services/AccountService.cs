@@ -51,6 +51,12 @@ namespace OpenAutomate.Infrastructure.Services
                 var allAuthorityResources = await _unitOfWork.AuthorityResources.GetAllIgnoringFiltersAsync(
                     ar => allAuthorityIds.Contains(ar.AuthorityId));
 
+                // Check if user has already used their trial across any organization unit
+                // Check for ANY past trial subscription regardless of current status (trialing, expired, active, etc.)
+                var userTrialSubscriptions = await _unitOfWork.Subscriptions
+                    .GetAllIgnoringFiltersAsync(s => s.CreatedBy == userId && s.TrialEndsAt != null);
+                var hasUsedTrial = userTrialSubscriptions.Any();
+
                 // Build the profile DTO
                 var profile = new UserProfileDto
                 {
@@ -59,6 +65,7 @@ namespace OpenAutomate.Infrastructure.Services
                     FirstName = user.FirstName ?? string.Empty,
                     LastName = user.LastName ?? string.Empty,
                     SystemRole = user.SystemRole,
+                    HasUsedTrial = hasUsedTrial,
                     OrganizationUnits = new List<OrganizationUnitPermissionsDto>()
                 };
 

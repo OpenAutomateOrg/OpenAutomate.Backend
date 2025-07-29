@@ -17,9 +17,11 @@ namespace OpenAutomate.Infrastructure.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Description = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: false),
                     Slug = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    ScheduledDeletionAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    DeletionJobId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     LastModifyAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -87,8 +89,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                     Name = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     Description = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     IsSystemAuthority = table.Column<bool>(type: "bit", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     LastModifyAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     LastModifyBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
@@ -125,6 +126,87 @@ namespace OpenAutomate.Infrastructure.Migrations
                     table.PrimaryKey("PK_OrganizationUnitInvitations", x => x.Id);
                     table.ForeignKey(
                         name: "FK_OrganizationUnitInvitations_OrganizationUnits_OrganizationUnitId",
+                        column: x => x.OrganizationUnitId,
+                        principalTable: "OrganizationUnits",
+                        principalColumn: "Id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Payments",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LemonsqueezyOrderId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    LemonsqueezySubscriptionId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Amount = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    Currency = table.Column<string>(type: "nvarchar(3)", maxLength: 3, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    PaymentDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    CustomerEmail = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    LastModifyAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastModifyBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    OrganizationUnitId = table.Column<Guid>(type: "uniqueidentifier", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Payments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Payments_OrganizationUnits_OrganizationUnitId",
+                        column: x => x.OrganizationUnitId,
+                        principalTable: "OrganizationUnits",
+                        principalColumn: "Id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Subscriptions",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LemonsqueezySubscriptionId = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    PlanName = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    TrialEndsAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    RenewsAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    EndsAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    LastModifyAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastModifyBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    OrganizationUnitId = table.Column<Guid>(type: "uniqueidentifier", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Subscriptions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Subscriptions_OrganizationUnits_OrganizationUnitId",
+                        column: x => x.OrganizationUnitId,
+                        principalTable: "OrganizationUnits",
+                        principalColumn: "Id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UsageRecords",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Feature = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    UsageCount = table.Column<int>(type: "int", nullable: false, defaultValue: 0),
+                    ResetDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UsageLimit = table.Column<int>(type: "int", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    LastModifyAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastModifyBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    OrganizationUnitId = table.Column<Guid>(type: "uniqueidentifier", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UsageRecords", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UsageRecords_OrganizationUnits_OrganizationUnitId",
                         column: x => x.OrganizationUnitId,
                         principalTable: "OrganizationUnits",
                         principalColumn: "Id");
@@ -311,8 +393,7 @@ namespace OpenAutomate.Infrastructure.Migrations
                     AuthorityId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     ResourceName = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     Permission = table.Column<int>(type: "int", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     LastModifyAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     LastModifyBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
@@ -400,42 +481,6 @@ namespace OpenAutomate.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Schedules",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    CronExpression = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    PackageId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    CreatedById = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    LastModifyAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    LastModifyBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    OrganizationUnitId = table.Column<Guid>(type: "uniqueidentifier", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Schedules", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Schedules_AutomationPackages_PackageId",
-                        column: x => x.PackageId,
-                        principalTable: "AutomationPackages",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_Schedules_OrganizationUnits_OrganizationUnitId",
-                        column: x => x.OrganizationUnitId,
-                        principalTable: "OrganizationUnits",
-                        principalColumn: "Id");
-                    table.ForeignKey(
-                        name: "FK_Schedules_Users_CreatedById",
-                        column: x => x.CreatedById,
-                        principalTable: "Users",
-                        principalColumn: "Id");
-                });
-
-            migrationBuilder.CreateTable(
                 name: "AssetBotAgents",
                 columns: table => new
                 {
@@ -477,12 +522,12 @@ namespace OpenAutomate.Infrastructure.Migrations
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     BotAgentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     PackageId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    ScheduleId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     Status = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     StartTime = table.Column<DateTime>(type: "datetime2", nullable: false),
                     EndTime = table.Column<DateTime>(type: "datetime2", nullable: true),
                     LogOutput = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ErrorMessage = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    LogS3Path = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     LastModifyAt = table.Column<DateTime>(type: "datetime2", nullable: true),
@@ -509,12 +554,48 @@ namespace OpenAutomate.Infrastructure.Migrations
                         column: x => x.OrganizationUnitId,
                         principalTable: "OrganizationUnits",
                         principalColumn: "Id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Schedules",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    IsEnabled = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    RecurrenceType = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    CronExpression = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    OneTimeExecution = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    TimeZoneId = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false, defaultValue: "UTC"),
+                    AutomationPackageId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    BotAgentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CreatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    LastModifyAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastModifyBy = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    OrganizationUnitId = table.Column<Guid>(type: "uniqueidentifier", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Schedules", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Executions_Schedules_ScheduleId",
-                        column: x => x.ScheduleId,
-                        principalTable: "Schedules",
+                        name: "FK_Schedules_AutomationPackages_AutomationPackageId",
+                        column: x => x.AutomationPackageId,
+                        principalTable: "AutomationPackages",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.SetNull);
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Schedules_BotAgents_BotAgentId",
+                        column: x => x.BotAgentId,
+                        principalTable: "BotAgents",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Schedules_OrganizationUnits_OrganizationUnitId",
+                        column: x => x.OrganizationUnitId,
+                        principalTable: "OrganizationUnits",
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateIndex(
@@ -609,11 +690,6 @@ namespace OpenAutomate.Infrastructure.Migrations
                 column: "PackageId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Executions_ScheduleId",
-                table: "Executions",
-                column: "ScheduleId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Executions_StartTime",
                 table: "Executions",
                 column: "StartTime");
@@ -627,6 +703,11 @@ namespace OpenAutomate.Infrastructure.Migrations
                 name: "IX_OrganizationUnitInvitations_OrganizationUnitId",
                 table: "OrganizationUnitInvitations",
                 column: "OrganizationUnitId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OrganizationUnits_ScheduledDeletionAt",
+                table: "OrganizationUnits",
+                column: "ScheduledDeletionAt");
 
             migrationBuilder.CreateIndex(
                 name: "IX_OrganizationUnits_Slug",
@@ -656,6 +737,32 @@ namespace OpenAutomate.Infrastructure.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Payments_LemonsqueezyOrderId",
+                table: "Payments",
+                column: "LemonsqueezyOrderId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Payments_LemonsqueezySubscriptionId",
+                table: "Payments",
+                column: "LemonsqueezySubscriptionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Payments_OrganizationUnitId",
+                table: "Payments",
+                column: "OrganizationUnitId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Payments_PaymentDate",
+                table: "Payments",
+                column: "PaymentDate");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Payments_Status",
+                table: "Payments",
+                column: "Status");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_RefreshTokens_Token",
                 table: "RefreshTokens",
                 column: "Token");
@@ -666,14 +773,24 @@ namespace OpenAutomate.Infrastructure.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Schedules_CreatedById",
+                name: "IX_Schedules_AutomationPackageId",
                 table: "Schedules",
-                column: "CreatedById");
+                column: "AutomationPackageId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Schedules_IsActive",
+                name: "IX_Schedules_BotAgentId",
                 table: "Schedules",
-                column: "IsActive");
+                column: "BotAgentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Schedules_IsEnabled",
+                table: "Schedules",
+                column: "IsEnabled");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Schedules_Name",
+                table: "Schedules",
+                column: "Name");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Schedules_OrganizationUnitId",
@@ -681,9 +798,35 @@ namespace OpenAutomate.Infrastructure.Migrations
                 column: "OrganizationUnitId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Schedules_PackageId",
-                table: "Schedules",
-                column: "PackageId");
+                name: "IX_Subscriptions_LemonsqueezySubscriptionId",
+                table: "Subscriptions",
+                column: "LemonsqueezySubscriptionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Subscriptions_OrganizationUnitId",
+                table: "Subscriptions",
+                column: "OrganizationUnitId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Subscriptions_Status",
+                table: "Subscriptions",
+                column: "Status");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UsageRecords_OrganizationUnitId",
+                table: "UsageRecords",
+                column: "OrganizationUnitId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UsageRecords_OrganizationUnitId_Feature",
+                table: "UsageRecords",
+                columns: new[] { "OrganizationUnitId", "Feature" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UsageRecords_ResetDate",
+                table: "UsageRecords",
+                column: "ResetDate");
 
             migrationBuilder.CreateIndex(
                 name: "IX_UserAuthorities_AuthorityId",
@@ -730,7 +873,19 @@ namespace OpenAutomate.Infrastructure.Migrations
                 name: "PasswordResetTokens");
 
             migrationBuilder.DropTable(
+                name: "Payments");
+
+            migrationBuilder.DropTable(
                 name: "RefreshTokens");
+
+            migrationBuilder.DropTable(
+                name: "Schedules");
+
+            migrationBuilder.DropTable(
+                name: "Subscriptions");
+
+            migrationBuilder.DropTable(
+                name: "UsageRecords");
 
             migrationBuilder.DropTable(
                 name: "UserAuthorities");
@@ -739,22 +894,19 @@ namespace OpenAutomate.Infrastructure.Migrations
                 name: "Assets");
 
             migrationBuilder.DropTable(
-                name: "BotAgents");
+                name: "AutomationPackages");
 
             migrationBuilder.DropTable(
-                name: "Schedules");
+                name: "BotAgents");
 
             migrationBuilder.DropTable(
                 name: "Authorities");
 
             migrationBuilder.DropTable(
-                name: "AutomationPackages");
+                name: "Users");
 
             migrationBuilder.DropTable(
                 name: "OrganizationUnits");
-
-            migrationBuilder.DropTable(
-                name: "Users");
         }
     }
 }
