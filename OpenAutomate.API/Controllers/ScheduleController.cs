@@ -38,6 +38,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="dto">Schedule creation data</param>
         /// <returns>Created schedule response</returns>
         [HttpPost]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.ScheduleResource, Permissions.Create)]
         public async Task<ActionResult<ScheduleResponseDto>> CreateSchedule([FromBody] CreateScheduleDto dto)
         {
@@ -76,6 +77,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="id">Schedule ID</param>
         /// <returns>Schedule response</returns>
         [HttpGet("{id}")]
+        [RequireSubscription(SubscriptionOperationType.Read)]
         [RequirePermission(Resources.ScheduleResource, Permissions.View)]
         public async Task<ActionResult<ScheduleResponseDto>> GetScheduleById(Guid id)
         {
@@ -99,6 +101,7 @@ namespace OpenAutomate.API.Controllers
         /// </summary>
         /// <returns>Collection of schedules</returns>
         [HttpGet]
+        [RequireSubscription(SubscriptionOperationType.Read)]
         [RequirePermission(Resources.ScheduleResource, Permissions.View)]
         public async Task<ActionResult<IEnumerable<ScheduleResponseDto>>> GetAllSchedules()
         {
@@ -121,6 +124,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="dto">Schedule update data</param>
         /// <returns>Updated schedule response</returns>
         [HttpPut("{id}")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.ScheduleResource, Permissions.Update)]
         public async Task<ActionResult<ScheduleResponseDto>> UpdateSchedule(Guid id, [FromBody] UpdateScheduleDto dto)
         {
@@ -155,6 +159,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="id">Schedule ID</param>
         /// <returns>No content response</returns>
         [HttpDelete("{id}")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.ScheduleResource, Permissions.Delete)]
         public async Task<IActionResult> DeleteSchedule(Guid id)
         {
@@ -179,6 +184,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="id">Schedule ID</param>
         /// <returns>Updated schedule response</returns>
         [HttpPost("{id}/enable")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.ScheduleResource, Permissions.Update)]
         public async Task<ActionResult<ScheduleResponseDto>> EnableSchedule(Guid id)
         {
@@ -203,6 +209,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="id">Schedule ID</param>
         /// <returns>Updated schedule response</returns>
         [HttpPost("{id}/disable")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.ScheduleResource, Permissions.Update)]
         public async Task<ActionResult<ScheduleResponseDto>> DisableSchedule(Guid id)
         {
@@ -228,6 +235,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="count">Number of upcoming run times to return (default: 5)</param>
         /// <returns>List of upcoming run times in UTC</returns>
         [HttpGet("{id}/upcoming-runs")]
+        [RequireSubscription(SubscriptionOperationType.Read)]
         [RequirePermission(Resources.ScheduleResource, Permissions.View)]
         public async Task<ActionResult<object>> GetUpcomingRunTimes(Guid id, [FromQuery] int count = 5)
         {

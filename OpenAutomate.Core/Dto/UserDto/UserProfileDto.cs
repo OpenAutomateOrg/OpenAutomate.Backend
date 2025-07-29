@@ -37,5 +37,10 @@ namespace OpenAutomate.Core.Dto.UserDto
         /// All organization units the user belongs to with their permissions
         /// </summary>
         public List<OrganizationUnitPermissionsDto> OrganizationUnits { get; set; } = new();
+
+        /// <summary>
+        /// Whether the user has already used their free trial across any organization unit
+        /// </summary>
+        public bool HasUsedTrial { get; set; }
     }
 } 

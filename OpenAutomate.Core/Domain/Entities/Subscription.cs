@@ -41,7 +41,7 @@ namespace OpenAutomate.Core.Domain.Entities
         /// <summary>
         /// Whether the subscription is currently active (trial or paid)
         /// </summary>
-        public bool IsActive => Status == "trialing" || Status == "active";
+        public bool IsActive => Status == "active" || (Status == "trialing" && TrialEndsAt.HasValue && TrialEndsAt.Value > DateTime.UtcNow);
 
         /// <summary>
         /// Whether the subscription is in trial period

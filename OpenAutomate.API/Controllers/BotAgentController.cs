@@ -44,6 +44,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="dto">The Bot Agent creation data</param>
         /// <returns>The CreatedAtBot Agent with machine key</returns>
         [HttpPost("create")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.AgentResource, Permissions.Create)]
         public async Task<ActionResult<BotAgentResponseDto>> CreateBotAgent([FromBody] CreateBotAgentDto dto)
         {
@@ -70,6 +71,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="id">The Bot Agent ID</param>
         /// <returns>The Bot Agent if found</returns>
         [HttpGet("{id}")]
+        [RequireSubscription(SubscriptionOperationType.Read)]
         [RequirePermission(Resources.AgentResource, Permissions.View)]
         public async Task<ActionResult<BotAgentResponseDto>> GetBotAgentById(Guid id)
         {
@@ -85,6 +87,7 @@ namespace OpenAutomate.API.Controllers
         /// </summary>
         /// <returns>Collection of Bot Agents</returns>
         [HttpGet]
+        [RequireSubscription(SubscriptionOperationType.Read)]
         [RequirePermission(Resources.AgentResource, Permissions.View)]
         public async Task<ActionResult<IEnumerable<BotAgentResponseDto>>> GetAllBotAgents()
         {
@@ -98,6 +101,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="id">The Bot Agent ID</param>
         /// <returns>The updated Bot Agent with new machine key</returns>
         [HttpPost("{id}/regenerateKey")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.AgentResource, Permissions.Update)]
         public async Task<ActionResult<BotAgentResponseDto>> RegenerateMachineKey(Guid id)
         {
@@ -110,6 +114,7 @@ namespace OpenAutomate.API.Controllers
         /// </summary>
         /// <param name="id">The Bot Agent ID</param>
         [HttpPost("{id}/deactivate")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.AgentResource, Permissions.Update)]
         public async Task<IActionResult> DeactivateBotAgent(Guid id)
         {
@@ -129,6 +134,7 @@ namespace OpenAutomate.API.Controllers
         /// </summary>
         /// <param name="id">The Bot Agent ID</param>
         [HttpDelete("{id}")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.AgentResource, Permissions.Delete)]
         public async Task<IActionResult> DeleteBotAgent(Guid id)
         {
@@ -161,6 +167,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="dto">The update data</param>
         /// <returns>The updated Bot Agent</returns>
         [HttpPut("{id}")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.AgentResource, Permissions.Update)]
         public async Task<ActionResult<BotAgentResponseDto>> UpdateBotAgent(Guid id, [FromBody] UpdateBotAgentDto dto)
         {
