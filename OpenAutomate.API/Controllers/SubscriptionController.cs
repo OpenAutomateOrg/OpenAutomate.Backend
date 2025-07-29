@@ -236,6 +236,58 @@ namespace OpenAutomate.API.Controllers
                 return StatusCode(500, new { message = "An error occurred while starting the trial" });
             }
         }
+
+        /// <summary>
+        /// Gets the customer portal URL for managing subscription
+        /// </summary>
+        /// <returns>Customer portal URL from Lemon Squeezy</returns>
+        [HttpGet("customer-portal")]
+        [ProducesResponseType(typeof(CustomerPortalResponse), 200)]
+        [ProducesResponseType(400)]
+        [ProducesResponseType(401)]
+        [ProducesResponseType(404)]
+        [ProducesResponseType(500)]
+        public async Task<IActionResult> GetCustomerPortal()
+        {
+            try
+            {
+                if (!_tenantContext.HasTenant)
+                {
+                    _logger.LogWarning("Customer portal request without valid tenant context");
+                    return BadRequest(new { message = "Invalid tenant context" });
+                }
+
+                var organizationUnitId = _tenantContext.CurrentTenantId;
+
+                // Get subscription for current organization
+                var subscription = await _subscriptionService.GetSubscriptionByOrganizationUnitIdAsync(organizationUnitId);
+                
+                if (subscription?.LemonsqueezySubscriptionId == null)
+                {
+                    _logger.LogWarning("No active subscription found for organization {OrganizationUnitId}", organizationUnitId);
+                    return NotFound(new { message = "No active subscription found" });
+                }
+
+                _logger.LogInformation("Getting customer portal URL for subscription {SubscriptionId}", subscription.LemonsqueezySubscriptionId);
+
+                // Get customer portal URL from Lemon Squeezy
+                var portalUrl = await _lemonsqueezyService.GetCustomerPortalUrlAsync(subscription.LemonsqueezySubscriptionId);
+
+                _logger.LogInformation("Successfully retrieved customer portal URL for organization {OrganizationUnitId}", organizationUnitId);
+
+                return Ok(new CustomerPortalResponse
+                {
+                    Url = portalUrl,
+                    OrganizationUnitId = organizationUnitId
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting customer portal URL for organization {OrganizationUnitId}", 
+                    _tenantContext.CurrentTenantId);
+                return StatusCode(500, new { message = "An error occurred while getting customer portal URL" });
+            }
+        }
     }
 
     /// <summary>
@@ -273,6 +325,15 @@ namespace OpenAutomate.API.Controllers
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
         public DateTime? TrialEndsAt { get; set; }
+        public Guid OrganizationUnitId { get; set; }
+    }
+
+    /// <summary>
+    /// Response model for customer portal URL
+    /// </summary>
+    public class CustomerPortalResponse
+    {
+        public string Url { get; set; } = string.Empty;
         public Guid OrganizationUnitId { get; set; }
     }
 }

@@ -225,7 +225,7 @@ namespace OpenAutomate.Infrastructure.Services
                         subscription = new Subscription
                         {
                             OrganizationUnitId = organizationUnitId,
-                            PlanName = "Premium",
+                            PlanName = "Pro",
                             CreatedAt = DateTime.UtcNow
                         };
                         await _unitOfWork.Subscriptions.AddAsync(subscription);
@@ -235,6 +235,7 @@ namespace OpenAutomate.Infrastructure.Services
                 // Update subscription details
                 subscription.LemonsqueezySubscriptionId = lemonsqueezySubscriptionId;
                 subscription.Status = status;
+                subscription.PlanName = "Pro"; // Update plan name to Pro
                 subscription.RenewsAt = renewsAt;
                 subscription.EndsAt = endsAt;
                 subscription.LastModifyAt = DateTime.UtcNow;
@@ -314,12 +315,22 @@ namespace OpenAutomate.Infrastructure.Services
                     return false;
                 }
 
-                // Check if user has already used a trial (ANY past trial, regardless of current status)
+                // First, check if this organization unit has an active trial subscription
+                var currentSubscription = await GetCurrentSubscriptionAsync(organizationUnitId);
+                if (currentSubscription != null && currentSubscription.Status == "trialing" && 
+                    currentSubscription.TrialEndsAt.HasValue && currentSubscription.TrialEndsAt.Value > DateTime.UtcNow)
+                {
+                    // Has active trial - eligible
+                    return true;
+                }
+
+                // Check if user has already used a trial in OTHER organization units
                 var userTrialSubscriptions = await _unitOfWork.Subscriptions
-                    .GetAllIgnoringFiltersAsync(s => s.CreatedBy == userGuid && s.TrialEndsAt != null);
+                    .GetAllIgnoringFiltersAsync(s => s.CreatedBy == userGuid && s.TrialEndsAt != null && s.OrganizationUnitId != organizationUnitId);
                 
                 if (userTrialSubscriptions.Any())
                 {
+                    // User has used trial in other organization units
                     return false;
                 }
 
@@ -463,5 +474,22 @@ namespace OpenAutomate.Infrastructure.Services
                 };
             }
         }
+
+        public async Task<Subscription?> GetSubscriptionByOrganizationUnitIdAsync(Guid organizationUnitId)
+        {
+            try
+            {
+                var subscriptions = await _unitOfWork.Subscriptions
+                    .GetAllAsync(s => s.OrganizationUnitId == organizationUnitId);
+                
+                return subscriptions.OrderByDescending(s => s.CreatedAt).FirstOrDefault();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting subscription for organization {OrganizationUnitId}", organizationUnitId);
+                throw;
+            }
+        }
+
     }
 }

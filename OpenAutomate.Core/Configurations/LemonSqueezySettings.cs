@@ -26,9 +26,9 @@ public class LemonSqueezySettings
     public string ProductId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Monthly variant ID for the Premium product
+    /// Pro plan variant ID for the Premium product
     /// </summary>
-    public string VariantId { get; set; } = string.Empty;
+    public string ProVariantId { get; set; } = string.Empty;
 
     /// <summary>
     /// Base URL for Lemon Squeezy API (default: https://api.lemonsqueezy.com/v1)
@@ -42,7 +42,13 @@ public class LemonSqueezySettings
 
     /// <summary>
     /// Trial period duration in minutes (default: 7 days = 10080 minutes)
-    /// For testing, set to smaller values like 5 minutes
+    /// Common values for testing:
+    /// - 2 minutes: 2
+    /// - 5 minutes: 5
+    /// - 30 minutes: 30
+    /// - 1 hour: 60
+    /// - 1 day: 1440
+    /// - 7 days: 10080
     /// </summary>
     public int TrialDurationMinutes { get; set; } = 10080; // 7 days default
 
