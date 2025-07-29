@@ -357,6 +357,39 @@ namespace OpenAutomate.Infrastructure.Services
             }
         }
 
+        /// <summary>
+        /// Updates expired trial subscriptions to "expired" status in the database
+        /// This should be called explicitly when you want to clean up expired trials
+        /// </summary>
+        /// <param name="organizationUnitId">The organization unit ID</param>
+        /// <returns>True if any subscription was updated</returns>
+        public async Task<bool> UpdateExpiredTrialStatusAsync(Guid organizationUnitId)
+        {
+            try
+            {
+                var subscription = await GetCurrentSubscriptionAsync(organizationUnitId);
+                
+                if (subscription == null)
+                    return false;
+
+                // Check if trial has expired and needs status update
+                if (subscription.Status == "trialing" && subscription.TrialEndsAt.HasValue && subscription.TrialEndsAt.Value < DateTime.UtcNow)
+                {
+                    subscription.Status = "expired";
+                    await _unitOfWork.CompleteAsync();
+                    _logger.LogInformation("Updated expired trial subscription status for organization {OrganizationUnitId}", organizationUnitId);
+                    return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating expired trial status for organization {OrganizationUnitId}", organizationUnitId);
+                throw;
+            }
+        }
+
         public async Task<SubscriptionStatus> GetSubscriptionStatusAsync(Guid organizationUnitId)
         {
             try
@@ -380,25 +413,13 @@ namespace OpenAutomate.Infrastructure.Services
                 var isActive = subscription.IsActive;
                 var isInTrial = subscription.IsInTrial;
 
-                // If subscription status is "trialing" but trial has expired, treat it as expired
+                // If subscription status is "trialing" but trial has expired, treat it as expired (READ-ONLY)
+                // Note: We don't update the database here - Get methods should be read-only
                 if (subscription.Status == "trialing" && subscription.TrialEndsAt.HasValue && subscription.TrialEndsAt.Value < DateTime.UtcNow)
                 {
                     currentStatus = "expired";
                     isActive = false;
                     isInTrial = false;
-
-                    // Update the subscription status in the database for consistency
-                    try
-                    {
-                        subscription.Status = "expired";
-                        await _unitOfWork.CompleteAsync();
-                        _logger.LogInformation("Updated expired trial subscription status for organization {OrganizationUnitId}", organizationUnitId);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to update expired trial status for organization {OrganizationUnitId}", organizationUnitId);
-                        // Continue with the corrected status even if database update fails
-                    }
                 }
 
                 var status = new SubscriptionStatus

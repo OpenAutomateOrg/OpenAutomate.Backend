@@ -83,6 +83,14 @@ namespace OpenAutomate.Core.IServices
         /// <param name="userId">The user ID</param>
         /// <returns>True if eligible for trial</returns>
         Task<bool> IsOrganizationUnitEligibleForTrialAsync(Guid organizationUnitId, string userId);
+
+        /// <summary>
+        /// Updates expired trial subscriptions to "expired" status in the database
+        /// This should be called explicitly when you want to clean up expired trials
+        /// </summary>
+        /// <param name="organizationUnitId">The organization unit ID</param>
+        /// <returns>True if any subscription was updated</returns>
+        Task<bool> UpdateExpiredTrialStatusAsync(Guid organizationUnitId);
     }
 
     /// <summary>
