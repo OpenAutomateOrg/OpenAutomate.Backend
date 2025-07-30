@@ -315,22 +315,21 @@ namespace OpenAutomate.Infrastructure.Services
                     return false;
                 }
 
-                // First, check if this organization unit has an active trial subscription
+                // Check if this organization unit already has ANY subscription (trial or paid)
                 var currentSubscription = await GetCurrentSubscriptionAsync(organizationUnitId);
-                if (currentSubscription != null && currentSubscription.Status == "trialing" && 
-                    currentSubscription.TrialEndsAt.HasValue && currentSubscription.TrialEndsAt.Value > DateTime.UtcNow)
+                if (currentSubscription != null)
                 {
-                    // Has active trial - eligible
-                    return true;
+                    // Organization unit already has a subscription - not eligible to start a new trial
+                    return false;
                 }
 
-                // Check if user has already used a trial in OTHER organization units
+                // Check if user has already used a trial in ANY organization unit
                 var userTrialSubscriptions = await _unitOfWork.Subscriptions
-                    .GetAllIgnoringFiltersAsync(s => s.CreatedBy == userGuid && s.TrialEndsAt != null && s.OrganizationUnitId != organizationUnitId);
+                    .GetAllIgnoringFiltersAsync(s => s.CreatedBy == userGuid && s.TrialEndsAt != null);
                 
                 if (userTrialSubscriptions.Any())
                 {
-                    // User has used trial in other organization units
+                    // User has already used a trial - not eligible for another one
                     return false;
                 }
 
@@ -358,7 +357,7 @@ namespace OpenAutomate.Infrastructure.Services
                         .First();
                 }
 
-                // Only eligible if this is the first organization unit
+                // Only eligible if this is the first organization unit AND no existing subscription AND no previous trials
                 return firstOrganizationUnit.Id == organizationUnitId;
             }
             catch (Exception ex)
