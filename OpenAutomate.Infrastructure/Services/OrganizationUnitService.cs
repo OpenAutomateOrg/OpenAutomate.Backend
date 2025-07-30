@@ -717,7 +717,7 @@ namespace OpenAutomate.Infrastructure.Services
             var subscription = new Core.Domain.Entities.Subscription
             {
                 OrganizationUnitId = organizationUnitId,
-                PlanName = "Premium", 
+                PlanName = "Pro", 
                 Status = "trialing",
                 TrialEndsAt = DateTime.UtcNow.AddMinutes(trialMinutes),
                 CreatedAt = DateTime.UtcNow,

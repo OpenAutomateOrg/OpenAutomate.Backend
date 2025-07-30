@@ -93,7 +93,7 @@ namespace OpenAutomate.Infrastructure.Services
                                 data = new
                                 {
                                     type = "variants",
-                                    id = _settings.VariantId
+                                    id = _settings.ProVariantId
                                 }
                             }
                         }

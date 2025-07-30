@@ -91,6 +91,13 @@ namespace OpenAutomate.Core.IServices
         /// <param name="organizationUnitId">The organization unit ID</param>
         /// <returns>True if any subscription was updated</returns>
         Task<bool> UpdateExpiredTrialStatusAsync(Guid organizationUnitId);
+
+        /// <summary>
+        /// Gets subscription by organization unit ID
+        /// </summary>
+        /// <param name="organizationUnitId">The organization unit ID</param>
+        /// <returns>The subscription or null if not found</returns>
+        Task<Subscription?> GetSubscriptionByOrganizationUnitIdAsync(Guid organizationUnitId);
     }
 
     /// <summary>

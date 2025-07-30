@@ -225,7 +225,7 @@ namespace OpenAutomate.Infrastructure.Services
                         subscription = new Subscription
                         {
                             OrganizationUnitId = organizationUnitId,
-                            PlanName = "Premium",
+                            PlanName = "Pro",
                             CreatedAt = DateTime.UtcNow
                         };
                         await _unitOfWork.Subscriptions.AddAsync(subscription);
@@ -235,6 +235,7 @@ namespace OpenAutomate.Infrastructure.Services
                 // Update subscription details
                 subscription.LemonsqueezySubscriptionId = lemonsqueezySubscriptionId;
                 subscription.Status = status;
+                subscription.PlanName = "Pro"; // Update plan name to Pro
                 subscription.RenewsAt = renewsAt;
                 subscription.EndsAt = endsAt;
                 subscription.LastModifyAt = DateTime.UtcNow;
@@ -314,12 +315,21 @@ namespace OpenAutomate.Infrastructure.Services
                     return false;
                 }
 
-                // Check if user has already used a trial (ANY past trial, regardless of current status)
+                // Check if this organization unit already has ANY subscription (trial or paid)
+                var currentSubscription = await GetCurrentSubscriptionAsync(organizationUnitId);
+                if (currentSubscription != null)
+                {
+                    // Organization unit already has a subscription - not eligible to start a new trial
+                    return false;
+                }
+
+                // Check if user has already used a trial in ANY organization unit
                 var userTrialSubscriptions = await _unitOfWork.Subscriptions
                     .GetAllIgnoringFiltersAsync(s => s.CreatedBy == userGuid && s.TrialEndsAt != null);
                 
                 if (userTrialSubscriptions.Any())
                 {
+                    // User has already used a trial - not eligible for another one
                     return false;
                 }
 
@@ -347,7 +357,7 @@ namespace OpenAutomate.Infrastructure.Services
                         .First();
                 }
 
-                // Only eligible if this is the first organization unit
+                // Only eligible if this is the first organization unit AND no existing subscription AND no previous trials
                 return firstOrganizationUnit.Id == organizationUnitId;
             }
             catch (Exception ex)
@@ -463,5 +473,22 @@ namespace OpenAutomate.Infrastructure.Services
                 };
             }
         }
+
+        public async Task<Subscription?> GetSubscriptionByOrganizationUnitIdAsync(Guid organizationUnitId)
+        {
+            try
+            {
+                var subscriptions = await _unitOfWork.Subscriptions
+                    .GetAllAsync(s => s.OrganizationUnitId == organizationUnitId);
+                
+                return subscriptions.OrderByDescending(s => s.CreatedAt).FirstOrDefault();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting subscription for organization {OrganizationUnitId}", organizationUnitId);
+                throw;
+            }
+        }
+
     }
 }
