@@ -239,7 +239,6 @@ namespace OpenAutomate.API.Controllers
         /// <param name="version">Version number</param>
         /// <returns>Download URL response</returns>
         [HttpGet("{id}/versions/{version}/download")]
-        [RequireSubscription(SubscriptionOperationType.Read)]
         [RequirePermission(Resources.PackageResource, Permissions.View)]
         public async Task<ActionResult<object>> GetPackageDownloadUrl(Guid id, string version)
         {
@@ -262,7 +261,6 @@ namespace OpenAutomate.API.Controllers
         /// <param name="machineKey">Bot agent machine key for authentication</param>
         /// <returns>Download URL response with expiration</returns>
         [HttpGet("{id}/versions/{version}/agent-download")]
-        [RequireSubscription(SubscriptionOperationType.Read)]
         [Microsoft.AspNetCore.Authorization.AllowAnonymous] // Bot agents use machine key auth
         public async Task<IActionResult> GetAgentDownloadUrl(Guid id, string version, [FromQuery] string machineKey)
         {
