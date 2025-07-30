@@ -124,13 +124,13 @@ namespace OpenAutomate.API.Controllers
                 var organizationUnitId = _tenantContext.CurrentTenantId;
                 var subscriptionStatus = await _subscriptionService.GetSubscriptionStatusAsync(organizationUnitId);
 
-                // Get current user information to check trial eligibility
+                // Get current user information to determine trial status
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                bool isEligibleForTrial = false;
+                TrialStatus userTrialStatus = TrialStatus.NotEligible;
                 
-                if (!string.IsNullOrEmpty(userId))
+                if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out var userGuid))
                 {
-                    isEligibleForTrial = await _subscriptionService.IsOrganizationUnitEligibleForTrialAsync(organizationUnitId, userId);
+                    userTrialStatus = await DetermineUserTrialStatusAsync(organizationUnitId, userGuid, subscriptionStatus);
                 }
 
                 return Ok(new SubscriptionStatusResponse
@@ -144,7 +144,7 @@ namespace OpenAutomate.API.Controllers
                     RenewsAt = subscriptionStatus.RenewsAt,
                     DaysRemaining = subscriptionStatus.DaysRemaining,
                     OrganizationUnitId = organizationUnitId,
-                    IsEligibleForTrial = isEligibleForTrial
+                    UserTrialStatus = userTrialStatus
                 });
             }
             catch (Exception ex)
@@ -288,6 +288,75 @@ namespace OpenAutomate.API.Controllers
                 return StatusCode(500, new { message = "An error occurred while getting customer portal URL" });
             }
         }
+
+        /// <summary>
+        /// Determines the user's trial status based on current subscription and user's trial history
+        /// </summary>
+        /// <param name="organizationUnitId">The current organization unit ID</param>
+        /// <param name="userId">The user ID</param>
+        /// <param name="currentSubscriptionStatus">The current subscription status</param>
+        /// <returns>The user's trial status</returns>
+        private async Task<TrialStatus> DetermineUserTrialStatusAsync(Guid organizationUnitId, Guid userId, SubscriptionStatus currentSubscriptionStatus)
+        {
+            try
+            {
+                // If the OU has an active trial, return Active
+                if (currentSubscriptionStatus.IsInTrial && currentSubscriptionStatus.IsActive)
+                {
+                    return TrialStatus.Active;
+                }
+
+                // If the OU has no subscription, check eligibility
+                if (!currentSubscriptionStatus.HasSubscription)
+                {
+                    var isEligible = await _subscriptionService.IsOrganizationUnitEligibleForTrialAsync(organizationUnitId, userId.ToString());
+                    return isEligible ? TrialStatus.Eligible : TrialStatus.Used;
+                }
+
+                // If OU has a subscription but it's not an active trial (expired trial or paid subscription)
+                // Check if user has used trial elsewhere
+                var userTrialSubscriptions = await _subscriptionService.GetSubscriptionByOrganizationUnitIdAsync(organizationUnitId);
+                if (userTrialSubscriptions?.TrialEndsAt != null)
+                {
+                    // User had a trial on this OU
+                    return TrialStatus.Used;
+                }
+
+                // Default case - subscription exists but no trial history found
+                return TrialStatus.NotEligible;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error determining trial status for user {UserId} in organization {OrganizationUnitId}", userId, organizationUnitId);
+                return TrialStatus.NotEligible;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Enum representing the trial status for a user
+    /// </summary>
+    public enum TrialStatus
+    {
+        /// <summary>
+        /// User is eligible to start a trial
+        /// </summary>
+        Eligible,
+        
+        /// <summary>
+        /// User has an active trial
+        /// </summary>
+        Active,
+        
+        /// <summary>
+        /// User has used their trial (on this or another organization unit)
+        /// </summary>
+        Used,
+        
+        /// <summary>
+        /// User is not eligible for a trial
+        /// </summary>
+        NotEligible
     }
 
     /// <summary>
@@ -314,7 +383,7 @@ namespace OpenAutomate.API.Controllers
         public DateTime? RenewsAt { get; set; }
         public int? DaysRemaining { get; set; }
         public Guid OrganizationUnitId { get; set; }
-        public bool IsEligibleForTrial { get; set; }
+        public TrialStatus UserTrialStatus { get; set; }
     }
 
     /// <summary>

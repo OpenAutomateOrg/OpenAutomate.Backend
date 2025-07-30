@@ -24,18 +24,22 @@ namespace OpenAutomate.API.Controllers
     {
         private readonly IOrganizationUnitService _organizationUnitService;
         private readonly ICacheInvalidationService _cacheInvalidationService;
+        private readonly ILogger<OrganizationUnitController> _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="OrganizationUnitController"/> class
         /// </summary>
         /// <param name="organizationUnitService">The organization unit service</param>
         /// <param name="cacheInvalidationService">The cache invalidation service</param>
+        /// <param name="logger">The logger</param>
         public OrganizationUnitController(
             IOrganizationUnitService organizationUnitService,
-            ICacheInvalidationService cacheInvalidationService)
+            ICacheInvalidationService cacheInvalidationService,
+            ILogger<OrganizationUnitController> logger)
         {
             _organizationUnitService = organizationUnitService;
             _cacheInvalidationService = cacheInvalidationService;
+            _logger = logger;
         }
 
         /// <summary>
@@ -70,6 +74,27 @@ namespace OpenAutomate.API.Controllers
                 var userId = GetCurrentUserId();
                 
                 var result = await _organizationUnitService.CreateOrganizationUnitAsync(dto, userId);
+                
+                // Invalidate caches related to subscription and user profile after creating a new organization unit
+                // This ensures the frontend receives fresh trial status data immediately
+                
+                _logger.LogInformation("Invalidating caches for new organization unit {OrganizationUnitId} with slug {Slug}", result.Id, result.Slug);
+                
+                // CRITICAL: Invalidate tenant resolution cache - this is the key that was causing the issue
+                // The tenant resolution cache stores tenant data including subscription info
+                await _cacheInvalidationService.InvalidateTenantResolutionCacheAsync(result.Slug);
+                
+                // Also invalidate any cached subscription API responses for this tenant
+                await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/api/subscription", result.Id);
+                await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/api/subscription/status", result.Id);
+                await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/api/account/profile");
+                
+                // Clear broader cache patterns to catch any variations
+                await _cacheInvalidationService.InvalidateCachePatternAsync($"*tenant*{result.Slug.ToLowerInvariant()}*");
+                await _cacheInvalidationService.InvalidateCachePatternAsync($"*{result.Id}*");
+                
+                _logger.LogInformation("Cache invalidation completed for organization unit {OrganizationUnitId} with slug {Slug}", result.Id, result.Slug);
+                
                 return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
             }
             catch (Exception ex)
