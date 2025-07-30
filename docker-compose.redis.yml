@@ -1,3 +1,4 @@
+# Development Redis Setup
 services:
   redis:
     image: redis:7-alpine
@@ -14,7 +15,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-  
+
   redis-insight:
     image: redislabs/redisinsight:latest
     container_name: openautomae-redis-insight
@@ -27,7 +28,7 @@ services:
       - redis
     environment:
       - RIPORT=8001
-    
+
 volumes:
   redis-data:
     driver: local

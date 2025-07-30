@@ -19,14 +19,23 @@ namespace OpenAutomate.API.Controllers
     public class BotAgentController : ControllerBase
     {
         private readonly IBotAgentService _botAgentService;
+        private readonly ICacheInvalidationService _cacheInvalidationService;
+        private readonly ITenantContext _tenantContext;
         
         /// <summary>
         /// Initializes a new instance of the <see cref="BotAgentController"/> class
         /// </summary>
         /// <param name="botAgentService">The Bot Agent service</param>
-        public BotAgentController(IBotAgentService botAgentService)
+        /// <param name="cacheInvalidationService">The cache invalidation service</param>
+        /// <param name="tenantContext">The tenant context</param>
+        public BotAgentController(
+            IBotAgentService botAgentService,
+            ICacheInvalidationService cacheInvalidationService,
+            ITenantContext tenantContext)
         {
             _botAgentService = botAgentService;
+            _cacheInvalidationService = cacheInvalidationService;
+            _tenantContext = tenantContext;
         }
         
         /// <summary>
@@ -35,10 +44,17 @@ namespace OpenAutomate.API.Controllers
         /// <param name="dto">The Bot Agent creation data</param>
         /// <returns>The CreatedAtBot Agent with machine key</returns>
         [HttpPost("create")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.AgentResource, Permissions.Create)]
         public async Task<ActionResult<BotAgentResponseDto>> CreateBotAgent([FromBody] CreateBotAgentDto dto)
         {
             var botAgent = await _botAgentService.CreateBotAgentAsync(dto);
+            
+            // Invalidate bot agents cache
+            if (_tenantContext.HasTenant)
+            {
+                await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/odata/BotAgents", _tenantContext.CurrentTenantId);
+            }
             
             // Get the tenant from the route data
             var tenant = RouteData.Values["tenant"]?.ToString();
@@ -55,6 +71,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="id">The Bot Agent ID</param>
         /// <returns>The Bot Agent if found</returns>
         [HttpGet("{id}")]
+        [RequireSubscription(SubscriptionOperationType.Read)]
         [RequirePermission(Resources.AgentResource, Permissions.View)]
         public async Task<ActionResult<BotAgentResponseDto>> GetBotAgentById(Guid id)
         {
@@ -70,6 +87,7 @@ namespace OpenAutomate.API.Controllers
         /// </summary>
         /// <returns>Collection of Bot Agents</returns>
         [HttpGet]
+        [RequireSubscription(SubscriptionOperationType.Read)]
         [RequirePermission(Resources.AgentResource, Permissions.View)]
         public async Task<ActionResult<IEnumerable<BotAgentResponseDto>>> GetAllBotAgents()
         {
@@ -83,6 +101,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="id">The Bot Agent ID</param>
         /// <returns>The updated Bot Agent with new machine key</returns>
         [HttpPost("{id}/regenerateKey")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.AgentResource, Permissions.Update)]
         public async Task<ActionResult<BotAgentResponseDto>> RegenerateMachineKey(Guid id)
         {
@@ -95,10 +114,18 @@ namespace OpenAutomate.API.Controllers
         /// </summary>
         /// <param name="id">The Bot Agent ID</param>
         [HttpPost("{id}/deactivate")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.AgentResource, Permissions.Update)]
         public async Task<IActionResult> DeactivateBotAgent(Guid id)
         {
             await _botAgentService.DeactivateBotAgentAsync(id);
+            
+            // Invalidate bot agents cache
+            if (_tenantContext.HasTenant)
+            {
+                await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/odata/BotAgents", _tenantContext.CurrentTenantId);
+            }
+            
             return NoContent();
         }
 
@@ -107,12 +134,20 @@ namespace OpenAutomate.API.Controllers
         /// </summary>
         /// <param name="id">The Bot Agent ID</param>
         [HttpDelete("{id}")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.AgentResource, Permissions.Delete)]
         public async Task<IActionResult> DeleteBotAgent(Guid id)
         {
             try
             {
                 await _botAgentService.DeleteBotAgentAsync(id);
+                
+                // Invalidate bot agents cache
+                if (_tenantContext.HasTenant)
+                {
+                    await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/odata/BotAgents", _tenantContext.CurrentTenantId);
+                }
+                
                 return NoContent();
             }
             catch (InvalidOperationException ex)
@@ -132,10 +167,18 @@ namespace OpenAutomate.API.Controllers
         /// <param name="dto">The update data</param>
         /// <returns>The updated Bot Agent</returns>
         [HttpPut("{id}")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.AgentResource, Permissions.Update)]
         public async Task<ActionResult<BotAgentResponseDto>> UpdateBotAgent(Guid id, [FromBody] UpdateBotAgentDto dto)
         {
             var updatedAgent = await _botAgentService.UpdateBotAgentAsync(id, dto);
+            
+            // Invalidate bot agents cache
+            if (_tenantContext.HasTenant)
+            {
+                await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/odata/BotAgents", _tenantContext.CurrentTenantId);
+            }
+            
             return Ok(updatedAgent);
         }
     }

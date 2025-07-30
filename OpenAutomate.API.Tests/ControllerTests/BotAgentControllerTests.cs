@@ -15,12 +15,20 @@ namespace OpenAutomate.API.Tests.ControllerTests
     public class BotAgentControllerTests
     {
         private readonly Mock<IBotAgentService> _mockBotAgentService;
+        private readonly Mock<ICacheInvalidationService> _mockCacheInvalidationService;
+        private readonly Mock<ITenantContext> _mockTenantContext;
         private readonly BotAgentController _controller;
 
         public BotAgentControllerTests()
         {
             _mockBotAgentService = new Mock<IBotAgentService>();
-            _controller = new BotAgentController(_mockBotAgentService.Object);
+            _mockCacheInvalidationService = new Mock<ICacheInvalidationService>();
+            _mockTenantContext = new Mock<ITenantContext>();
+            
+            _controller = new BotAgentController(
+                _mockBotAgentService.Object,
+                _mockCacheInvalidationService.Object,
+                _mockTenantContext.Object);
         }
 
         [Fact]

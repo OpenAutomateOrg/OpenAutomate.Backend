@@ -24,4 +24,14 @@ public class RedisSettings
     /// Whether to abort on connection failure (default: false for resilience)
     /// </summary>
     public bool AbortOnConnectFail { get; set; } = false;
+    
+    /// <summary>
+    /// Redis username for authentication (leave empty if not using authentication)
+    /// </summary>
+    public string Username { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Redis password for authentication (leave empty if not using authentication)
+    /// </summary>
+    public string Password { get; set; } = string.Empty;
 } 

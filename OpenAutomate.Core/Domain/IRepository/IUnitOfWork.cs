@@ -20,6 +20,9 @@ namespace OpenAutomate.Core.Domain.IRepository
         IRepository<EmailVerificationToken> EmailVerificationTokens { get; }
         IRepository<PasswordResetToken> PasswordResetTokens { get; }
         IRepository<OrganizationUnitInvitation> OrganizationUnitInvitations { get; }
+        IRepository<Subscription> Subscriptions { get; }
+        IRepository<UsageRecord> UsageRecords { get; }
+        IRepository<Payment> Payments { get; }
         
         // Get a repository for a specific entity type
         IRepository<T> GetRepository<T>() where T : class;

@@ -1,5 +1,6 @@
 // OpenAutomate.API/Program.cs
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using OpenAutomate.Infrastructure.DbContext;
 using OpenAutomate.Infrastructure.Services;
 using OpenAutomate.API.Middleware;
@@ -70,7 +71,9 @@ namespace OpenAutomate.API
             builder.Services.Configure<DatabaseSettings>(appSettingsSection.GetSection("Database"));
             builder.Services.Configure<CorsSettings>(appSettingsSection.GetSection("Cors"));
             builder.Services.Configure<RedisSettings>(appSettingsSection.GetSection("Redis"));
+            builder.Services.Configure<RedisCacheConfiguration>(appSettingsSection.GetSection("RedisCache"));
             builder.Services.Configure<EmailSettings>(appSettingsSection.GetSection("EmailSettings"));
+            builder.Services.Configure<LemonSqueezySettings>(appSettingsSection.GetSection("LemonSqueezy"));
         }
         
         private static void ConfigureLogging(WebApplicationBuilder builder)
@@ -94,8 +97,17 @@ namespace OpenAutomate.API
                 .GetSection("Database")
                 .Get<DatabaseSettings>();
                 
-            // Register TenantContext as scoped for proper tenant isolation per request
-            builder.Services.AddScoped<ITenantContext, TenantContext>();
+            // Register TenantContext with caching decorator for proper tenant isolation per request
+            builder.Services.AddScoped<TenantContext>();
+            builder.Services.AddScoped<ITenantContext>(provider =>
+            {
+                var innerContext = provider.GetRequiredService<TenantContext>();
+                var cacheService = provider.GetRequiredService<ICacheService>();
+                var logger = provider.GetRequiredService<ILogger<TenantContextCachingDecorator>>();
+                var cacheConfig = provider.GetRequiredService<IOptions<RedisCacheConfiguration>>();
+                
+                return new TenantContextCachingDecorator(innerContext, cacheService, logger, cacheConfig);
+            });
             
             // Add DbContext
             builder.Services.AddDbContext<ApplicationDbContext>((provider, options) =>
@@ -149,15 +161,54 @@ namespace OpenAutomate.API
                 .GetSection("AppSettings")
                 .GetSection("Cors")
                 .Get<CorsSettings>();
-                
+
+            // Get frontend URL for additional CORS origins
+            var frontendUrl = builder.Configuration["FrontendUrl"] ?? "http://localhost:3001";
+
+            // Create comprehensive allowed origins list
+            var allAllowedOrigins = new List<string>(corsSettings.AllowedOrigins ?? Array.Empty<string>());
+
+            // Add frontend URL if not already present
+            if (!allAllowedOrigins.Contains(frontendUrl))
+            {
+                allAllowedOrigins.Add(frontendUrl);
+            }
+
+            // Add common localhost variations for development
+            var localhostOrigins = new[]
+            {
+                "http://localhost:3000", "http://localhost:3001",
+                "https://localhost:3000", "https://localhost:3001",
+                "http://localhost:5252", "https://localhost:5252"  // Backend URLs
+            };
+
+            foreach (var origin in localhostOrigins)
+            {
+                if (!allAllowedOrigins.Contains(origin))
+                {
+                    allAllowedOrigins.Add(origin);
+                }
+            }
+
             builder.Services.AddCors(options =>
             {
+                // Default policy for API endpoints - restrictive but comprehensive
                 options.AddDefaultPolicy(policy =>
-                    policy.WithOrigins(corsSettings.AllowedOrigins)
+                    policy.WithOrigins(allAllowedOrigins.ToArray())
                           .AllowAnyMethod()
                           .AllowAnyHeader()
                           .AllowCredentials()
                           .WithExposedHeaders("Token-Expired"));
+
+                // SignalR hub policy - must allow credentials for authentication
+                // Cannot use AllowAnyOrigin() with AllowCredentials()
+                options.AddPolicy("SignalRHubPolicy", policy =>
+                    policy.WithOrigins(allAllowedOrigins.ToArray())  // Use same origins as default
+                          .AllowAnyMethod()
+                          .AllowAnyHeader()
+                          .AllowCredentials()  // Required for SignalR authentication
+                          .WithExposedHeaders("Token-Expired")
+                          .SetPreflightMaxAge(TimeSpan.FromMinutes(10)));  // Cache preflight for performance
             });
         }
         
@@ -174,7 +225,43 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<IBotAgentService, BotAgentService>();
             builder.Services.AddScoped<IAssetService, AssetService>();
             builder.Services.AddScoped<IEmailService, AwsSesEmailService>();
-            builder.Services.AddScoped<IAuthorizationManager, AuthorizationManager>();
+            
+            // Register subscription services
+            builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+            builder.Services.AddHttpClient<ILemonsqueezyService, LemonsqueezyService>();
+            builder.Services.AddScoped<IAdminRevenueService, AdminRevenueService>();
+            
+            // Register caching service
+            builder.Services.AddScoped<ICacheService, RedisCacheService>();
+            
+            // Register cache invalidation services
+            builder.Services.AddScoped<CacheInvalidationService>();
+            builder.Services.AddScoped<ICacheInvalidationService>(provider => 
+                provider.GetRequiredService<CacheInvalidationService>());
+            builder.Services.AddHostedService<CacheInvalidationBackgroundService>();
+            
+            // Register JWT blocklist service
+            builder.Services.AddScoped<IJwtBlocklistService>(provider =>
+            {
+                var cacheService = provider.GetRequiredService<ICacheService>();
+                var logger = provider.GetRequiredService<ILogger<JwtBlocklistService>>();
+                var cacheConfig = provider.GetRequiredService<IOptions<RedisCacheConfiguration>>();
+                
+                return new JwtBlocklistService(cacheService, logger, cacheConfig);
+            });
+            
+            // Register authorization manager with caching decorator
+            builder.Services.AddScoped<AuthorizationManager>();
+            builder.Services.AddScoped<IAuthorizationManager>(provider =>
+            {
+                var innerManager = provider.GetRequiredService<AuthorizationManager>();
+                var cacheService = provider.GetRequiredService<ICacheService>();
+                var tenantContext = provider.GetRequiredService<ITenantContext>();
+                var logger = provider.GetRequiredService<ILogger<AuthorizationManagerCachingDecorator>>();
+                var cacheConfig = provider.GetRequiredService<IOptions<RedisCacheConfiguration>>();
+                
+                return new AuthorizationManagerCachingDecorator(innerManager, cacheService, tenantContext, logger, cacheConfig);
+            });
 
             builder.Services.AddScoped<IExecutionService, ExecutionService>();
             builder.Services.AddScoped<IScheduleService, ScheduleService>();
@@ -381,29 +468,46 @@ namespace OpenAutomate.API
                 app.UseODataRouteDebug();
             }
             
-            // Apply CORS policy globally
-            app.UseCors();
-            
             app.UseHttpsRedirection();
-            
+
             // Enable OData query capabilities
             app.UseODataQueryRequest();
-            
+
             // Add routing
             app.UseRouting();
-            
-            // Add authentication and authorization middleware
+
+            // Apply CORS policy after routing but before authentication
+            app.UseCors();
+
+            // Add authentication middleware
             app.UseAuthentication();
+
+            // Add custom middleware after authentication but before authorization
             app.UseJwtAuthentication();
             app.UseTenantResolution();
+
+            // Add authorization middleware
             app.UseAuthorization();
             
             // Map controller endpoints
             app.MapControllers();
 
+            // Add health check endpoint for Docker/AWS health checks
+            app.MapGet("/health", () => Results.Ok(new { 
+                status = "healthy", 
+                timestamp = DateTime.UtcNow,
+                environment = app.Environment.EnvironmentName,
+                version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown"
+            })).AllowAnonymous();
+
+            // Add basic health check that doesn't depend on external services
+            app.MapGet("/ping", () => Results.Ok("pong")).AllowAnonymous();
+
             // Map SignalR hubs with tenant slug in the path
             // Configure to support both JWT and machine key auth
-            app.MapHub<BotAgentHub>("/{tenant}/hubs/botagent");
+            // Use permissive CORS policy for direct agent connections
+            app.MapHub<BotAgentHub>("/{tenant}/hubs/botagent")
+                .RequireCors("SignalRHubPolicy");
         }
         
         private static async Task ApplyDatabaseMigrationsAsync(WebApplication app)
@@ -489,10 +593,22 @@ namespace OpenAutomate.API
                 .GetSection("Redis")
                 .Get<RedisSettings>();
 
+            // Build Redis connection string with authentication if provided
+            var connectionString = redisSettings.ConnectionString;
+            if (!string.IsNullOrEmpty(redisSettings.Username) && !string.IsNullOrEmpty(redisSettings.Password))
+            {
+                // For authenticated Redis, we need to build a more complete connection string
+                var configuration = ConfigurationOptions.Parse(connectionString);
+                configuration.User = redisSettings.Username;
+                configuration.Password = redisSettings.Password;
+                configuration.AbortOnConnectFail = redisSettings.AbortOnConnectFail;
+                connectionString = configuration.ToString();
+            }
+
             // Add Redis distributed cache
             builder.Services.AddStackExchangeRedisCache(options =>
             {
-                options.Configuration = redisSettings.ConnectionString;
+                options.Configuration = connectionString;
                 options.InstanceName = redisSettings.InstanceName;
             });
 
@@ -501,6 +617,13 @@ namespace OpenAutomate.API
             {
                 var configuration = ConfigurationOptions.Parse(redisSettings.ConnectionString);
                 configuration.AbortOnConnectFail = redisSettings.AbortOnConnectFail;
+                
+                // Add authentication if provided
+                if (!string.IsNullOrEmpty(redisSettings.Username) && !string.IsNullOrEmpty(redisSettings.Password))
+                {
+                    configuration.User = redisSettings.Username;
+                    configuration.Password = redisSettings.Password;
+                }
                 
                 return ConnectionMultiplexer.Connect(configuration);
             });
@@ -513,6 +636,17 @@ namespace OpenAutomate.API
                 .GetSection("AppSettings")
                 .GetSection("Redis")
                 .Get<RedisSettings>();
+
+            // Build Redis connection string with authentication if provided
+            var signalRConnectionString = redisSettings.ConnectionString;
+            if (!string.IsNullOrEmpty(redisSettings.Username) && !string.IsNullOrEmpty(redisSettings.Password))
+            {
+                var config = ConfigurationOptions.Parse(redisSettings.ConnectionString);
+                config.AbortOnConnectFail = redisSettings.AbortOnConnectFail;
+                config.User = redisSettings.Username;
+                config.Password = redisSettings.Password;
+                signalRConnectionString = config.ToString();
+            }
 
             // Add SignalR services with optimized connection settings and Redis backplane
             builder.Services.AddSignalR(options => 
@@ -541,7 +675,7 @@ namespace OpenAutomate.API
                 }
             })
             // Add Redis backplane for scaling across multiple server instances
-            .AddStackExchangeRedis(redisSettings.ConnectionString, options =>
+            .AddStackExchangeRedis(signalRConnectionString, options =>
             {
                 options.Configuration.ChannelPrefix = "OpenAutomate";
             })

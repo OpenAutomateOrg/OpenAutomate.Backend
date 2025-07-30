@@ -11,5 +11,8 @@ namespace OpenAutomate.Core.Dto.OrganizationUnit
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public bool IsPendingDeletion { get; set; }
+        public DateTime? ScheduledDeletionAt { get; set; }
+        public int? DaysUntilDeletion { get; set; }
     }
 } 

@@ -85,7 +85,7 @@ jobs:
           # Create a directory for the results
           mkdir -p ./TestResults
           
-          # Run Core tests
+          # Run Core tests first (no merge needed)
           dotnet test OpenAutomate.Core.Tests/OpenAutomate.Core.Tests.csproj \
             --configuration Release \
             --no-build \
@@ -93,58 +93,82 @@ jobs:
             --results-directory:./TestResults \
             /p:CollectCoverage=true \
             /p:CoverletOutputFormat=opencover \
-            /p:CoverletOutput=./TestResults/
+            /p:CoverletOutput=./TestResults/core_coverage.opencover.xml
 
-          # Run API tests
-          dotnet test OpenAutomate.API.Tests/OpenAutomate.API.Tests.csproj \
-            --configuration Release \
-            --no-build \
-            --logger:trx \
-            --results-directory:./TestResults \
-            /p:CollectCoverage=true \
-            /p:CoverletOutputFormat=opencover \
-            /p:CoverletOutput=./TestResults/ \
-            /p:MergeWith="./TestResults/coverage.opencover.xml"
+          # Run API tests (merge with core coverage if it exists)
+          if [ -f "./TestResults/core_coverage.opencover.xml" ]; then
+            dotnet test OpenAutomate.API.Tests/OpenAutomate.API.Tests.csproj \
+              --configuration Release \
+              --no-build \
+              --logger:trx \
+              --results-directory:./TestResults \
+              /p:CollectCoverage=true \
+              /p:CoverletOutputFormat=opencover \
+              /p:CoverletOutput=./TestResults/api_coverage.opencover.xml \
+              /p:MergeWith="./TestResults/core_coverage.opencover.xml"
+          else
+            dotnet test OpenAutomate.API.Tests/OpenAutomate.API.Tests.csproj \
+              --configuration Release \
+              --no-build \
+              --logger:trx \
+              --results-directory:./TestResults \
+              /p:CollectCoverage=true \
+              /p:CoverletOutputFormat=opencover \
+              /p:CoverletOutput=./TestResults/api_coverage.opencover.xml
+          fi
           
-          # Run Infrastructure tests
-          dotnet test OpenAutomate.Infrastructure.Tests/OpenAutomate.Infrastructure.Tests.csproj \
-            --configuration Release \
-            --no-build \
-            --logger:trx \
-            --results-directory:./TestResults \
-            /p:CollectCoverage=true \
-            /p:CoverletOutputFormat=opencover \
-            /p:CoverletOutput=./TestResults/ \
-            /p:MergeWith="./TestResults/coverage.opencover.xml"
+          # Run Infrastructure tests (merge with existing coverage if it exists)
+          MERGE_FILE=""
+          if [ -f "./TestResults/api_coverage.opencover.xml" ]; then
+            MERGE_FILE="./TestResults/api_coverage.opencover.xml"
+          elif [ -f "./TestResults/core_coverage.opencover.xml" ]; then
+            MERGE_FILE="./TestResults/core_coverage.opencover.xml"
+          fi
+          
+          if [ -n "$MERGE_FILE" ]; then
+            dotnet test OpenAutomate.Infrastructure.Tests/OpenAutomate.Infrastructure.Tests.csproj \
+              --configuration Release \
+              --no-build \
+              --logger:trx \
+              --results-directory:./TestResults \
+              /p:CollectCoverage=true \
+              /p:CoverletOutputFormat=opencover \
+              /p:CoverletOutput=./TestResults/infrastructure_coverage.opencover.xml \
+              /p:MergeWith="$MERGE_FILE"
+          else
+            dotnet test OpenAutomate.Infrastructure.Tests/OpenAutomate.Infrastructure.Tests.csproj \
+              --configuration Release \
+              --no-build \
+              --logger:trx \
+              --results-directory:./TestResults \
+              /p:CollectCoverage=true \
+              /p:CoverletOutputFormat=opencover \
+              /p:CoverletOutput=./TestResults/infrastructure_coverage.opencover.xml
+          fi
           
           # Check if coverage files were created
           echo "Listing coverage files in TestResults directory:"
-          ls -la ./TestResults/coverage*.xml || echo "No coverage files found in ./TestResults"
-          
-          # Check for coverage files in test project directories
-          echo "Looking for coverage files in test project directories:"
-          find . -name "*.opencover.xml" -type f
+          ls -la ./TestResults/*.opencover.xml || echo "No coverage files found in ./TestResults"
           
           # Install reportgenerator for merging reports
           dotnet tool install -g dotnet-reportgenerator-globaltool || true
           
-          # Merge all coverage reports into one if multiple files exist
-          if [ $(find ./TestResults -name "*.opencover.xml" | wc -l) -gt 1 ]; then
-            echo "Multiple coverage files found, merging them"
-            reportgenerator \
-              -reports:"./TestResults/*.opencover.xml" \
-              -targetdir:"./TestResults/CoverageReport" \
-              -reporttypes:Opencover
-            
-            # Copy the merged report to the expected location
-            cp -f ./TestResults/CoverageReport/Opencover.xml ./TestResults/coverage.opencover.xml || true
-          elif [ $(find ./TestResults -name "*.opencover.xml" | wc -l) -eq 1 ]; then
-            # If only one file exists, copy it to the expected location
-            COVERAGE_FILE=$(find ./TestResults -name "*.opencover.xml" | head -1)
-            echo "Single coverage file found: $COVERAGE_FILE"
-            cp -f "$COVERAGE_FILE" ./TestResults/coverage.opencover.xml
+          # Use the final merged coverage file or the most recent one
+          FINAL_COVERAGE_FILE=""
+          if [ -f "./TestResults/infrastructure_coverage.opencover.xml" ]; then
+            FINAL_COVERAGE_FILE="./TestResults/infrastructure_coverage.opencover.xml"
+          elif [ -f "./TestResults/api_coverage.opencover.xml" ]; then
+            FINAL_COVERAGE_FILE="./TestResults/api_coverage.opencover.xml"
+          elif [ -f "./TestResults/core_coverage.opencover.xml" ]; then
+            FINAL_COVERAGE_FILE="./TestResults/core_coverage.opencover.xml"
+          fi
+          
+          if [ -n "$FINAL_COVERAGE_FILE" ]; then
+            echo "Using final coverage file: $FINAL_COVERAGE_FILE"
+            # Copy to the expected location for SonarQube
+            cp -f "$FINAL_COVERAGE_FILE" ./TestResults/coverage.opencover.xml
           else
-            echo "No coverage files found in TestResults directory!"
+            echo "No coverage files found!"
           fi
 
       # List coverage files for debugging

@@ -10,6 +10,12 @@ namespace OpenAutomate.API.Extensions
     public static class HttpContextExtensions
     {
         /// <summary>
+        /// System endpoints that don't require tenant resolution
+        /// </summary>
+        private static readonly string[] SystemEndpoints = { 
+            "api", "admin", "health", "ping", "swagger", "hubs" 
+        };
+        /// <summary>
         /// Gets the current user from the HttpContext items
         /// </summary>
         /// <param name="context">The HttpContext</param>
@@ -50,6 +56,15 @@ namespace OpenAutomate.API.Extensions
         {
             if (string.IsNullOrEmpty(path))
                 return null;
+            // Special handling for /api/ou/slug/{slug} pattern
+if (path.StartsWith("/api/ou/slug/"))
+{
+    var specialSegments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+    if (specialSegments.Length >= 4) // ["api", "ou", "slug", "actual_slug"]
+    {
+        return specialSegments[3]; // Return the actual slug
+    }
+}
                 
             // URL format: /{tenant}/api/...
             var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
@@ -57,9 +72,12 @@ namespace OpenAutomate.API.Extensions
             {
                 var potentialSlug = segments[0];
                 
-                // Skip system endpoints
-                if (potentialSlug == "api" || potentialSlug == "admin")
+                // Skip system endpoints that don't require tenant resolution
+                if (Array.Exists(SystemEndpoints, endpoint => 
+                    string.Equals(endpoint, potentialSlug, StringComparison.OrdinalIgnoreCase)))
+                {
                     return null;
+                }
                     
                 return potentialSlug;
             }

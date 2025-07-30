@@ -23,14 +23,23 @@ namespace OpenAutomate.API.Controllers
     public class OrganizationUnitController : CustomControllerBase
     {
         private readonly IOrganizationUnitService _organizationUnitService;
+        private readonly ICacheInvalidationService _cacheInvalidationService;
+        private readonly ILogger<OrganizationUnitController> _logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="OrganizationUnitController"/> class
         /// </summary>
         /// <param name="organizationUnitService">The organization unit service</param>
-        public OrganizationUnitController(IOrganizationUnitService organizationUnitService)
+        /// <param name="cacheInvalidationService">The cache invalidation service</param>
+        /// <param name="logger">The logger</param>
+        public OrganizationUnitController(
+            IOrganizationUnitService organizationUnitService,
+            ICacheInvalidationService cacheInvalidationService,
+            ILogger<OrganizationUnitController> logger)
         {
             _organizationUnitService = organizationUnitService;
+            _cacheInvalidationService = cacheInvalidationService;
+            _logger = logger;
         }
 
         /// <summary>
@@ -65,6 +74,27 @@ namespace OpenAutomate.API.Controllers
                 var userId = GetCurrentUserId();
                 
                 var result = await _organizationUnitService.CreateOrganizationUnitAsync(dto, userId);
+                
+                // Invalidate caches related to subscription and user profile after creating a new organization unit
+                // This ensures the frontend receives fresh trial status data immediately
+                
+                _logger.LogInformation("Invalidating caches for new organization unit {OrganizationUnitId} with slug {Slug}", result.Id, result.Slug);
+                
+                // CRITICAL: Invalidate tenant resolution cache - this is the key that was causing the issue
+                // The tenant resolution cache stores tenant data including subscription info
+                await _cacheInvalidationService.InvalidateTenantResolutionCacheAsync(result.Slug);
+                
+                // Also invalidate any cached subscription API responses for this tenant
+                await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/api/subscription", result.Id);
+                await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/api/subscription/status", result.Id);
+                await _cacheInvalidationService.InvalidateApiResponseCacheAsync("/api/account/profile");
+                
+                // Clear broader cache patterns to catch any variations
+                await _cacheInvalidationService.InvalidateCachePatternAsync($"*tenant*{result.Slug.ToLowerInvariant()}*");
+                await _cacheInvalidationService.InvalidateCachePatternAsync($"*{result.Id}*");
+                
+                _logger.LogInformation("Cache invalidation completed for organization unit {OrganizationUnitId} with slug {Slug}", result.Id, result.Slug);
+                
                 return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
             }
             catch (Exception ex)
@@ -209,7 +239,16 @@ namespace OpenAutomate.API.Controllers
                 if (organizationUnit == null)
                     return NotFound();
 
+                var oldSlug = organizationUnit.Slug;
                 var result = await _organizationUnitService.UpdateOrganizationUnitAsync(id, dto);
+                
+                // Invalidate tenant resolution cache for both old and new slugs
+                await _cacheInvalidationService.InvalidateTenantResolutionCacheAsync(oldSlug);
+                if (result.Slug != oldSlug)
+                {
+                    await _cacheInvalidationService.InvalidateTenantResolutionCacheAsync(result.Slug);
+                }
+                
                 return Ok(result);
             }
             catch (KeyNotFoundException)
@@ -267,6 +306,73 @@ namespace OpenAutomate.API.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, $"An error occurred while checking name change impact: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Request deletion of organization unit (Owner only)
+        /// </summary>
+        [HttpPost("{id}/request-deletion")]
+        [RequirePermission(Resources.OrganizationUnitResource, Permissions.Delete)]
+        public async Task<ActionResult<DeletionRequestDto>> RequestDeletion(Guid id)
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                var result = await _organizationUnitService.RequestDeletionAsync(id, userId);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound("Organization unit not found");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Cancel pending deletion
+        /// </summary>
+        [HttpPost("{id}/cancel-deletion")]
+        [RequirePermission(Resources.OrganizationUnitResource, Permissions.Delete)]
+        public async Task<ActionResult<DeletionRequestDto>> CancelDeletion(Guid id)
+        {
+            try
+            {
+                var result = await _organizationUnitService.CancelDeletionAsync(id);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound("Organization unit not found");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Get deletion status with countdown
+        /// </summary>
+        [HttpGet("{id}/deletion-status")]
+        [RequirePermission(Resources.OrganizationUnitResource, Permissions.Delete)]
+        public async Task<ActionResult<DeletionStatusDto>> GetDeletionStatus(Guid id)
+        {
+            try
+            {
+                var result = await _organizationUnitService.GetDeletionStatusAsync(id);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound("Organization unit not found");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred: {ex.Message}");
             }
         }
     }
