@@ -330,18 +330,6 @@ namespace OpenAutomate.Infrastructure.Services
                     }
                 },
                 {
-                    "OPERATOR", new Dictionary<string, int>
-                    {
-                        { Resources.AssetResource, Permissions.Delete },
-                        { Resources.AgentResource, Permissions.Delete },
-                        { Resources.PackageResource, Permissions.Delete },
-                        { Resources.ExecutionResource, Permissions.Delete },
-                        { Resources.ScheduleResource, Permissions.Delete },
-                        { Resources.UserResource, Permissions.Update },
-                        { Resources.OrganizationUnitResource, Permissions.Update }
-                    }
-                },
-                {
                     "DEVELOPER", new Dictionary<string, int>
                     {
                         { Resources.AssetResource, Permissions.Update },
