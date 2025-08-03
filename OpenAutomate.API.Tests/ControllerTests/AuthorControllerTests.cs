@@ -21,6 +21,8 @@ namespace OpenAutomate.API.Tests.ControllerTests
     {
         private readonly Mock<IAuthorizationManager> _mockAuthorizationManager;
         private readonly Mock<IOrganizationUnitService> _mockOrganizationUnitService;
+        private readonly Mock<ICacheInvalidationService> _mockCacheInvalidationService;
+        private readonly Mock<ITenantContext> _mockTenantContext;
         private readonly AuthorController _controller;
         private readonly Guid _tenantId = Guid.NewGuid();
         private readonly Guid _userId = Guid.NewGuid();
@@ -29,8 +31,14 @@ namespace OpenAutomate.API.Tests.ControllerTests
         {
             _mockAuthorizationManager = new Mock<IAuthorizationManager>();
             _mockOrganizationUnitService = new Mock<IOrganizationUnitService>();
+            _mockCacheInvalidationService = new Mock<ICacheInvalidationService>();
+            _mockTenantContext = new Mock<ITenantContext>();
             
-            _controller = new AuthorController(_mockAuthorizationManager.Object, _mockOrganizationUnitService.Object);
+            _controller = new AuthorController(
+                _mockAuthorizationManager.Object, 
+                _mockOrganizationUnitService.Object,
+                _mockCacheInvalidationService.Object,
+                _mockTenantContext.Object);
             
             // Setup controller context
             var httpContext = new DefaultHttpContext();

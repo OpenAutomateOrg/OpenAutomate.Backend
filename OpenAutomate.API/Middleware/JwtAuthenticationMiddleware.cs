@@ -19,49 +19,64 @@ namespace OpenAutomate.API.Middleware
         }
 
         public async Task InvokeAsync(HttpContext context, IUnitOfWork unitOfWork, ITokenService tokenService,
-            IConfiguration configuration)
+            IJwtBlocklistService jwtBlocklistService, IConfiguration configuration)
         {
             var token = GetTokenFromRequest(context.Request);
-
-            if (!string.IsNullOrEmpty(token))
+            if (string.IsNullOrEmpty(token) || !tokenService.ValidateToken(token))
             {
-                if (tokenService.ValidateToken(token))
-                {
-                    // Extract user ID from token
-                    var tokenHandler = new JwtSecurityTokenHandler();
-                    var jwtToken = tokenHandler.ReadJwtToken(token);
-
-                    var userIdClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == JwtRegisteredClaimNames.Sub);
-
-                    if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out Guid userId))
-                    {
-                        // Get user from database
-                        var user = await unitOfWork.Users.GetByIdAsync(userId);
-
-                        if (user != null)
-                        {
-                            // Store the user in HttpContext.Items for backward compatibility
-                            context.Items["User"] = user;
-
-                            // Create ClaimsPrincipal for built-in authorization framework
-                            var claims = new List<Claim>
-                            {
-                                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                                new Claim(ClaimTypes.Email, user.Email),
-                                new Claim(ClaimTypes.Role, user.SystemRole.ToString())
-                            };
-
-                            var identity = new ClaimsIdentity(claims, "jwt");
-                            var principal = new ClaimsPrincipal(identity);
-
-                            // Set the user principal for built-in [Authorize] attribute
-                            context.User = principal;
-                        }
-                    }
-                }
+                await _next(context);
+                return;
             }
 
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var jwtToken = tokenHandler.ReadJwtToken(token);
+            var jtiClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == JwtRegisteredClaimNames.Jti);
+            var userIdClaim = jwtToken.Claims.FirstOrDefault(x => x.Type == JwtRegisteredClaimNames.Sub);
+
+            if (await IsTokenBlocklisted(jtiClaim, jwtBlocklistService))
+            {
+                await _next(context);
+                return;
+            }
+
+            if (await IsUserBlocked(userIdClaim, jwtBlocklistService))
+            {
+                await _next(context);
+                return;
+            }
+
+            await SetUserPrincipal(context, unitOfWork, userIdClaim);
             await _next(context);
+        }
+
+        private async Task<bool> IsTokenBlocklisted(Claim? jtiClaim, IJwtBlocklistService jwtBlocklistService)
+        {
+            if (jtiClaim == null) return false;
+            return await jwtBlocklistService.IsTokenBlocklistedAsync(jtiClaim.Value);
+        }
+
+        private async Task<bool> IsUserBlocked(Claim? userIdClaim, IJwtBlocklistService jwtBlocklistService)
+        {
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out Guid userId)) return false;
+            return await jwtBlocklistService.IsUserBlocklistedAsync(userId);
+        }
+
+        private async Task SetUserPrincipal(HttpContext context, IUnitOfWork unitOfWork, Claim? userIdClaim)
+        {
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out Guid userId)) return;
+            var user = await unitOfWork.Users.GetByIdAsync(userId);
+            if (user == null) return;
+
+            context.Items["User"] = user;
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim(ClaimTypes.Role, user.SystemRole.ToString())
+            };
+            var identity = new ClaimsIdentity(claims, "jwt");
+            var principal = new ClaimsPrincipal(identity);
+            context.User = principal;
         }
 
         private string GetTokenFromRequest(HttpRequest request)

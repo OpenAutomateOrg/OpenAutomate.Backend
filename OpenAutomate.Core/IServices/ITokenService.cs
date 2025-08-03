@@ -34,6 +34,14 @@ namespace OpenAutomate.Core.IServices
         Task<bool> RevokeTokenAsync(string token, string ipAddress, string reason = "");
 
         /// <summary>
+        /// Revokes a JWT access token by adding it to the blocklist
+        /// </summary>
+        /// <param name="jwtToken">The JWT access token to revoke</param>
+        /// <param name="reason">Reason for revocation</param>
+        /// <returns>True if successful, false otherwise</returns>
+        Task<bool> RevokeJwtTokenAsync(string jwtToken, string reason = "");
+
+        /// <summary>
         /// Validates an access token
         /// </summary>
         /// <param name="token">The JWT token to validate</param>

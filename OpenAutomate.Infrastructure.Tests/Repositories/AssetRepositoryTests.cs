@@ -29,6 +29,12 @@ namespace OpenAutomate.Infrastructure.Tests.Repositories
                 CurrentTenantId = tenantId;
             }
 
+            public void SetTenant(Guid tenantId, string? tenantSlug)
+            {
+                CurrentTenantId = tenantId;
+                CurrentTenantSlug = tenantSlug;
+            }
+
             public void ClearTenant()
             {
                 // No-op for tests - we always want a tenant

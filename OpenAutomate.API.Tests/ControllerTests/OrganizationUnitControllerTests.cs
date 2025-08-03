@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Moq;
 using OpenAutomate.API.Controllers;
 using OpenAutomate.Core.Domain.Entities;
@@ -16,12 +17,20 @@ namespace OpenAutomate.API.Tests.ControllerTests
     public class OrganizationUnitControllerTests
     {
         private readonly Mock<IOrganizationUnitService> _mockOrgUnitService;
+        private readonly Mock<ICacheInvalidationService> _mockCacheInvalidationService;
+        private readonly Mock<ILogger<OrganizationUnitController>> _mockLogger;
         private readonly OrganizationUnitController _controller;
 
         public OrganizationUnitControllerTests()
         {
             _mockOrgUnitService = new Mock<IOrganizationUnitService>();
-            _controller = new OrganizationUnitController(_mockOrgUnitService.Object);
+            _mockCacheInvalidationService = new Mock<ICacheInvalidationService>();
+            _mockLogger = new Mock<ILogger<OrganizationUnitController>>();
+            
+            _controller = new OrganizationUnitController(
+                _mockOrgUnitService.Object,
+                _mockCacheInvalidationService.Object,
+                _mockLogger.Object);
         }
 
         [Fact]

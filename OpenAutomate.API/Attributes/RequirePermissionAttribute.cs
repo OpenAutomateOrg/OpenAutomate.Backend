@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.DependencyInjection;
 using OpenAutomate.Core.Domain.Entities;
+using OpenAutomate.Core.Domain.Enums;
 using OpenAutomate.Core.IServices;
 using System;
 using System.Security.Claims;
@@ -41,7 +42,13 @@ namespace OpenAutomate.API.Attributes
                 context.Result = new UnauthorizedResult();
                 return;
             }
-            
+
+            if (user.SystemRole == SystemRole.Admin)
+            {
+                await next();
+                return;
+            }
+
             // Get the authorization service from DI
             var authorizationManager = context.HttpContext.RequestServices
                 .GetRequiredService<IAuthorizationManager>();

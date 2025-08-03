@@ -29,7 +29,9 @@ namespace OpenAutomate.API.Controllers
         /// </summary>
         /// <param name="assetService">The Asset service</param>
         /// <param name="logger">The logger</param>
-        public AssetController(IAssetService assetService, ILogger<AssetController> logger)
+        public AssetController(
+            IAssetService assetService, 
+            ILogger<AssetController> logger)
         {
             _assetService = assetService;
             _logger = logger;
@@ -41,6 +43,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="dto">The Asset creation data (Key, Value, etc.)</param>
         /// <returns>The created Asset</returns>
         [HttpPost]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.AssetResource, Permissions.Create)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -76,6 +79,7 @@ namespace OpenAutomate.API.Controllers
         /// </summary>
         /// <returns>Collection of Assets</returns>
         [HttpGet]
+        [RequireSubscription(SubscriptionOperationType.Read)]
         [RequirePermission(Resources.AssetResource, Permissions.View)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -100,6 +104,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="id">The Asset ID</param>
         /// <returns>The Asset if found</returns>
         [HttpGet("{id}")]
+        [RequireSubscription(SubscriptionOperationType.Read)]
         [RequirePermission(Resources.AssetResource, Permissions.View)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -128,6 +133,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="key">The Asset key</param>
         /// <returns>The Asset if found</returns>
         [HttpGet("key/{key}")]
+        [RequireSubscription(SubscriptionOperationType.Read)]
         [RequirePermission(Resources.AssetResource, Permissions.View)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -157,6 +163,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="dto">The updated Asset data</param>
         /// <returns>The updated Asset</returns>
         [HttpPut("{id}")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.AssetResource, Permissions.Update)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -168,6 +175,7 @@ namespace OpenAutomate.API.Controllers
             try
             {
                 var asset = await _assetService.UpdateAssetAsync(id, dto);
+                
                 return Ok(asset);
             }
             catch (KeyNotFoundException ex)
@@ -186,6 +194,7 @@ namespace OpenAutomate.API.Controllers
         /// </summary>
         /// <param name="id">The Asset ID</param>
         [HttpDelete("{id}")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.AssetResource, Permissions.Delete)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -214,6 +223,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="id">The Asset ID</param>
         /// <returns>Collection of authorized Bot Agents</returns>
         [HttpGet("{id}/bot-agents")]
+        [RequireSubscription(SubscriptionOperationType.Read)]
         [RequirePermission(Resources.AssetResource, Permissions.View)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -243,6 +253,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="id">The Asset ID</param>
         /// <param name="dto">The list of Bot Agent IDs</param>
         [HttpPut("{id}/bot-agents")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.AssetResource, Permissions.Update)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -272,6 +283,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="id">The Asset ID</param>
         /// <param name="botAgentId">The Bot Agent ID</param>
         [HttpPost("{id}/bot-agents/{botAgentId}")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.AssetResource, Permissions.Update)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -302,6 +314,7 @@ namespace OpenAutomate.API.Controllers
         /// <param name="id">The Asset ID</param>
         /// <param name="botAgentId">The Bot Agent ID</param>
         [HttpDelete("{id}/bot-agents/{botAgentId}")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
         [RequirePermission(Resources.AssetResource, Permissions.Update)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]

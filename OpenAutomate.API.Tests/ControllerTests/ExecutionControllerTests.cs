@@ -174,7 +174,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
             {
                 Id = botAgentId,
                 Name = "TestAgent",
-                Status = "Offline"
+                Status = "Disconnected"
             };
 
             _mockBotAgentService.Setup(x => x.GetBotAgentByIdAsync(botAgentId))
@@ -186,7 +186,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
             // Assert
             Assert.NotNull(result.Result);
             var badRequestResult = Assert.IsType<BadRequestObjectResult>(result.Result);
-            Assert.Contains("Bot agent is not available", badRequestResult.Value?.ToString());
+            Assert.Contains("Bot agent is disconnected", badRequestResult.Value?.ToString());
         }
 
         [Fact]

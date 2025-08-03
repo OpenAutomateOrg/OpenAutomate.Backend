@@ -24,6 +24,9 @@ namespace OpenAutomate.Infrastructure.Repositories
         private IRepository<EmailVerificationToken> _emailVerificationTokens;
         private IRepository<PasswordResetToken> _passwordResetTokens;
         private IRepository<OrganizationUnitInvitation> _organizationUnitInvitations;
+        private IRepository<Subscription> _subscriptions;
+        private IRepository<UsageRecord> _usageRecords;
+        private IRepository<Payment> _payments;
 
         public UnitOfWork(ApplicationDbContext context)
         {
@@ -71,6 +74,15 @@ namespace OpenAutomate.Infrastructure.Repositories
             _passwordResetTokens ??= new Repository<PasswordResetToken>(_context);
         public IRepository<OrganizationUnitInvitation> OrganizationUnitInvitations =>
             _organizationUnitInvitations ??= new Repository<OrganizationUnitInvitation>(_context);
+            
+        public IRepository<Subscription> Subscriptions =>
+            _subscriptions ??= new Repository<Subscription>(_context);
+            
+        public IRepository<UsageRecord> UsageRecords =>
+            _usageRecords ??= new Repository<UsageRecord>(_context);
+            
+        public IRepository<Payment> Payments =>
+            _payments ??= new Repository<Payment>(_context);
             
         public IRepository<T> GetRepository<T>() where T : class
         {

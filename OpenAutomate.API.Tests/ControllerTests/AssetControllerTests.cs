@@ -16,14 +16,20 @@ namespace OpenAutomate.API.Tests.ControllerTests
     {
         private readonly Mock<IAssetService> _mockAssetService;
         private readonly Mock<ILogger<AssetController>> _mockLogger;
+        private readonly Mock<ICacheInvalidationService> _mockCacheInvalidationService;
+        private readonly Mock<ITenantContext> _mockTenantContext;
         private readonly AssetController _controller;
 
         public AssetControllerTests()
         {
             _mockAssetService = new Mock<IAssetService>();
             _mockLogger = new Mock<ILogger<AssetController>>();
+            _mockCacheInvalidationService = new Mock<ICacheInvalidationService>();
+            _mockTenantContext = new Mock<ITenantContext>();
             
-            _controller = new AssetController(_mockAssetService.Object, _mockLogger.Object);
+            _controller = new AssetController(
+                _mockAssetService.Object, 
+                _mockLogger.Object);
             
             // Setup controller context
             var httpContext = new DefaultHttpContext();
