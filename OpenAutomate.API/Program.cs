@@ -557,6 +557,21 @@ namespace OpenAutomate.API
                 .GetSection("Database")
                 .Get<DatabaseSettings>();
 
+            // Debug logging
+            Console.WriteLine($"DEBUG: dbSettings is null: {dbSettings == null}");
+            if (dbSettings != null)
+            {
+                Console.WriteLine($"DEBUG: DefaultConnection: '{dbSettings.DefaultConnection}'");
+            }
+            
+            // Also try direct environment variable access
+            var directConnectionString = builder.Configuration["AppSettings__Database__DefaultConnection"];
+            Console.WriteLine($"DEBUG: Direct env var: '{directConnectionString}'");
+            
+            // Try alternative path
+            var altConnectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+            Console.WriteLine($"DEBUG: GetConnectionString: '{altConnectionString}'");
+
             // Configure Quartz.NET for scheduling
             builder.Services.AddQuartz(options =>
             {
