@@ -308,6 +308,9 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<ILogStorageService, S3LogStorageService>();
             builder.Services.AddScoped<IAutomationPackageService, AutomationPackageService>();
             builder.Services.AddScoped<IPackageMetadataService, PackageMetadataService>();
+
+            // Register system statistics service
+            builder.Services.AddScoped<ISystemStatisticsService, SystemStatisticsService>();
         }
         
         private static void ConfigureAuthentication(WebApplicationBuilder builder)
