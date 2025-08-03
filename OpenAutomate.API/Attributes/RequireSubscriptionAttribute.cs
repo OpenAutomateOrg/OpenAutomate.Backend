@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.IServices;
 using System;
@@ -22,6 +23,11 @@ namespace OpenAutomate.API.Attributes
         /// </summary>
         Write
     }
+
+    /// <summary>
+    /// Result of subscription access determination
+    /// </summary>
+    public record AccessResult(bool HasAccess, string DenialReason);
 
     /// <summary>
     /// Requires an active subscription (trial or paid) for authorization
@@ -60,122 +66,168 @@ namespace OpenAutomate.API.Attributes
         {
             try
             {
-                var user = context.HttpContext.Items["User"] as User;
-
-                if (user == null)
+                var (user, tenantContext, validationError) = ValidateUserAndTenant(context);
+                if (validationError != null)
                 {
-                    context.Result = new UnauthorizedObjectResult(new { message = "User not authenticated" });
+                    context.Result = validationError;
                     return;
                 }
 
-                // Get the tenant context to determine the current organization
-                var tenantContext = context.HttpContext.RequestServices
-                    .GetRequiredService<ITenantContext>();
-
-                if (!tenantContext.HasTenant)
-                {
-                    context.Result = new BadRequestObjectResult(new { message = "Tenant context not available" });
-                    return;
-                }
-
-                // Get the subscription service
                 var subscriptionService = context.HttpContext.RequestServices
                     .GetRequiredService<ISubscriptionService>();
 
-                // Check subscription status
                 var subscriptionStatus = await subscriptionService.GetSubscriptionStatusAsync(tenantContext.CurrentTenantId);
+                var accessResult = DetermineSubscriptionAccess(subscriptionStatus);
 
-                // Determine if access should be granted based on operation type
-                bool hasAccess = false;
-                string denialReason = "";
-
-                if (!subscriptionStatus.HasSubscription)
+                if (!accessResult.HasAccess)
                 {
-                    denialReason = "No subscription found. Please start your free trial or upgrade to Standard subscription.";
-                }
-                else if (!subscriptionStatus.IsActive)
-                {
-                    // For expired/cancelled subscriptions, allow read operations if it was a trial
-                    if (_operationType == SubscriptionOperationType.Read && 
-                        (subscriptionStatus.Status == "expired" && subscriptionStatus.TrialEndsAt.HasValue))
-                    {
-                        hasAccess = true; // Allow read access for expired trials
-                    }
-                    else if (_operationType == SubscriptionOperationType.Write)
-                    {
-                        denialReason = subscriptionStatus.Status switch
-                        {
-                            "expired" => "Your trial has expired. Please upgrade to Standard subscription to create, modify, or delete resources.",
-                            "cancelled" => "Your subscription has been cancelled. Please reactivate your subscription to create, modify, or delete resources.",
-                            _ => "Your subscription is not active. Please upgrade to Standard subscription for full access."
-                        };
-                    }
-                    else
-                    {
-                        denialReason = subscriptionStatus.Status switch
-                        {
-                            "expired" => "Your subscription has expired. Please renew your subscription to continue using premium features.",
-                            "cancelled" => "Your subscription has been cancelled. Please reactivate your subscription to continue using premium features.",
-                            _ => "Your subscription is not active. Please check your subscription status."
-                        };
-                    }
-                }
-                else
-                {
-                    // Subscription is active, check if it's trial and if trials are allowed for write operations
-                    if (subscriptionStatus.IsInTrial && !_allowTrial && _operationType == SubscriptionOperationType.Write)
-                    {
-                        denialReason = "This feature requires a Standard subscription. Please upgrade from your trial.";
-                    }
-                    else
-                    {
-                        hasAccess = true;
-                    }
-                }
-
-                if (!hasAccess)
-                {
-                    var response = new
-                    {
-                        message = denialReason,
-                        subscriptionStatus = new
-                        {
-                            hasSubscription = subscriptionStatus.HasSubscription,
-                            isActive = subscriptionStatus.IsActive,
-                            isInTrial = subscriptionStatus.IsInTrial,
-                            status = subscriptionStatus.Status,
-                            planName = subscriptionStatus.PlanName,
-                            trialEndsAt = subscriptionStatus.TrialEndsAt,
-                            renewsAt = subscriptionStatus.RenewsAt,
-                            daysRemaining = subscriptionStatus.DaysRemaining,
-                            upgradeRequired = !_allowTrial && subscriptionStatus.IsInTrial
-                        }
-                    };
-
-                    context.Result = new ObjectResult(response)
-                    {
-                        StatusCode = 402 // Payment Required
-                    };
+                    context.Result = BuildPaymentRequiredResponse(accessResult.DenialReason, subscriptionStatus);
                     return;
                 }
 
-                // Access granted - continue to the action
                 await next();
             }
             catch (Exception ex)
             {
-                // Log the error (get logger from DI)
-                var logger = context.HttpContext.RequestServices
-                    .GetService<ILogger<RequireSubscriptionAttribute>>();
-                    
-                logger?.LogError(ex, "Error checking subscription requirements");
+                HandleException(context, ex);
+            }
+        }
 
-                // Return a generic error to avoid exposing internal details
-                context.Result = new ObjectResult(new { message = "Unable to verify subscription status" })
+        /// <summary>
+        /// Validates user authentication and tenant context
+        /// </summary>
+        private static (User user, ITenantContext tenantContext, IActionResult errorResult) ValidateUserAndTenant(ActionExecutingContext context)
+        {
+            var user = context.HttpContext.Items["User"] as User;
+            if (user == null)
+            {
+                return (null, null, new UnauthorizedObjectResult(new { message = "User not authenticated" }));
+            }
+
+            var tenantContext = context.HttpContext.RequestServices.GetRequiredService<ITenantContext>();
+            if (!tenantContext.HasTenant)
+            {
+                return (null, null, new BadRequestObjectResult(new { message = "Tenant context not available" }));
+            }
+
+            return (user, tenantContext, null);
+        }
+
+        /// <summary>
+        /// Determines if access should be granted based on subscription status and operation type
+        /// </summary>
+        private AccessResult DetermineSubscriptionAccess(SubscriptionStatus subscriptionStatus)
+        {
+            if (!subscriptionStatus.HasSubscription)
+            {
+                return new AccessResult(false, "No subscription found. Please start your free trial or upgrade to Standard subscription.");
+            }
+
+            if (!subscriptionStatus.IsActive)
+            {
+                return HandleInactiveSubscription(subscriptionStatus);
+            }
+
+            return HandleActiveSubscription(subscriptionStatus);
+        }
+
+        /// <summary>
+        /// Handles access determination for inactive subscriptions
+        /// </summary>
+        private AccessResult HandleInactiveSubscription(SubscriptionStatus subscriptionStatus)
+        {
+            // Allow read operations for expired trials
+            if (_operationType == SubscriptionOperationType.Read &&
+                subscriptionStatus.Status == "expired" &&
+                subscriptionStatus.TrialEndsAt.HasValue)
+            {
+                return new AccessResult(true, string.Empty);
+            }
+
+            var denialReason = GetInactiveSubscriptionDenialReason(subscriptionStatus.Status);
+            return new AccessResult(false, denialReason);
+        }
+
+        /// <summary>
+        /// Handles access determination for active subscriptions
+        /// </summary>
+        private AccessResult HandleActiveSubscription(SubscriptionStatus subscriptionStatus)
+        {
+            if (subscriptionStatus.IsInTrial &&
+                !_allowTrial &&
+                _operationType == SubscriptionOperationType.Write)
+            {
+                return new AccessResult(false, "This feature requires a Standard subscription. Please upgrade from your trial.");
+            }
+
+            return new AccessResult(true, string.Empty);
+        }
+
+        /// <summary>
+        /// Gets the appropriate denial reason for inactive subscriptions
+        /// </summary>
+        private string GetInactiveSubscriptionDenialReason(string status)
+        {
+            if (_operationType == SubscriptionOperationType.Write)
+            {
+                return status switch
                 {
-                    StatusCode = 500
+                    "expired" => "Your trial has expired. Please upgrade to Standard subscription to create, modify, or delete resources.",
+                    "cancelled" => "Your subscription has been cancelled. Please reactivate your subscription to create, modify, or delete resources.",
+                    _ => "Your subscription is not active. Please upgrade to Standard subscription for full access."
                 };
             }
+
+            return status switch
+            {
+                "expired" => "Your subscription has expired. Please renew your subscription to continue using premium features.",
+                "cancelled" => "Your subscription has been cancelled. Please reactivate your subscription to continue using premium features.",
+                _ => "Your subscription is not active. Please check your subscription status."
+            };
+        }
+
+        /// <summary>
+        /// Builds the payment required response with subscription details
+        /// </summary>
+        private ObjectResult BuildPaymentRequiredResponse(string denialReason, SubscriptionStatus subscriptionStatus)
+        {
+            var response = new
+            {
+                message = denialReason,
+                subscriptionStatus = new
+                {
+                    hasSubscription = subscriptionStatus.HasSubscription,
+                    isActive = subscriptionStatus.IsActive,
+                    isInTrial = subscriptionStatus.IsInTrial,
+                    status = subscriptionStatus.Status,
+                    planName = subscriptionStatus.PlanName,
+                    trialEndsAt = subscriptionStatus.TrialEndsAt,
+                    renewsAt = subscriptionStatus.RenewsAt,
+                    daysRemaining = subscriptionStatus.DaysRemaining,
+                    upgradeRequired = !_allowTrial && subscriptionStatus.IsInTrial
+                }
+            };
+
+            return new ObjectResult(response)
+            {
+                StatusCode = 402 // Payment Required
+            };
+        }
+
+        /// <summary>
+        /// Handles exceptions that occur during subscription checking
+        /// </summary>
+        private static void HandleException(ActionExecutingContext context, Exception ex)
+        {
+            var logger = context.HttpContext.RequestServices
+                .GetService<ILogger<RequireSubscriptionAttribute>>();
+
+            logger?.LogError(ex, "Error checking subscription requirements");
+
+            context.Result = new ObjectResult(new { message = "Unable to verify subscription status" })
+            {
+                StatusCode = 500
+            };
         }
     }
 }

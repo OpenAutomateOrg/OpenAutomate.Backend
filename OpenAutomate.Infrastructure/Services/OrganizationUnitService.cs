@@ -23,15 +23,13 @@ namespace OpenAutomate.Infrastructure.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<OrganizationUnitService> _logger;
         private readonly ISchedulerFactory _schedulerFactory;
-        private readonly ISubscriptionService _subscriptionService;
         private readonly LemonSqueezySettings _lemonSqueezySettings;
 
-        public OrganizationUnitService(IUnitOfWork unitOfWork, ILogger<OrganizationUnitService> logger, ISchedulerFactory schedulerFactory, ISubscriptionService subscriptionService, IOptions<LemonSqueezySettings> lemonSqueezySettings)
+        public OrganizationUnitService(IUnitOfWork unitOfWork, ILogger<OrganizationUnitService> logger, ISchedulerFactory schedulerFactory, IOptions<LemonSqueezySettings> lemonSqueezySettings)
         {
             _unitOfWork = unitOfWork;
             _logger = logger;
             _schedulerFactory = schedulerFactory;
-            _subscriptionService = subscriptionService;
             _lemonSqueezySettings = lemonSqueezySettings.Value;
         }
 
