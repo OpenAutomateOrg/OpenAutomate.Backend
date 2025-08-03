@@ -60,7 +60,7 @@ jobs:
     - name: Download task definition
       run: |
         aws ecs describe-task-definition \
-          --task-definition openautomate-api-task \
+          --task-definition openautomate-api-minimal \
           --query taskDefinition > task-definition.json
 
     # Update the task definition with new image
