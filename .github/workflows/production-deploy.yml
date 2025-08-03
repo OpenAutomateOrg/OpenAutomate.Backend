@@ -1,0 +1,88 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    # Checkout repository
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # Setup .NET
+    - name: Setup .NET 8
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    # Restore dependencies
+    - name: Restore dependencies
+      run: dotnet restore
+
+    # Build in Release mode
+    - name: Build application
+      run: dotnet build --configuration Release --no-restore
+
+    # Run tests
+    - name: Run tests
+      run: dotnet test --configuration Release --no-build --verbosity normal
+
+    # Configure AWS credentials using OIDC
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::961341552373:role/GithubAction
+        aws-region: ap-southeast-1
+
+    # Login to Amazon ECR
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    # Build, tag, and push image to Amazon ECR
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: openautomate-api
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build a docker container and push it to ECR
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+    # Download current task definition
+    - name: Download task definition
+      run: |
+        aws ecs describe-task-definition \
+          --task-definition openautomate-api-task \
+          --query taskDefinition > task-definition.json
+
+    # Update the task definition with new image
+    - name: Fill in the new image ID in the Amazon ECS task definition
+      id: task-def
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: task-definition.json
+        container-name: openautomate-api
+        image: ${{ steps.build-image.outputs.image }}
+
+    # Deploy to Amazon ECS
+    - name: Deploy Amazon ECS task definition
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+      with:
+        task-definition: ${{ steps.task-def.outputs.task-definition }}
+        service: openautomate-api-minimal-service-v0mc1qo4
+        cluster: openautomate-cluster-simple
+        wait-for-service-stability: true
