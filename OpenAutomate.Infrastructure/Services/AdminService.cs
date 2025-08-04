@@ -82,7 +82,7 @@ namespace OpenAutomate.Infrastructure.Services
                 LastName = user.LastName ?? string.Empty,
                 IsEmailVerified = user.IsEmailVerified,
                 SystemRole = user.SystemRole,
-                CreatedAt = user.CreatedAt ?? DateTime.UtcNow
+                CreatedAt = user.CreatedAt
             };
         }
 
