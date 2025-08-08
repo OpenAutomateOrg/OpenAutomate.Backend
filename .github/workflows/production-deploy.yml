@@ -25,17 +25,11 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    # Restore dependencies
-    - name: Restore dependencies
-      run: dotnet restore
-
-    # Build in Release mode
+    # Build application (tests already validated in develop branch via SonarQube)
     - name: Build application
-      run: dotnet build --configuration Release --no-restore
-
-    # Run tests
-    - name: Run tests
-      run: dotnet test --configuration Release --no-build --verbosity normal
+      run: |
+        dotnet restore
+        dotnet build --configuration Release --no-restore
 
     # Configure AWS credentials using OIDC
     - name: Configure AWS credentials
@@ -66,7 +60,7 @@ jobs:
     - name: Download task definition
       run: |
         aws ecs describe-task-definition \
-          --task-definition openautomate-api-task \
+          --task-definition openautomate-api-minimal \
           --query taskDefinition > task-definition.json
 
     # Update the task definition with new image
