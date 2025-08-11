@@ -49,6 +49,12 @@ namespace OpenAutomate.Core.Domain.Entities
         public string? CustomerEmail { get; set; }
 
         /// <summary>
+        /// A vendor-hosted URL where the user can view this invoice/receipt
+        /// (e.g., Lemon Squeezy receipt URL or Stripe invoice URL)
+        /// </summary>
+        public string? ReceiptUrl { get; set; }
+
+        /// <summary>
         /// Whether this payment was successful
         /// </summary>
         public bool IsSuccessful => Status.Equals("paid", StringComparison.OrdinalIgnoreCase);

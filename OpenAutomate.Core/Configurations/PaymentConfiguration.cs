@@ -41,6 +41,9 @@ namespace OpenAutomate.Core.Configurations
             builder.Property(p => p.CustomerEmail)
                    .HasMaxLength(255);
 
+            builder.Property(p => p.ReceiptUrl)
+                   .HasMaxLength(2048);
+
             // Indexes for performance
             builder.HasIndex(p => p.OrganizationUnitId);
             builder.HasIndex(p => p.LemonsqueezyOrderId).IsUnique();
