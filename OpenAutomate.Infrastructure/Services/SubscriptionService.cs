@@ -87,7 +87,7 @@ namespace OpenAutomate.Infrastructure.Services
                 var subscription = new Subscription
                 {
                     OrganizationUnitId = organizationUnitId,
-                    PlanName = "Premium",
+                    PlanName = "Pro",
                     Status = "trialing",
                     TrialEndsAt = DateTime.UtcNow.AddDays(trialDays),
                     CreatedAt = DateTime.UtcNow
@@ -177,7 +177,7 @@ namespace OpenAutomate.Infrastructure.Services
                 var subscription = new Subscription
                 {
                     OrganizationUnitId = organizationUnitId,
-                    PlanName = "Premium",
+                    PlanName = "Pro",
                     Status = "trialing",
                     TrialEndsAt = DateTime.UtcNow.AddMinutes(trialMinutes),
                     CreatedAt = DateTime.UtcNow,
@@ -204,7 +204,8 @@ namespace OpenAutomate.Infrastructure.Services
             string status,
             DateTime? renewsAt,
             DateTime? endsAt,
-            Guid organizationUnitId)
+            Guid organizationUnitId,
+            string? customerPortalUrl = null)
         {
             try
             {
@@ -240,6 +241,11 @@ namespace OpenAutomate.Infrastructure.Services
                 subscription.EndsAt = endsAt;
                 subscription.LastModifyAt = DateTime.UtcNow;
 
+                if (!string.IsNullOrWhiteSpace(customerPortalUrl))
+                {
+                    subscription.CustomerPortalUrl = customerPortalUrl;
+                }
+
                 // If status is active, clear trial end date
                 if (status.Equals("active", StringComparison.OrdinalIgnoreCase))
                 {
@@ -248,8 +254,8 @@ namespace OpenAutomate.Infrastructure.Services
 
                 await _unitOfWork.CompleteAsync();
 
-                _logger.LogInformation("Updated subscription {SubscriptionId} for organization {OrganizationUnitId} with status {Status}", 
-                    lemonsqueezySubscriptionId, organizationUnitId, status);
+                _logger.LogInformation("✅ SUBSCRIPTION ACTIVATED: Updated subscription {SubscriptionId} for organization {OrganizationUnitId} with status {Status}. IsActive: {IsActive}, PlanName: {PlanName}", 
+                    lemonsqueezySubscriptionId, organizationUnitId, status, subscription.IsActive, subscription.PlanName);
 
                 return subscription;
             }

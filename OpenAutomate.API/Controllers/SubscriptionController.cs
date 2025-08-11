@@ -22,6 +22,8 @@ namespace OpenAutomate.API.Controllers
         private readonly IUserService _userService;
         private readonly IOrganizationUnitService _organizationUnitService;
         private readonly ILogger<SubscriptionController> _logger;
+        private readonly IHostEnvironment _env;
+        private readonly IPaymentService _paymentService;
 
         public SubscriptionController(
             ISubscriptionService subscriptionService,
@@ -29,7 +31,9 @@ namespace OpenAutomate.API.Controllers
             ITenantContext tenantContext,
             IUserService userService,
             IOrganizationUnitService organizationUnitService,
-            ILogger<SubscriptionController> logger)
+            IPaymentService paymentService,
+            ILogger<SubscriptionController> logger,
+            IHostEnvironment env)
         {
             _subscriptionService = subscriptionService;
             _lemonsqueezyService = lemonsqueezyService;
@@ -37,6 +41,8 @@ namespace OpenAutomate.API.Controllers
             _userService = userService;
             _organizationUnitService = organizationUnitService;
             _logger = logger;
+            _paymentService = paymentService;
+            _env = env;
         }
 
         /// <summary>
@@ -96,10 +102,27 @@ namespace OpenAutomate.API.Controllers
                     UserEmail = user.Email
                 });
             }
+            catch (HttpRequestException httpEx)
+            {
+                _logger.LogError(httpEx, "HTTP error generating checkout URL for organization {OrganizationUnitId}", 
+                    _tenantContext.CurrentTenantId);
+                if (_env.IsDevelopment())
+                {
+                    return StatusCode(502, new { 
+                        message = "Vendor error while generating checkout URL",
+                        details = httpEx.Message
+                    });
+                }
+                return StatusCode(500, new { message = "An error occurred while generating checkout URL" });
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error generating checkout URL for organization {OrganizationUnitId}", 
+                _logger.LogError(ex, "Error generating checkout URL for organization {OrganizationUnitId}",
                     _tenantContext.CurrentTenantId);
+                if (_env.IsDevelopment())
+                {
+                    return StatusCode(500, new { message = ex.Message });
+                }
                 return StatusCode(500, new { message = "An error occurred while generating checkout URL" });
             }
         }
@@ -270,8 +293,24 @@ namespace OpenAutomate.API.Controllers
 
                 _logger.LogInformation("Getting customer portal URL for subscription {SubscriptionId}", subscription.LemonsqueezySubscriptionId);
 
-                // Get customer portal URL from Lemon Squeezy
-                var portalUrl = await _lemonsqueezyService.GetCustomerPortalUrlAsync(subscription.LemonsqueezySubscriptionId);
+                string portalUrl;
+                try
+                {
+                    // Prefer fresh URL from Lemon Squeezy API
+                    portalUrl = await _lemonsqueezyService.GetCustomerPortalUrlAsync(subscription.LemonsqueezySubscriptionId);
+                }
+                catch (HttpRequestException httpEx)
+                {
+                    _logger.LogWarning(httpEx, "Falling back to cached portal URL for organization {OrganizationUnitId}", organizationUnitId);
+                    if (!string.IsNullOrWhiteSpace(subscription.CustomerPortalUrl))
+                    {
+                        portalUrl = subscription.CustomerPortalUrl;
+                    }
+                    else
+                    {
+                        throw;
+                    }
+                }
 
                 _logger.LogInformation("Successfully retrieved customer portal URL for organization {OrganizationUnitId}", organizationUnitId);
 
@@ -287,6 +326,45 @@ namespace OpenAutomate.API.Controllers
                     _tenantContext.CurrentTenantId);
                 return StatusCode(500, new { message = "An error occurred while getting customer portal URL" });
             }
+        }
+
+        /// <summary>
+        /// List tenant billing payments (invoices/receipts) for display in UI
+        /// </summary>
+        [HttpGet("payments")]
+        [ProducesResponseType(typeof(OpenAutomate.Core.Dto.Common.PagedResult<OpenAutomate.Core.IServices.PaymentDto>), 200)]
+        public async Task<IActionResult> GetPayments([FromQuery] int page = 1, [FromQuery] int pageSize = 25)
+        {
+            if (!_tenantContext.HasTenant)
+            {
+                return BadRequest(new { message = "Invalid tenant context" });
+            }
+
+            var result = await _paymentService.GetPaymentsAsync(_tenantContext.CurrentTenantId, page, pageSize);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Redirects to vendor-hosted invoice/receipt for a given order id
+        /// </summary>
+        [HttpGet("payments/{orderId}/view")]
+        [ProducesResponseType(302)]
+        [ProducesResponseType(404)]
+        public async Task<IActionResult> RedirectToInvoice(string orderId)
+        {
+            if (!_tenantContext.HasTenant)
+            {
+                return BadRequest(new { message = "Invalid tenant context" });
+            }
+
+            var url = await _paymentService.GetReceiptUrlAsync(_tenantContext.CurrentTenantId, orderId);
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return NotFound(new { message = "Invoice not found" });
+            }
+
+            // Safe external redirect: returning the URL allows FE to open in new tab; or we can 302
+            return Redirect(url);
         }
 
         /// <summary>

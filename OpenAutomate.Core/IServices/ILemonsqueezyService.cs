@@ -1,5 +1,7 @@
 using System;
 using System.Threading.Tasks;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace OpenAutomate.Core.IServices
 {
@@ -59,6 +61,13 @@ namespace OpenAutomate.Core.IServices
         /// <param name="lemonsqueezySubscriptionId">The Lemon Squeezy subscription ID</param>
         /// <returns>Updated subscription data</returns>
         Task<LemonsqueezySubscriptionData?> RefreshSubscriptionDataAsync(string lemonsqueezySubscriptionId);
+
+        /// <summary>
+        /// Gets a hosted invoice/receipt URL for a given order ID from Lemon Squeezy
+        /// </summary>
+        /// <param name="orderId">The Lemon Squeezy order ID</param>
+        /// <returns>A public vendor URL suitable for redirecting users to view their invoice</returns>
+        Task<string?> GetOrderReceiptUrlAsync(string orderId);
     }
 
     /// <summary>
@@ -68,6 +77,7 @@ namespace OpenAutomate.Core.IServices
     {
         public string EventName { get; set; } = string.Empty;
         public LemonsqueezyWebhookData Data { get; set; } = new();
+        public LemonsqueezyWebhookMeta? Meta { get; set; }
     }
 
     /// <summary>
@@ -91,10 +101,17 @@ namespace OpenAutomate.Core.IServices
         public DateTime? EndsAt { get; set; }
         public DateTime? TrialEndsAt { get; set; }
         public string? CustomerEmail { get; set; }
+        public class LemonsqueezyWebhookUrls
+        {
+            public string? CustomerPortal { get; set; }
+        }
+
+
+            public LemonsqueezyWebhookUrls? Urls { get; set; }
+
         public LemonsqueezyCustomData? CustomData { get; set; }
 
         // Order attributes
-        public string? OrderId { get; set; }
         public decimal? Total { get; set; }
         public string? Currency { get; set; }
         public string? OrderStatus { get; set; }
@@ -107,6 +124,17 @@ namespace OpenAutomate.Core.IServices
     public class LemonsqueezyCustomData
     {
         public string? OrganizationUnitId { get; set; }
+    }
+
+    /// <summary>
+    /// Webhook meta structure containing custom data and event information
+    /// </summary>
+    public class LemonsqueezyWebhookMeta
+    {
+        public bool TestMode { get; set; }
+        public string EventName { get; set; } = string.Empty;
+        public string WebhookId { get; set; } = string.Empty;
+        public LemonsqueezyCustomData? CustomData { get; set; }
     }
 
     /// <summary>
