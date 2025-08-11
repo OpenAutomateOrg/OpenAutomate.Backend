@@ -32,6 +32,9 @@ namespace OpenAutomate.Core.Configurations
             builder.Property(s => s.EndsAt)
                    .HasColumnType("datetime2");
 
+            builder.Property(s => s.CustomerPortalUrl)
+                   .HasMaxLength(2048);
+
             // Indexes for performance
             builder.HasIndex(s => s.OrganizationUnitId);
             builder.HasIndex(s => s.LemonsqueezySubscriptionId);

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OpenAutomate.Core.IServices;
+using System;
 using System.Text;
 using System.Text.Json;
 
@@ -15,13 +16,16 @@ namespace OpenAutomate.API.Controllers
     public class LemonsqueezyWebhookController : ControllerBase
     {
         private readonly ILemonsqueezyService _lemonsqueezyService;
+        private readonly IPaymentService _paymentService;
         private readonly ILogger<LemonsqueezyWebhookController> _logger;
 
         public LemonsqueezyWebhookController(
             ILemonsqueezyService lemonsqueezyService,
+            IPaymentService paymentService,
             ILogger<LemonsqueezyWebhookController> logger)
         {
             _lemonsqueezyService = lemonsqueezyService;
+            _paymentService = paymentService;
             _logger = logger;
         }
 
@@ -44,7 +48,7 @@ namespace OpenAutomate.API.Controllers
                     return BadRequest("Empty payload");
                 }
 
-                // Get the signature from headers
+                // Get the signature from headers (Lemon Squeezy uses X-Signature)
                 var signature = Request.Headers["X-Signature"].FirstOrDefault();
                 if (string.IsNullOrEmpty(signature))
                 {
@@ -70,6 +74,12 @@ namespace OpenAutomate.API.Controllers
                     };
                     
                     webhookPayload = JsonSerializer.Deserialize<LemonsqueezyWebhookPayload>(payload, options);
+                    
+                    // Extract event name from meta if not set in root
+                    if (string.IsNullOrEmpty(webhookPayload?.EventName) && webhookPayload?.Meta != null)
+                    {
+                        webhookPayload.EventName = webhookPayload.Meta.EventName;
+                    }
                 }
                 catch (JsonException ex)
                 {
@@ -87,7 +97,7 @@ namespace OpenAutomate.API.Controllers
                 await ProcessWebhookEvent(webhookPayload);
 
                 _logger.LogInformation("Successfully processed webhook event: {EventName}", webhookPayload.EventName);
-                return Ok();
+                return Ok(new { message = "Webhook processed successfully", eventType = webhookPayload.EventName });
             }
             catch (Exception ex)
             {
@@ -100,6 +110,11 @@ namespace OpenAutomate.API.Controllers
         {
             _logger.LogInformation("Processing webhook event: {EventName} for resource {ResourceType} with ID {ResourceId}", 
                 webhookPayload.EventName, webhookPayload.Data.Type, webhookPayload.Data.Id);
+            
+            // Enhanced logging for debugging subscription activation
+            _logger.LogInformation("Webhook payload details: CustomData={CustomData}, Status={Status}", 
+                System.Text.Json.JsonSerializer.Serialize(webhookPayload.Data.Attributes?.CustomData),
+                webhookPayload.Data.Attributes?.Status);
 
             switch (webhookPayload.EventName.ToLowerInvariant())
             {
@@ -112,7 +127,11 @@ namespace OpenAutomate.API.Controllers
                     break;
 
                 case "order_created":
-                    await _lemonsqueezyService.ProcessOrderCreatedWebhookAsync(webhookPayload);
+                    await HandleOrderWebhook(webhookPayload, null);
+                    break;
+
+                case "order_refunded":
+                    await HandleOrderWebhook(webhookPayload, "refunded");
                     break;
 
                 case "subscription_cancelled":
@@ -134,6 +153,48 @@ namespace OpenAutomate.API.Controllers
                     _logger.LogInformation("Unhandled webhook event type: {EventName}", webhookPayload.EventName);
                     break;
             }
+        }
+
+        private async Task HandleOrderWebhook(LemonsqueezyWebhookPayload webhookPayload, string? overrideStatus)
+        {
+            var data = webhookPayload.Data;
+            var attributes = data.Attributes;
+
+            // Extract tenant id from attributes.custom_data or meta.custom_data
+            Guid organizationUnitId;
+            if (attributes?.CustomData?.OrganizationUnitId != null && Guid.TryParse(attributes.CustomData.OrganizationUnitId, out var orgIdFromAttributes))
+            {
+                organizationUnitId = orgIdFromAttributes;
+            }
+            else if (webhookPayload.Meta?.CustomData?.OrganizationUnitId != null && Guid.TryParse(webhookPayload.Meta.CustomData.OrganizationUnitId, out var orgIdFromMeta))
+            {
+                organizationUnitId = orgIdFromMeta;
+            }
+            else
+            {
+                _logger.LogWarning("Order webhook missing or invalid organization unit id (checked both attributes and meta)");
+                return;
+            }
+
+            var orderId = data.Id;
+            string? receiptUrl = await _lemonsqueezyService.GetOrderReceiptUrlAsync(orderId);
+
+            var payment = new OpenAutomate.Core.Domain.Entities.Payment
+            {
+                OrganizationUnitId = organizationUnitId,
+                LemonsqueezyOrderId = orderId,
+                LemonsqueezySubscriptionId = null,
+                Amount = attributes.Total ?? 0,
+                Currency = attributes.Currency ?? "USD",
+                Status = overrideStatus ?? (attributes.OrderStatus ?? "paid"),
+                PaymentDate = attributes.CreatedAt ?? DateTime.UtcNow,
+                CustomerEmail = attributes.CustomerEmail,
+                Description = "Pro Subscription Payment",
+                ReceiptUrl = receiptUrl
+            };
+
+            await _paymentService.UpsertAsync(payment);
+            _logger.LogInformation("Upserted payment for order {OrderId}", orderId);
         }
 
         /// <summary>

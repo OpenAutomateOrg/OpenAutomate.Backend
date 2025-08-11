@@ -53,7 +53,8 @@ namespace OpenAutomate.Core.IServices
             string status,
             DateTime? renewsAt,
             DateTime? endsAt,
-            Guid organizationUnitId);
+            Guid organizationUnitId,
+            string? customerPortalUrl = null);
 
         /// <summary>
         /// Gets or creates a trial subscription for a tenant
