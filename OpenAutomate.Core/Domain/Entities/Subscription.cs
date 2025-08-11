@@ -39,6 +39,12 @@ namespace OpenAutomate.Core.Domain.Entities
         public DateTime? EndsAt { get; set; }
 
         /// <summary>
+        /// Cached customer portal URL provided by webhook (may expire)
+        /// </summary>
+        public string? CustomerPortalUrl { get; set; }
+
+
+        /// <summary>
         /// Whether the subscription is currently active (trial or paid)
         /// </summary>
         public bool IsActive => Status == "active" || (Status == "trialing" && TrialEndsAt.HasValue && TrialEndsAt.Value > DateTime.UtcNow);

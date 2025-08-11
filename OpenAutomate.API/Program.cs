@@ -230,6 +230,7 @@ namespace OpenAutomate.API
             builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
             builder.Services.AddHttpClient<ILemonsqueezyService, LemonsqueezyService>();
             builder.Services.AddScoped<IAdminRevenueService, AdminRevenueService>();
+            builder.Services.AddScoped<IPaymentService, PaymentService>();
             
             // Register caching service
             builder.Services.AddScoped<ICacheService, RedisCacheService>();

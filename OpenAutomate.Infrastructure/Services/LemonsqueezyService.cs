@@ -44,6 +44,11 @@ namespace OpenAutomate.Infrastructure.Services
 
         public async Task<string> CreateCheckoutUrlAsync(Guid organizationUnitId, string userEmail, string? redirectUrl = null)
         {
+            // Define success/cancel URLs once for both API and buy link flows
+            var successUrl = redirectUrl ?? $"{_appSettings.FrontendUrl}/subscription/success";
+            var cancelUrl = $"{_appSettings.FrontendUrl}/dashboard";
+
+            // First try the JSON:API checkouts endpoint
             try
             {
                 var checkoutData = new
@@ -55,18 +60,20 @@ namespace OpenAutomate.Infrastructure.Services
                         {
                             product_options = new
                             {
-                                name = "Premium Subscription",
-                                description = "OpenAutomate Premium Plan with unlimited AI messages",
+                                name = "Pro Subscription",
+                                description = "OpenAutomate Pro Plan",
                                 media = new string[0],
-                                redirect_url = redirectUrl ?? $"{_appSettings.FrontendUrl}/subscription/success",
-                                receipt_button_text = "Go to Dashboard",
-                                receipt_link_url = redirectUrl ?? $"{_appSettings.FrontendUrl}/dashboard"
+                                redirect_url = successUrl,
+                                receipt_button_text = "Return to app",
+                                receipt_link_url = successUrl
                             },
                             checkout_options = new
                             {
-                                embed = false,
+                                embed = true,
                                 media = true,
-                                logo = true
+                                logo = true,
+                                success_url = successUrl,
+                                cancel_url = cancelUrl
                             },
                             checkout_data = new
                             {
@@ -80,22 +87,8 @@ namespace OpenAutomate.Infrastructure.Services
                         },
                         relationships = new
                         {
-                            store = new
-                            {
-                                data = new
-                                {
-                                    type = "stores",
-                                    id = _settings.StoreId
-                                }
-                            },
-                            variant = new
-                            {
-                                data = new
-                                {
-                                    type = "variants",
-                                    id = _settings.ProVariantId
-                                }
-                            }
+                            store = new { data = new { type = "stores", id = _settings.StoreId } },
+                            variant = new { data = new { type = "variants", id = _settings.ProVariantId } }
                         }
                     }
                 };
@@ -104,31 +97,82 @@ namespace OpenAutomate.Infrastructure.Services
                 var content = new StringContent(json, Encoding.UTF8, "application/vnd.api+json");
 
                 var response = await _httpClient.PostAsync("/checkouts", content);
-                
-                if (!response.IsSuccessStatusCode)
+                if (response.IsSuccessStatusCode)
                 {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    _logger.LogError("Failed to create checkout URL. Status: {StatusCode}, Error: {Error}", 
-                        response.StatusCode, errorContent);
-                    throw new HttpRequestException($"Failed to create checkout URL: {response.StatusCode}");
+                    var responseContent = await response.Content.ReadAsStringAsync();
+                    var checkoutResponse = JsonDocument.Parse(responseContent);
+                    var checkoutUrl = checkoutResponse.RootElement
+                        .GetProperty("data")
+                        .GetProperty("attributes")
+                        .GetProperty("url")
+                        .GetString();
+                    _logger.LogInformation("Created checkout URL for organization {OrganizationUnitId}", organizationUnitId);
+                    return checkoutUrl ?? throw new InvalidOperationException("Checkout URL was null");
                 }
 
-                var responseContent = await response.Content.ReadAsStringAsync();
-                var checkoutResponse = JsonDocument.Parse(responseContent);
-                
-                var checkoutUrl = checkoutResponse.RootElement
-                    .GetProperty("data")
-                    .GetProperty("attributes")
-                    .GetProperty("url")
-                    .GetString();
-
-                _logger.LogInformation("Created checkout URL for organization {OrganizationUnitId}", organizationUnitId);
-                return checkoutUrl ?? throw new InvalidOperationException("Checkout URL was null");
+                var err = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning("Checkout API failed. Falling back to buy link. Status: {Status} Error: {Error}", response.StatusCode, err);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating checkout URL for organization {OrganizationUnitId}", organizationUnitId);
-                throw;
+                _logger.LogWarning(ex, "Checkout API threw. Falling back to buy link for organization {OrganizationUnitId}", organizationUnitId);
+            }
+
+            // Fallback: Prefer explicit BuyLinkUrl when configured (newer hosted checkout link)
+            // Example: https://your-store.lemonsqueezy.com/buy/{checkout_link_id}
+            string? buyUrl = _settings.BuyLinkUrl;
+
+            if (string.IsNullOrWhiteSpace(buyUrl))
+            {
+                // If no explicit buy link is configured, fetch the variant's buy_now_url
+                buyUrl = await GetVariantBuyUrlAsync(_settings.ProVariantId);
+            }
+
+            if (string.IsNullOrWhiteSpace(buyUrl))
+            {
+                // Ultimate fallback to standard host with variant id
+                buyUrl = $"https://checkout.lemonsqueezy.com/buy/{_settings.ProVariantId}";
+            }
+
+
+
+            // Build query parameters supported by Lemon Squeezy buy links
+            var uri = new UriBuilder(buyUrl);
+            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            query["checkout[email]"] = userEmail;
+            query["checkout[custom][organization_unit_id]"] = organizationUnitId.ToString();
+            query["checkout[success_url]"] = successUrl;
+            query["checkout[cancel_url]"] = cancelUrl;
+            uri.Query = query.ToString();
+
+            var final = uri.ToString();
+            _logger.LogInformation("Using buy link fallback for organization {OrganizationUnitId}", organizationUnitId);
+            return final;
+        }
+
+        private async Task<string?> GetVariantBuyUrlAsync(string variantId)
+        {
+            try
+            {
+                var response = await _httpClient.GetAsync($"/variants/{variantId}");
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Failed to fetch variant {VariantId}. Status: {Status}", variantId, response.StatusCode);
+                    return null;
+                }
+                var text = await response.Content.ReadAsStringAsync();
+                using var json = JsonDocument.Parse(text);
+                var url = json.RootElement
+                    .GetProperty("data")
+                    .GetProperty("attributes")
+                    .GetProperty("buy_now_url")
+                    .GetString();
+                return url;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching buy link for variant {VariantId}", variantId);
+                return null;
             }
         }
 
@@ -148,15 +192,15 @@ namespace OpenAutomate.Infrastructure.Services
                 var computedSignature = Convert.ToHexString(computedHash).ToLowerInvariant();
 
                 // The signature comes in the format "sha256=<hash>"
-                var expectedSignature = signature.StartsWith("sha256=") 
-                    ? signature.Substring(7) 
+                var expectedSignature = signature.StartsWith("sha256=")
+                    ? signature.Substring(7)
                     : signature;
 
                 var isValid = string.Equals(computedSignature, expectedSignature, StringComparison.OrdinalIgnoreCase);
-                
+
                 if (!isValid)
                 {
-                    _logger.LogWarning("Webhook signature verification failed. Expected: {Expected}, Computed: {Computed}", 
+                    _logger.LogWarning("Webhook signature verification failed. Expected: {Expected}, Computed: {Computed}",
                         expectedSignature, computedSignature);
                 }
 
@@ -176,11 +220,15 @@ namespace OpenAutomate.Infrastructure.Services
                 var data = webhookPayload.Data;
                 var attributes = data.Attributes;
 
-                // Extract organization unit ID from custom data
-                var organizationUnitId = ExtractOrganizationUnitId(attributes.CustomData);
+                // Extract organization unit ID from custom data (check both attributes and meta)
+                var organizationUnitId = ExtractOrganizationUnitId(webhookPayload);
+                _logger.LogInformation("Extracted organization unit ID from webhook: {OrganizationUnitId}, AttributesCustomData: {AttributesCustomData}, MetaCustomData: {MetaCustomData}",
+                    organizationUnitId, JsonSerializer.Serialize(attributes.CustomData), JsonSerializer.Serialize(webhookPayload.Meta?.CustomData));
+
                 if (organizationUnitId == Guid.Empty)
                 {
-                    _logger.LogError("No valid organization unit ID found in subscription_created webhook");
+                    _logger.LogError("No valid organization unit ID found in subscription_created webhook. CustomData: {CustomData}",
+                        JsonSerializer.Serialize(attributes.CustomData));
                     return;
                 }
 
@@ -190,9 +238,10 @@ namespace OpenAutomate.Infrastructure.Services
                     attributes.Status ?? "active",
                     attributes.RenewsAt,
                     attributes.EndsAt,
-                    organizationUnitId);
+                    organizationUnitId,
+                    attributes?.Urls?.CustomerPortal);
 
-                _logger.LogInformation("Processed subscription_created webhook for subscription {SubscriptionId}, organization {OrganizationUnitId}", 
+                _logger.LogInformation("Processed subscription_created webhook for subscription {SubscriptionId}, organization {OrganizationUnitId}",
                     data.Id, organizationUnitId);
             }
             catch (Exception ex)
@@ -209,11 +258,14 @@ namespace OpenAutomate.Infrastructure.Services
                 var data = webhookPayload.Data;
                 var attributes = data.Attributes;
 
-                // Extract organization unit ID from custom data
-                var organizationUnitId = ExtractOrganizationUnitId(attributes.CustomData);
+                // Extract organization unit ID from custom data (check both attributes and meta)
+                var organizationUnitId = ExtractOrganizationUnitId(webhookPayload);
+                _logger.LogInformation("Extracted organization unit ID from subscription_updated webhook: {OrganizationUnitId}", organizationUnitId);
+
                 if (organizationUnitId == Guid.Empty)
                 {
-                    _logger.LogError("No valid organization unit ID found in subscription_updated webhook");
+                    _logger.LogError("No valid organization unit ID found in subscription_updated webhook. AttributesCustomData: {AttributesCustomData}, MetaCustomData: {MetaCustomData}",
+                        JsonSerializer.Serialize(attributes.CustomData), JsonSerializer.Serialize(webhookPayload.Meta?.CustomData));
                     return;
                 }
 
@@ -223,9 +275,12 @@ namespace OpenAutomate.Infrastructure.Services
                     attributes.Status ?? "unknown",
                     attributes.RenewsAt,
                     attributes.EndsAt,
-                    organizationUnitId);
+                    organizationUnitId,
+                    attributes?.Urls?.CustomerPortal);
 
-                _logger.LogInformation("Processed subscription_updated webhook for subscription {SubscriptionId}, organization {OrganizationUnitId}, status {Status}", 
+                // No second call needed now that we pass portal URL in first call
+
+                _logger.LogInformation("Processed subscription_updated webhook for subscription {SubscriptionId}, organization {OrganizationUnitId}, status {Status}",
                     data.Id, organizationUnitId, attributes.Status);
             }
             catch (Exception ex)
@@ -242,34 +297,48 @@ namespace OpenAutomate.Infrastructure.Services
                 var data = webhookPayload.Data;
                 var attributes = data.Attributes;
 
-                // Extract organization unit ID from custom data
-                var organizationUnitId = ExtractOrganizationUnitId(attributes.CustomData);
+                // Extract organization unit ID from custom data (check both attributes and meta)
+                var organizationUnitId = ExtractOrganizationUnitId(webhookPayload);
                 if (organizationUnitId == Guid.Empty)
                 {
                     _logger.LogError("No valid organization unit ID found in order_created webhook");
                     return;
                 }
 
+                var orderId = data.Id;
+
+                // Try to fetch receipt URL from vendor
+                string? receiptUrl = null;
+                try
+                {
+                    receiptUrl = await GetOrderReceiptUrlAsync(orderId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Unable to fetch receipt URL for order {OrderId}", orderId);
+                }
+
                 // Create payment record
                 var payment = new Core.Domain.Entities.Payment
                 {
                     OrganizationUnitId = organizationUnitId,
-                    LemonsqueezyOrderId = attributes.OrderId ?? data.Id,
+                    LemonsqueezyOrderId = orderId,
                     Amount = attributes.Total ?? 0,
                     Currency = attributes.Currency ?? "USD",
                     Status = attributes.OrderStatus ?? "paid",
                     PaymentDate = attributes.CreatedAt ?? DateTime.UtcNow,
                     CustomerEmail = attributes.CustomerEmail,
-                    Description = "Premium Subscription Payment"
+                    Description = "Pro Subscription Payment",
+                    ReceiptUrl = receiptUrl
                 };
 
-                // This would typically use a payment repository or service
-                // For now, we'll log the payment creation
-                _logger.LogInformation("Payment record created for order {OrderId}, organization {OrganizationUnitId}, amount {Amount} {Currency}", 
+                // Persist using subscription unit of work via dedicated service later
+                // Emitting event through logs for observability
+                _logger.LogInformation(
+                    "Payment record created for order {OrderId}, organization {OrganizationUnitId}, amount {Amount} {Currency}",
                     payment.LemonsqueezyOrderId, organizationUnitId, payment.Amount, payment.Currency);
 
-                // TODO: Add payment to database through a payment service
-                // await _paymentService.CreatePaymentAsync(payment);
+                // NOTE: The database insert happens in PaymentService invoked by Webhook controller to maintain SRP
             }
             catch (Exception ex)
             {
@@ -283,7 +352,7 @@ namespace OpenAutomate.Infrastructure.Services
             try
             {
                 var response = await _httpClient.GetAsync($"/subscriptions/{lemonsqueezySubscriptionId}");
-                
+
                 if (!response.IsSuccessStatusCode)
                 {
                     _logger.LogError("Failed to get subscription details for customer portal. Status: {StatusCode}", response.StatusCode);
@@ -292,7 +361,7 @@ namespace OpenAutomate.Infrastructure.Services
 
                 var responseContent = await response.Content.ReadAsStringAsync();
                 var subscriptionResponse = JsonDocument.Parse(responseContent);
-                
+
                 var customerPortalUrl = subscriptionResponse.RootElement
                     .GetProperty("data")
                     .GetProperty("attributes")
@@ -314,7 +383,7 @@ namespace OpenAutomate.Infrastructure.Services
             try
             {
                 var response = await _httpClient.GetAsync($"/subscriptions/{lemonsqueezySubscriptionId}");
-                
+
                 if (!response.IsSuccessStatusCode)
                 {
                     _logger.LogError("Failed to refresh subscription data. Status: {StatusCode}", response.StatusCode);
@@ -323,7 +392,7 @@ namespace OpenAutomate.Infrastructure.Services
 
                 var responseContent = await response.Content.ReadAsStringAsync();
                 var subscriptionResponse = JsonDocument.Parse(responseContent);
-                
+
                 var data = subscriptionResponse.RootElement.GetProperty("data");
                 var attributes = data.GetProperty("attributes");
 
@@ -331,11 +400,11 @@ namespace OpenAutomate.Infrastructure.Services
                 {
                     Id = data.GetProperty("id").GetString() ?? "",
                     Status = attributes.GetProperty("status").GetString() ?? "",
-                    RenewsAt = attributes.TryGetProperty("renews_at", out var renewsAt) && renewsAt.ValueKind != JsonValueKind.Null 
+                    RenewsAt = attributes.TryGetProperty("renews_at", out var renewsAt) && renewsAt.ValueKind != JsonValueKind.Null
                         ? ParseLemonSqueezyDate(renewsAt.GetString()) : null,
-                    EndsAt = attributes.TryGetProperty("ends_at", out var endsAt) && endsAt.ValueKind != JsonValueKind.Null 
+                    EndsAt = attributes.TryGetProperty("ends_at", out var endsAt) && endsAt.ValueKind != JsonValueKind.Null
                         ? ParseLemonSqueezyDate(endsAt.GetString()) : null,
-                    TrialEndsAt = attributes.TryGetProperty("trial_ends_at", out var trialEndsAt) && trialEndsAt.ValueKind != JsonValueKind.Null 
+                    TrialEndsAt = attributes.TryGetProperty("trial_ends_at", out var trialEndsAt) && trialEndsAt.ValueKind != JsonValueKind.Null
                         ? ParseLemonSqueezyDate(trialEndsAt.GetString()) : null,
                     CustomerEmail = attributes.GetProperty("customer_email").GetString() ?? ""
                 };
@@ -347,12 +416,58 @@ namespace OpenAutomate.Infrastructure.Services
             }
         }
 
-        private static Guid ExtractOrganizationUnitId(LemonsqueezyCustomData? customData)
+        public async Task<string?> GetOrderReceiptUrlAsync(string orderId)
         {
-            if (customData?.OrganizationUnitId != null && 
-                Guid.TryParse(customData.OrganizationUnitId, out var organizationUnitId))
+            try
             {
-                return organizationUnitId;
+                // Lemon Squeezy orders API returns receipt/invoice URLs in attributes.urls
+                var response = await _httpClient.GetAsync($"/orders/{orderId}");
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Failed to get order details for order {OrderId}. Status: {StatusCode}", orderId, response.StatusCode);
+                    return null;
+                }
+
+                var responseContent = await response.Content.ReadAsStringAsync();
+                using var json = JsonDocument.Parse(responseContent);
+                var root = json.RootElement.GetProperty("data").GetProperty("attributes");
+
+                string? receiptUrl = null;
+                if (root.TryGetProperty("urls", out var urls) && urls.ValueKind == JsonValueKind.Object)
+                {
+                    if (urls.TryGetProperty("invoice_url", out var invoiceUrlEl) && invoiceUrlEl.ValueKind == JsonValueKind.String)
+                    {
+                        receiptUrl = invoiceUrlEl.GetString();
+                    }
+                    else if (urls.TryGetProperty("receipt_url", out var receiptUrlEl) && receiptUrlEl.ValueKind == JsonValueKind.String)
+                    {
+                        receiptUrl = receiptUrlEl.GetString();
+                    }
+                }
+
+                return receiptUrl;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting receipt URL for order {OrderId}", orderId);
+                return null;
+            }
+        }
+
+        private static Guid ExtractOrganizationUnitId(LemonsqueezyWebhookPayload webhookPayload)
+        {
+            // First try attributes.CustomData (for order webhooks)
+            if (webhookPayload.Data.Attributes?.CustomData?.OrganizationUnitId != null &&
+                Guid.TryParse(webhookPayload.Data.Attributes.CustomData.OrganizationUnitId, out var orgIdFromAttributes))
+            {
+                return orgIdFromAttributes;
+            }
+
+            // Then try meta.CustomData (for subscription webhooks)
+            if (webhookPayload.Meta?.CustomData?.OrganizationUnitId != null &&
+                Guid.TryParse(webhookPayload.Meta.CustomData.OrganizationUnitId, out var orgIdFromMeta))
+            {
+                return orgIdFromMeta;
             }
 
             return Guid.Empty;

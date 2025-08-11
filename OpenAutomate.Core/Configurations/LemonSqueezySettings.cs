@@ -31,6 +31,14 @@ public class LemonSqueezySettings
     public string ProVariantId { get; set; } = string.Empty;
 
     /// <summary>
+    /// Optional: Direct hosted checkout buy link URL (e.g.
+    /// https://your-store.lemonsqueezy.com/buy/{checkout_link_id}).
+    /// When provided, the system will prefer this URL for checkouts and
+    /// append prefill parameters (email, custom org id, success/cancel URLs).
+    /// </summary>
+    public string? BuyLinkUrl { get; set; }
+
+    /// <summary>
     /// Base URL for Lemon Squeezy API (default: https://api.lemonsqueezy.com/v1)
     /// </summary>
     public string ApiBaseUrl { get; set; } = "https://api.lemonsqueezy.com/v1";
