@@ -35,6 +35,10 @@ namespace OpenAutomate.Infrastructure.Services
 
             if (existing != null)
             {
+                _logger.LogInformation(
+                    "Updating payment for tenant {TenantId} order {OrderId}.",
+                    payment.OrganizationUnitId,
+                    payment.LemonsqueezyOrderId);
                 existing.Amount = payment.Amount;
                 existing.Currency = payment.Currency;
                 existing.Status = payment.Status;
@@ -45,6 +49,10 @@ namespace OpenAutomate.Infrastructure.Services
             }
             else
             {
+                _logger.LogInformation(
+                    "Creating payment for tenant {TenantId} order {OrderId}.",
+                    payment.OrganizationUnitId,
+                    payment.LemonsqueezyOrderId);
                 await _unitOfWork.Payments.AddAsync(payment);
             }
 
@@ -103,11 +111,19 @@ namespace OpenAutomate.Infrastructure.Services
             }
 
             // Fallback to vendor API
+            _logger.LogInformation(
+                "Fetching receipt URL from vendor API for order {OrderId} (tenant {TenantId}).",
+                orderId,
+                organizationUnitId);
             var url = await _lemonsqueezyService.GetOrderReceiptUrlAsync(orderId);
             if (payment != null && !string.IsNullOrWhiteSpace(url))
             {
                 payment.ReceiptUrl = url;
                 await _unitOfWork.CompleteAsync();
+                _logger.LogInformation(
+                    "Updated stored receipt URL for order {OrderId} (tenant {TenantId}).",
+                    orderId,
+                    organizationUnitId);
             }
             return url;
         }
