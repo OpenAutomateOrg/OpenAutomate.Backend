@@ -675,8 +675,6 @@ namespace OpenAutomate.Infrastructure.Services
                 _logger.LogInformation("Exporting assets to CSV for tenant {TenantId}", _tenantContext.CurrentTenantId);
                 
                 var assets = await _context.Assets
-                    .Include(a => a.AssetBotAgents)
-                    .ThenInclude(aba => aba.BotAgent)
                     .Where(a => a.OrganizationUnitId == _tenantContext.CurrentTenantId)
                     .ToListAsync();
                 
@@ -689,7 +687,6 @@ namespace OpenAutomate.Infrastructure.Services
                 csv.WriteField("Value");
                 csv.WriteField("Description");
                 csv.WriteField("Type");
-                csv.WriteField("BotAgentNames");
                 csv.NextRecord();
                 
                 // Write data
@@ -718,12 +715,6 @@ namespace OpenAutomate.Infrastructure.Services
                     
                     csv.WriteField(asset.Description);
                     csv.WriteField(asset.IsEncrypted ? "Secret" : "String");
-                    
-                    // Null safety fix: Handle cases where BotAgent might be null
-                    var botAgentNames = string.Join(",", asset.AssetBotAgents
-                        .Where(aba => aba.BotAgent != null)
-                        .Select(aba => aba.BotAgent.Name));
-                    csv.WriteField(botAgentNames);
                     csv.NextRecord();
                 }
                 
@@ -819,17 +810,13 @@ namespace OpenAutomate.Infrastructure.Services
         /// </summary>
         private async Task<ImportLookupData> GetImportLookupDataAsync()
         {
-            var botAgents = await _context.BotAgents
-                .Where(ba => ba.OrganizationUnitId == _tenantContext.CurrentTenantId)
-                .ToListAsync();
-            
             var existingAssets = await _context.Assets
                 .Where(a => a.OrganizationUnitId == _tenantContext.CurrentTenantId)
                 .ToDictionaryAsync(a => a.Key.ToLower(), a => a);
             
             return new ImportLookupData
             {
-                BotAgentNameToId = botAgents.ToDictionary(ba => ba.Name.ToLower(), ba => ba.Id),
+                BotAgentNameToId = new Dictionary<string, Guid>(),
                 ExistingAssets = existingAssets
             };
         }
@@ -903,17 +890,11 @@ namespace OpenAutomate.Infrastructure.Services
                     return new RowProcessingResult();
                 }
                 
-                var botAgentIds = ProcessBotAgents(csvRecord, rowNumber, result, lookupData);
-                if (botAgentIds == null)
-                {
-                    return new RowProcessingResult();
-                }
-                
                 return new RowProcessingResult
                 {
                     Asset = assetResult.Value.Asset,
                     IsUpdate = assetResult.Value.IsUpdate,
-                    BotAgentIds = botAgentIds
+                    BotAgentIds = new List<Guid>()
                 };
             }
             catch (Exception ex)
@@ -948,44 +929,11 @@ namespace OpenAutomate.Infrastructure.Services
             if (totalProcessed > 0)
             {
                 await _context.SaveChangesAsync();
-                await SaveBotAgentRelationshipsAsync(processingData.AssetBotAgentRelations);
                 result.SuccessfulImports = totalProcessed;
             }
         }
         
-        /// <summary>
-        /// Saves bot agent relationships
-        /// </summary>
-        private async Task SaveBotAgentRelationshipsAsync(List<(Asset asset, List<Guid> botAgentIds)> assetBotAgentRelations)
-        {
-            foreach (var (asset, botAgentIds) in assetBotAgentRelations)
-            {
-                var existingRelations = await _context.AssetBotAgents
-                    .Where(aba => aba.AssetId == asset.Id)
-                    .ToListAsync();
-                
-                if (existingRelations.Any())
-                {
-                    _context.AssetBotAgents.RemoveRange(existingRelations);
-                }
-                
-                foreach (var botAgentId in botAgentIds)
-                {
-                    _context.AssetBotAgents.Add(new AssetBotAgent
-                    {
-                        AssetId = asset.Id,
-                        BotAgentId = botAgentId,
-                        OrganizationUnitId = _tenantContext.CurrentTenantId,
-                        CreatedAt = DateTime.UtcNow
-                    });
-                }
-            }
-            
-            if (assetBotAgentRelations.Any())
-            {
-                await _context.SaveChangesAsync();
-            }
-        }
+
         
         /// <summary>
         /// Reads CSV record from current row
@@ -998,15 +946,13 @@ namespace OpenAutomate.Infrastructure.Services
                 var valueField = csv.GetField("Value");
                 var descriptionField = csv.GetField("Description");
                 var typeField = csv.GetField("Type");
-                var botAgentNamesField = csv.GetField("BotAgentNames");
                 
                 return new AssetCsvDto
                 {
                     Key = keyField?.Trim() ?? string.Empty,
                     Value = valueField?.Trim() ?? string.Empty,
                     Description = descriptionField?.Trim() ?? string.Empty,
-                    Type = typeField?.Trim() ?? "String",
-                    BotAgentNames = botAgentNamesField?.Trim() ?? string.Empty
+                    Type = typeField?.Trim() ?? "String"
                 };
             }
             catch (Exception ex)
@@ -1104,50 +1050,7 @@ namespace OpenAutomate.Infrastructure.Services
             }
         }
         
-        /// <summary>
-        /// Processes bot agents for asset
-        /// </summary>
-        private List<Guid>? ProcessBotAgents(AssetCsvDto csvRecord, int rowNumber, CsvImportResultDto result, ImportLookupData lookupData)
-        {
-            var botAgentIds = new List<Guid>();
-            
-            if (string.IsNullOrEmpty(csvRecord.BotAgentNames))
-            {
-                return botAgentIds;
-            }
-            
-            var names = csvRecord.BotAgentNames.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Select(n => n.Trim())
-                .Where(n => !string.IsNullOrWhiteSpace(n))
-                .ToList();
-            
-            if (names.Count == 0)
-            {
-                return botAgentIds;
-            }
-            
-            var hasInvalidBotAgents = false;
-            foreach (var name in names)
-            {
-                if (lookupData.BotAgentNameToId.TryGetValue(name.ToLower(), out var botAgentId))
-                {
-                    botAgentIds.Add(botAgentId);
-                }
-                else
-                {
-                    result.Errors.Add($"Row {rowNumber}: Bot Agent '{name}' not found. Please check the bot agent name.");
-                    hasInvalidBotAgents = true;
-                }
-            }
-            
-            if (hasInvalidBotAgents)
-            {
-                result.FailedImports++;
-                return null;
-            }
-            
-            return botAgentIds;
-        }
+
         
         /// <summary>
         /// Validates CSV headers with detailed error information
@@ -1158,12 +1061,12 @@ namespace OpenAutomate.Infrastructure.Services
             
             if (headers == null || headers.Length == 0)
             {
-                return (false, "CSV file has no headers", new List<string> { "Key", "Value", "Description", "Type", "BotAgentNames" });
+                return (false, "CSV file has no headers", new List<string> { "Key", "Value", "Description", "Type" });
             }
                 
             // Only Key, Value, and Type are truly required
             var requiredHeaders = new[] { "Key", "Value", "Type" };
-            var optionalHeaders = new[] { "Description", "BotAgentNames" };
+            var optionalHeaders = new[] { "Description" };
             
             foreach (var requiredHeader in requiredHeaders)
             {

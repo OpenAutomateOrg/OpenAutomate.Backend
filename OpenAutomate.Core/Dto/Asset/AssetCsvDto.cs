@@ -30,9 +30,6 @@ namespace OpenAutomate.Core.Dto.Asset
         [Required]
         public string Type { get; set; } = "String";
         
-        /// <summary>
-        /// Comma-separated list of Bot Agent names that can access this Asset
-        /// </summary>
-        public string BotAgentNames { get; set; } = string.Empty;
+
     }
 }
