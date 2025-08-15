@@ -946,6 +946,7 @@ namespace OpenAutomate.Infrastructure.Services
                 {
                     _context.Assets.AddRange(assetsToCreate);
                     totalProcessed += assetsToCreate.Count;
+                    result.AssetsCreated = assetsToCreate.Count;
                 }
                 
                 // Update existing assets (assetsToUpdate are already tracked by EF)
@@ -953,6 +954,7 @@ namespace OpenAutomate.Infrastructure.Services
                 {
                     _context.Assets.UpdateRange(assetsToUpdate);
                     totalProcessed += assetsToUpdate.Count;
+                    result.AssetsUpdated = assetsToUpdate.Count;
                 }
                 
                 // Save all changes

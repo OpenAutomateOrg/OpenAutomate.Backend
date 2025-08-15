@@ -31,5 +31,15 @@ namespace OpenAutomate.Core.Dto.Asset
         /// List of warnings that occurred during import
         /// </summary>
         public List<string> Warnings { get; set; } = new List<string>();
+        
+        /// <summary>
+        /// Number of assets created (new)
+        /// </summary>
+        public int AssetsCreated { get; set; }
+        
+        /// <summary>
+        /// Number of assets updated (existing)
+        /// </summary>
+        public int AssetsUpdated { get; set; }
     }
 }
