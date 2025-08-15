@@ -1177,7 +1177,7 @@ namespace OpenAutomate.Infrastructure.Services
                 errors.Add($"Row {rowNumber}: Key is required");
             else if (record.Key.Length > 50)
                 errors.Add($"Row {rowNumber}: Key must be 50 characters or less");
-            else if (!System.Text.RegularExpressions.Regex.IsMatch(record.Key, @"^[a-zA-Z0-9_\-.]+$"))
+            else if (!System.Text.RegularExpressions.Regex.IsMatch(record.Key, @"^[a-zA-Z0-9_\-.]+$", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromMilliseconds(100)))
                 errors.Add($"Row {rowNumber}: Key can only contain letters, numbers, underscores, hyphens, and periods");
             
             // Value validation (required)
