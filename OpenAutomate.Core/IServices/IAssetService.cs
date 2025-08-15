@@ -98,5 +98,18 @@ namespace OpenAutomate.Core.IServices
         /// <param name="machineKey">The Bot Agent machine key</param>
         /// <returns>Collection of accessible Assets</returns>
         Task<IEnumerable<AssetListResponseDto>?> GetAccessibleAssetsForBotAgentAsync(string machineKey);
+        
+        /// <summary>
+        /// Exports all Assets to CSV format
+        /// </summary>
+        /// <returns>CSV content as byte array</returns>
+        Task<byte[]> ExportAssetsToCsvAsync();
+        
+        /// <summary>
+        /// Imports Assets from CSV data
+        /// </summary>
+        /// <param name="csvData">CSV file content as byte array</param>
+        /// <returns>Import result with statistics and errors</returns>
+        Task<CsvImportResultDto> ImportAssetsFromCsvAsync(byte[] csvData);
     }
 } 

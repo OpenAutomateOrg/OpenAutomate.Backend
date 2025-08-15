@@ -8,10 +8,13 @@ using OpenAutomate.Core.IServices;
 using OpenAutomate.Infrastructure.DbContext;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using CsvHelper;
+using CsvHelper.Configuration;
 
 namespace OpenAutomate.Infrastructure.Services
 {
@@ -654,6 +657,426 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 throw new AssetEncryptionException("Error decrypting asset value", ex);
             }
+        }
+        
+        #endregion
+        
+        #region CSV Import/Export Methods
+        
+        /// <summary>
+        /// Exports all Assets to CSV format
+        /// </summary>
+        /// <returns>CSV content as byte array</returns>
+        public async Task<byte[]> ExportAssetsToCsvAsync()
+        {
+            try
+            {
+                _logger.LogInformation("Exporting assets to CSV for tenant {TenantId}", _tenantContext.CurrentTenantId);
+                
+                var assets = await _context.Assets
+                    .Include(a => a.AssetBotAgents)
+                    .ThenInclude(aba => aba.BotAgent)
+                    .Where(a => a.OrganizationUnitId == _tenantContext.CurrentTenantId)
+                    .ToListAsync();
+                
+                using var memoryStream = new MemoryStream();
+                using var writer = new StreamWriter(memoryStream);
+                using var csv = new CsvWriter(writer, System.Globalization.CultureInfo.InvariantCulture);
+                
+                // Write header
+                csv.WriteField("Key");
+                csv.WriteField("Value");
+                csv.WriteField("Description");
+                csv.WriteField("Type");
+                csv.WriteField("BotAgentNames");
+                csv.NextRecord();
+                
+                // Write data
+                foreach (var asset in assets)
+                {
+                    csv.WriteField(asset.Key);
+                    csv.WriteField(asset.IsEncrypted ? DecryptValue(asset.Value) : asset.Value);
+                    csv.WriteField(asset.Description);
+                    csv.WriteField(asset.IsEncrypted ? "Secret" : "String");
+                    
+                    var botAgentNames = string.Join(",", asset.AssetBotAgents.Select(aba => aba.BotAgent.Name));
+                    csv.WriteField(botAgentNames);
+                    csv.NextRecord();
+                }
+                
+                writer.Flush();
+                _logger.LogInformation("Successfully exported {Count} assets to CSV", assets.Count);
+                return memoryStream.ToArray();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exporting assets to CSV for tenant {TenantId}: {Message}", 
+                    _tenantContext.CurrentTenantId, ex.Message);
+                throw new AssetException("Error exporting assets to CSV", ex);
+            }
+        }
+        
+        /// <summary>
+        /// Imports Assets from CSV data
+        /// </summary>
+        /// <param name="csvData">CSV file content as byte array</param>
+        /// <returns>Import result with statistics and errors</returns>
+        public async Task<CsvImportResultDto> ImportAssetsFromCsvAsync(byte[] csvData)
+        {
+            var result = new CsvImportResultDto();
+            
+            try
+            {
+                _logger.LogInformation("Starting CSV import for tenant {TenantId}", _tenantContext.CurrentTenantId);
+                
+                using var memoryStream = new MemoryStream(csvData);
+                using var reader = new StreamReader(memoryStream);
+                using var csv = new CsvReader(reader, System.Globalization.CultureInfo.InvariantCulture);
+                
+                // Read and validate headers
+                if (!csv.Read())
+                {
+                    result.Errors.Add("CSV file is empty or cannot be read");
+                    return result;
+                }
+                
+                csv.ReadHeader();
+                var headers = csv.HeaderRecord;
+                
+                var headerValidation = ValidateCsvHeadersDetailed(headers);
+                if (!headerValidation.IsValid)
+                {
+                    result.Errors.Add($"Invalid CSV format. {headerValidation.ErrorMessage}");
+                    if (headerValidation.MissingHeaders.Count > 0)
+                    {
+                        result.Errors.Add($"Missing required headers: {string.Join(", ", headerValidation.MissingHeaders)}");
+                    }
+                    return result;
+                }
+                
+                // Get existing bot agents for name lookup
+                var botAgents = await _context.BotAgents
+                    .Where(ba => ba.OrganizationUnitId == _tenantContext.CurrentTenantId)
+                    .ToListAsync();
+                
+                var botAgentNameToId = botAgents.ToDictionary(ba => ba.Name.ToLower(), ba => ba.Id);
+                
+                // Get existing assets for update/create logic
+                var existingAssetsDict = await _context.Assets
+                    .Where(a => a.OrganizationUnitId == _tenantContext.CurrentTenantId)
+                    .ToDictionaryAsync(a => a.Key.ToLower(), a => a);
+                
+                var rowNumber = 1;
+                var assetsToCreate = new List<Asset>();
+                var assetsToUpdate = new List<Asset>();
+                var assetBotAgentRelations = new List<(Asset asset, List<Guid> botAgentIds)>();
+                var processedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                
+                while (csv.Read())
+                {
+                    rowNumber++;
+                    result.TotalRows++;
+                    
+                    try
+                    {
+                        // Try to get fields with proper error handling
+                        string? keyField = null;
+                        string? valueField = null;
+                        string? descriptionField = null;
+                        string? typeField = null;
+                        string? botAgentNamesField = null;
+                        
+                        try
+                        {
+                            keyField = csv.GetField("Key");
+                            valueField = csv.GetField("Value");
+                            descriptionField = csv.GetField("Description");
+                            typeField = csv.GetField("Type");
+                            botAgentNamesField = csv.GetField("BotAgentNames");
+                        }
+                        catch (Exception ex)
+                        {
+                            result.Errors.Add($"Row {rowNumber}: Error reading CSV fields - {ex.Message}");
+                            result.FailedImports++;
+                            continue;
+                        }
+                        
+                        var csvRecord = new AssetCsvDto
+                        {
+                            Key = keyField?.Trim() ?? string.Empty,
+                            Value = valueField?.Trim() ?? string.Empty,
+                            Description = descriptionField?.Trim() ?? string.Empty,
+                            Type = typeField?.Trim() ?? "String",
+                            BotAgentNames = botAgentNamesField?.Trim() ?? string.Empty
+                        };
+                        
+                        // Additional validation for empty required fields
+                        if (string.IsNullOrWhiteSpace(csvRecord.Key))
+                        {
+                            result.Errors.Add($"Row {rowNumber}: Key field is required and cannot be empty");
+                            result.FailedImports++;
+                            continue;
+                        }
+                        
+                        if (string.IsNullOrWhiteSpace(csvRecord.Value))
+                        {
+                            result.Errors.Add($"Row {rowNumber}: Value field is required and cannot be empty");
+                            result.FailedImports++;
+                            continue;
+                        }
+                        
+                        var validationErrors = ValidateCsvRecord(csvRecord, rowNumber);
+                        if (validationErrors.Count > 0)
+                        {
+                            result.Errors.AddRange(validationErrors);
+                            result.FailedImports++;
+                            continue;
+                        }
+                        
+                        // Check for duplicate key within the same import
+                        var keyLower = csvRecord.Key.ToLower();
+                        if (processedKeys.Contains(keyLower))
+                        {
+                            result.Errors.Add($"Row {rowNumber}: Duplicate key '{csvRecord.Key}' found within the import file");
+                            result.FailedImports++;
+                            continue;
+                        }
+                        processedKeys.Add(keyLower);
+                        
+                        // Parse asset type
+                        var assetType = csvRecord.Type.ToLower() switch
+                        {
+                            "secret" => AssetType.Secret,
+                            "string" => AssetType.String,
+                            _ => AssetType.String
+                        };
+                        
+                        var isEncrypted = assetType == AssetType.Secret;
+                        Asset asset;
+                        bool isUpdate = false;
+                        
+                        // Check if asset exists - update if yes, create if no
+                        if (existingAssetsDict.TryGetValue(keyLower, out var existingAsset))
+                        {
+                            // Update existing asset
+                            asset = existingAsset;
+                            asset.Value = isEncrypted ? EncryptValue(csvRecord.Value) : csvRecord.Value;
+                            asset.Description = csvRecord.Description;
+                            asset.IsEncrypted = isEncrypted;
+                            asset.LastModifyAt = DateTime.UtcNow;
+                            isUpdate = true;
+                            
+                            result.Warnings.Add($"Row {rowNumber}: Updated existing asset '{csvRecord.Key}' (Type: {csvRecord.Type})");
+                        }
+                        else
+                        {
+                            // Create new asset
+                            asset = new Asset
+                            {
+                                Id = Guid.NewGuid(),
+                                Key = csvRecord.Key,
+                                Value = isEncrypted ? EncryptValue(csvRecord.Value) : csvRecord.Value,
+                                Description = csvRecord.Description,
+                                IsEncrypted = isEncrypted,
+                                OrganizationUnitId = _tenantContext.CurrentTenantId,
+                                CreatedAt = DateTime.UtcNow
+                            };
+                        }
+                        
+                        // Parse bot agent names - only validate if provided
+                        var botAgentIds = new List<Guid>();
+                        var hasInvalidBotAgents = false;
+                        
+                        if (!string.IsNullOrEmpty(csvRecord.BotAgentNames))
+                        {
+                            var names = csvRecord.BotAgentNames.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                .Select(n => n.Trim())
+                                .Where(n => !string.IsNullOrWhiteSpace(n))
+                                .ToList();
+                            
+                            // Only validate if there are actual names to process
+                            if (names.Count > 0)
+                            {
+                                foreach (var name in names)
+                                {
+                                    if (botAgentNameToId.TryGetValue(name.ToLower(), out var botAgentId))
+                                    {
+                                        botAgentIds.Add(botAgentId);
+                                    }
+                                    else
+                                    {
+                                        result.Errors.Add($"Row {rowNumber}: Bot Agent '{name}' not found. Please check the bot agent name.");
+                                        hasInvalidBotAgents = true;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Skip this row if there are invalid bot agents (only when bot agents were specified)
+                        if (hasInvalidBotAgents)
+                        {
+                            result.FailedImports++;
+                            continue;
+                        }
+                        
+                        // Add to appropriate list for processing
+                        if (isUpdate)
+                        {
+                            assetsToUpdate.Add(asset);
+                        }
+                        else
+                        {
+                            assetsToCreate.Add(asset);
+                        }
+                        
+                        assetBotAgentRelations.Add((asset, botAgentIds));
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Errors.Add($"Row {rowNumber}: Error processing row - {ex.Message}");
+                        result.FailedImports++;
+                    }
+                }
+                
+                // Save assets to database
+                var totalProcessed = 0;
+                
+                // Add new assets
+                if (assetsToCreate.Count > 0)
+                {
+                    _context.Assets.AddRange(assetsToCreate);
+                    totalProcessed += assetsToCreate.Count;
+                }
+                
+                // Update existing assets (assetsToUpdate are already tracked by EF)
+                if (assetsToUpdate.Count > 0)
+                {
+                    _context.Assets.UpdateRange(assetsToUpdate);
+                    totalProcessed += assetsToUpdate.Count;
+                }
+                
+                // Save all changes
+                if (totalProcessed > 0)
+                {
+                    await _context.SaveChangesAsync();
+                    
+                    // Handle bot agent relationships for both new and updated assets
+                    foreach (var (asset, botAgentIds) in assetBotAgentRelations)
+                    {
+                        // Remove existing relationships for updated assets
+                        var existingRelations = await _context.AssetBotAgents
+                            .Where(aba => aba.AssetId == asset.Id)
+                            .ToListAsync();
+                        
+                        if (existingRelations.Any())
+                        {
+                            _context.AssetBotAgents.RemoveRange(existingRelations);
+                        }
+                        
+                        // Add new relationships
+                        foreach (var botAgentId in botAgentIds)
+                        {
+                            _context.AssetBotAgents.Add(new AssetBotAgent
+                            {
+                                AssetId = asset.Id,
+                                BotAgentId = botAgentId
+                            });
+                        }
+                    }
+                    
+                    // Save bot agent relationships
+                    if (assetBotAgentRelations.Any())
+                    {
+                        await _context.SaveChangesAsync();
+                    }
+                    
+                    result.SuccessfulImports = totalProcessed;
+                }
+                
+                _logger.LogInformation("CSV import completed for tenant {TenantId}. Success: {Success}, Failed: {Failed}", 
+                    _tenantContext.CurrentTenantId, result.SuccessfulImports, result.FailedImports);
+                
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error importing assets from CSV for tenant {TenantId}: {Message}", 
+                    _tenantContext.CurrentTenantId, ex.Message);
+                result.Errors.Add($"Import failed: {ex.Message}");
+                return result;
+            }
+        }
+        
+        /// <summary>
+        /// Validates CSV headers with detailed error information
+        /// </summary>
+        private static (bool IsValid, string ErrorMessage, List<string> MissingHeaders) ValidateCsvHeadersDetailed(string[]? headers)
+        {
+            var missingHeaders = new List<string>();
+            
+            if (headers == null || headers.Length == 0)
+            {
+                return (false, "CSV file has no headers", new List<string> { "Key", "Value", "Description", "Type", "BotAgentNames" });
+            }
+                
+            // Only Key, Value, and Type are truly required
+            var requiredHeaders = new[] { "Key", "Value", "Type" };
+            var optionalHeaders = new[] { "Description", "BotAgentNames" };
+            
+            foreach (var requiredHeader in requiredHeaders)
+            {
+                if (!headers.Contains(requiredHeader, StringComparer.OrdinalIgnoreCase))
+                {
+                    missingHeaders.Add(requiredHeader);
+                }
+            }
+            
+            if (missingHeaders.Count > 0)
+            {
+                return (false, "Required headers are missing", missingHeaders);
+            }
+            
+            return (true, string.Empty, new List<string>());
+        }
+        
+        /// <summary>
+        /// Validates CSV headers (legacy method for backward compatibility)
+        /// </summary>
+        private static bool ValidateCsvHeaders(string[]? headers)
+        {
+            var result = ValidateCsvHeadersDetailed(headers);
+            return result.IsValid;
+        }
+        
+        /// <summary>
+        /// Validates a CSV record
+        /// </summary>
+        private static List<string> ValidateCsvRecord(AssetCsvDto record, int rowNumber)
+        {
+            var errors = new List<string>();
+            
+            // Key validation (required)
+            if (string.IsNullOrWhiteSpace(record.Key))
+                errors.Add($"Row {rowNumber}: Key is required");
+            else if (record.Key.Length > 50)
+                errors.Add($"Row {rowNumber}: Key must be 50 characters or less");
+            else if (!System.Text.RegularExpressions.Regex.IsMatch(record.Key, @"^[a-zA-Z0-9_\-.]+$"))
+                errors.Add($"Row {rowNumber}: Key can only contain letters, numbers, underscores, hyphens, and periods");
+            
+            // Value validation (required)
+            if (string.IsNullOrWhiteSpace(record.Value))
+                errors.Add($"Row {rowNumber}: Value is required");
+            
+            // Description validation (optional - can be null or empty)
+            if (!string.IsNullOrEmpty(record.Description) && record.Description.Length > 500)
+                errors.Add($"Row {rowNumber}: Description must be 500 characters or less");
+            
+            // Type validation (optional - defaults to String if not provided)
+            if (!string.IsNullOrEmpty(record.Type) && 
+                !new[] { "String", "Secret" }.Contains(record.Type, StringComparer.OrdinalIgnoreCase))
+                errors.Add($"Row {rowNumber}: Type must be either 'String' or 'Secret'");
+            
+            return errors;
         }
         
         #endregion

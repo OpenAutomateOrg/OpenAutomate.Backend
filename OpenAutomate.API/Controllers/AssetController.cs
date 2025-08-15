@@ -341,5 +341,77 @@ namespace OpenAutomate.API.Controllers
                 return StatusCode(500, new { message = "An error occurred while revoking the bot agent." });
             }
         }
+        
+        /// <summary>
+        /// Exports all Assets to CSV format
+        /// </summary>
+        /// <returns>CSV file download</returns>
+        [HttpGet("export/csv")]
+        [RequireSubscription(SubscriptionOperationType.Read)]
+        [RequirePermission(Resources.AssetResource, Permissions.View)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> ExportAssetsToCsv()
+        {
+            try
+            {
+                var csvData = await _assetService.ExportAssetsToCsvAsync();
+                var fileName = $"assets_export_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
+                
+                return File(csvData, "text/csv", fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exporting assets to CSV: {Message}", ex.Message);
+                return StatusCode(500, new { message = "An error occurred while exporting assets." });
+            }
+        }
+        
+        /// <summary>
+        /// Imports Assets from CSV file
+        /// </summary>
+        /// <param name="file">CSV file containing asset data</param>
+        /// <returns>Import result with statistics and errors</returns>
+        [HttpPost("import/csv")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
+        [RequirePermission(Resources.AssetResource, Permissions.Create)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<ActionResult<CsvImportResultDto>> ImportAssetsFromCsv(IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest(new { message = "Please select a CSV file to import." });
+                }
+
+                if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new { message = "Only CSV files are allowed." });
+                }
+
+                if (file.Length > 10 * 1024 * 1024) // 10MB limit
+                {
+                    return BadRequest(new { message = "File size must be less than 10MB." });
+                }
+
+                using var memoryStream = new MemoryStream();
+                await file.CopyToAsync(memoryStream);
+                var csvData = memoryStream.ToArray();
+
+                var result = await _assetService.ImportAssetsFromCsvAsync(csvData);
+                
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error importing assets from CSV: {Message}", ex.Message);
+                return StatusCode(500, new { message = "An error occurred while importing assets." });
+            }
+        }
     }
 } 
