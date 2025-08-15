@@ -733,267 +733,21 @@ namespace OpenAutomate.Infrastructure.Services
                 using var reader = new StreamReader(memoryStream);
                 using var csv = new CsvReader(reader, System.Globalization.CultureInfo.InvariantCulture);
                 
-                // Read and validate headers
-                if (!csv.Read())
+                // Validate CSV headers
+                var headerValidationResult = await ValidateCsvHeadersAsync(csv, result);
+                if (!headerValidationResult.IsValid)
                 {
-                    result.Errors.Add("CSV file is empty or cannot be read");
                     return result;
                 }
                 
-                csv.ReadHeader();
-                var headers = csv.HeaderRecord;
+                // Get lookup dictionaries
+                var lookupData = await GetImportLookupDataAsync();
                 
-                var headerValidation = ValidateCsvHeadersDetailed(headers);
-                if (!headerValidation.IsValid)
-                {
-                    result.Errors.Add($"Invalid CSV format. {headerValidation.ErrorMessage}");
-                    if (headerValidation.MissingHeaders.Count > 0)
-                    {
-                        result.Errors.Add($"Missing required headers: {string.Join(", ", headerValidation.MissingHeaders)}");
-                    }
-                    return result;
-                }
+                // Process CSV rows
+                var processingData = await ProcessCsvRowsAsync(csv, result, lookupData);
                 
-                // Get existing bot agents for name lookup
-                var botAgents = await _context.BotAgents
-                    .Where(ba => ba.OrganizationUnitId == _tenantContext.CurrentTenantId)
-                    .ToListAsync();
-                
-                var botAgentNameToId = botAgents.ToDictionary(ba => ba.Name.ToLower(), ba => ba.Id);
-                
-                // Get existing assets for update/create logic
-                var existingAssetsDict = await _context.Assets
-                    .Where(a => a.OrganizationUnitId == _tenantContext.CurrentTenantId)
-                    .ToDictionaryAsync(a => a.Key.ToLower(), a => a);
-                
-                var rowNumber = 1;
-                var assetsToCreate = new List<Asset>();
-                var assetsToUpdate = new List<Asset>();
-                var assetBotAgentRelations = new List<(Asset asset, List<Guid> botAgentIds)>();
-                var processedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                
-                while (csv.Read())
-                {
-                    rowNumber++;
-                    result.TotalRows++;
-                    
-                    try
-                    {
-                        // Try to get fields with proper error handling
-                        string? keyField = null;
-                        string? valueField = null;
-                        string? descriptionField = null;
-                        string? typeField = null;
-                        string? botAgentNamesField = null;
-                        
-                        try
-                        {
-                            keyField = csv.GetField("Key");
-                            valueField = csv.GetField("Value");
-                            descriptionField = csv.GetField("Description");
-                            typeField = csv.GetField("Type");
-                            botAgentNamesField = csv.GetField("BotAgentNames");
-                        }
-                        catch (Exception ex)
-                        {
-                            result.Errors.Add($"Row {rowNumber}: Error reading CSV fields - {ex.Message}");
-                            result.FailedImports++;
-                            continue;
-                        }
-                        
-                        var csvRecord = new AssetCsvDto
-                        {
-                            Key = keyField?.Trim() ?? string.Empty,
-                            Value = valueField?.Trim() ?? string.Empty,
-                            Description = descriptionField?.Trim() ?? string.Empty,
-                            Type = typeField?.Trim() ?? "String",
-                            BotAgentNames = botAgentNamesField?.Trim() ?? string.Empty
-                        };
-                        
-                        // Additional validation for empty required fields
-                        if (string.IsNullOrWhiteSpace(csvRecord.Key))
-                        {
-                            result.Errors.Add($"Row {rowNumber}: Key field is required and cannot be empty");
-                            result.FailedImports++;
-                            continue;
-                        }
-                        
-                        if (string.IsNullOrWhiteSpace(csvRecord.Value))
-                        {
-                            result.Errors.Add($"Row {rowNumber}: Value field is required and cannot be empty");
-                            result.FailedImports++;
-                            continue;
-                        }
-                        
-                        var validationErrors = ValidateCsvRecord(csvRecord, rowNumber);
-                        if (validationErrors.Count > 0)
-                        {
-                            result.Errors.AddRange(validationErrors);
-                            result.FailedImports++;
-                            continue;
-                        }
-                        
-                        // Check for duplicate key within the same import
-                        var keyLower = csvRecord.Key.ToLower();
-                        if (processedKeys.Contains(keyLower))
-                        {
-                            result.Errors.Add($"Row {rowNumber}: Duplicate key '{csvRecord.Key}' found within the import file");
-                            result.FailedImports++;
-                            continue;
-                        }
-                        processedKeys.Add(keyLower);
-                        
-                        // Parse asset type
-                        var assetType = csvRecord.Type.ToLower() switch
-                        {
-                            "secret" => AssetType.Secret,
-                            "string" => AssetType.String,
-                            _ => AssetType.String
-                        };
-                        
-                        var isEncrypted = assetType == AssetType.Secret;
-                        Asset asset;
-                        bool isUpdate = false;
-                        
-                        // Check if asset exists - update if yes, create if no
-                        if (existingAssetsDict.TryGetValue(keyLower, out var existingAsset))
-                        {
-                            // Update existing asset
-                            asset = existingAsset;
-                            asset.Value = isEncrypted ? EncryptValue(csvRecord.Value) : csvRecord.Value;
-                            asset.Description = csvRecord.Description;
-                            asset.IsEncrypted = isEncrypted;
-                            asset.LastModifyAt = DateTime.UtcNow;
-                            isUpdate = true;
-                            
-                            result.Warnings.Add($"Row {rowNumber}: Updated existing asset '{csvRecord.Key}' (Type: {csvRecord.Type})");
-                        }
-                        else
-                        {
-                            // Create new asset
-                            asset = new Asset
-                            {
-                                Id = Guid.NewGuid(),
-                                Key = csvRecord.Key,
-                                Value = isEncrypted ? EncryptValue(csvRecord.Value) : csvRecord.Value,
-                                Description = csvRecord.Description,
-                                IsEncrypted = isEncrypted,
-                                OrganizationUnitId = _tenantContext.CurrentTenantId,
-                                CreatedAt = DateTime.UtcNow
-                            };
-                        }
-                        
-                        // Parse bot agent names - only validate if provided
-                        var botAgentIds = new List<Guid>();
-                        var hasInvalidBotAgents = false;
-                        
-                        if (!string.IsNullOrEmpty(csvRecord.BotAgentNames))
-                        {
-                            var names = csvRecord.BotAgentNames.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                                .Select(n => n.Trim())
-                                .Where(n => !string.IsNullOrWhiteSpace(n))
-                                .ToList();
-                            
-                            // Only validate if there are actual names to process
-                            if (names.Count > 0)
-                            {
-                                foreach (var name in names)
-                                {
-                                    if (botAgentNameToId.TryGetValue(name.ToLower(), out var botAgentId))
-                                    {
-                                        botAgentIds.Add(botAgentId);
-                                    }
-                                    else
-                                    {
-                                        result.Errors.Add($"Row {rowNumber}: Bot Agent '{name}' not found. Please check the bot agent name.");
-                                        hasInvalidBotAgents = true;
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Skip this row if there are invalid bot agents (only when bot agents were specified)
-                        if (hasInvalidBotAgents)
-                        {
-                            result.FailedImports++;
-                            continue;
-                        }
-                        
-                        // Add to appropriate list for processing
-                        if (isUpdate)
-                        {
-                            assetsToUpdate.Add(asset);
-                        }
-                        else
-                        {
-                            assetsToCreate.Add(asset);
-                        }
-                        
-                        assetBotAgentRelations.Add((asset, botAgentIds));
-                    }
-                    catch (Exception ex)
-                    {
-                        result.Errors.Add($"Row {rowNumber}: Error processing row - {ex.Message}");
-                        result.FailedImports++;
-                    }
-                }
-                
-                // Save assets to database
-                var totalProcessed = 0;
-                
-                // Add new assets
-                if (assetsToCreate.Count > 0)
-                {
-                    _context.Assets.AddRange(assetsToCreate);
-                    totalProcessed += assetsToCreate.Count;
-                    result.AssetsCreated = assetsToCreate.Count;
-                }
-                
-                // Update existing assets (assetsToUpdate are already tracked by EF)
-                if (assetsToUpdate.Count > 0)
-                {
-                    _context.Assets.UpdateRange(assetsToUpdate);
-                    totalProcessed += assetsToUpdate.Count;
-                    result.AssetsUpdated = assetsToUpdate.Count;
-                }
-                
-                // Save all changes
-                if (totalProcessed > 0)
-                {
-                    await _context.SaveChangesAsync();
-                    
-                    // Handle bot agent relationships for both new and updated assets
-                    foreach (var (asset, botAgentIds) in assetBotAgentRelations)
-                    {
-                        // Remove existing relationships for updated assets
-                        var existingRelations = await _context.AssetBotAgents
-                            .Where(aba => aba.AssetId == asset.Id)
-                            .ToListAsync();
-                        
-                        if (existingRelations.Any())
-                        {
-                            _context.AssetBotAgents.RemoveRange(existingRelations);
-                        }
-                        
-                        // Add new relationships
-                        foreach (var botAgentId in botAgentIds)
-                        {
-                            _context.AssetBotAgents.Add(new AssetBotAgent
-                            {
-                                AssetId = asset.Id,
-                                BotAgentId = botAgentId
-                            });
-                        }
-                    }
-                    
-                    // Save bot agent relationships
-                    if (assetBotAgentRelations.Any())
-                    {
-                        await _context.SaveChangesAsync();
-                    }
-                    
-                    result.SuccessfulImports = totalProcessed;
-                }
+                // Save to database
+                await SaveImportDataAsync(processingData, result);
                 
                 _logger.LogInformation("CSV import completed for tenant {TenantId}. Success: {Success}, Failed: {Failed}", 
                     _tenantContext.CurrentTenantId, result.SuccessfulImports, result.FailedImports);
@@ -1007,6 +761,367 @@ namespace OpenAutomate.Infrastructure.Services
                 result.Errors.Add($"Import failed: {ex.Message}");
                 return result;
             }
+        }
+        
+        /// <summary>
+        /// Validates CSV headers for import
+        /// </summary>
+        private async Task<(bool IsValid, string ErrorMessage)> ValidateCsvHeadersAsync(CsvReader csv, CsvImportResultDto result)
+        {
+            if (!csv.Read())
+            {
+                result.Errors.Add("CSV file is empty or cannot be read");
+                return (false, "Empty file");
+            }
+            
+            csv.ReadHeader();
+            var headers = csv.HeaderRecord;
+            
+            var headerValidation = ValidateCsvHeadersDetailed(headers);
+            if (!headerValidation.IsValid)
+            {
+                result.Errors.Add($"Invalid CSV format. {headerValidation.ErrorMessage}");
+                if (headerValidation.MissingHeaders.Count > 0)
+                {
+                    result.Errors.Add($"Missing required headers: {string.Join(", ", headerValidation.MissingHeaders)}");
+                }
+                return (false, headerValidation.ErrorMessage);
+            }
+            
+            return (true, string.Empty);
+        }
+        
+        /// <summary>
+        /// Gets lookup data for import process
+        /// </summary>
+        private async Task<ImportLookupData> GetImportLookupDataAsync()
+        {
+            var botAgents = await _context.BotAgents
+                .Where(ba => ba.OrganizationUnitId == _tenantContext.CurrentTenantId)
+                .ToListAsync();
+            
+            var existingAssets = await _context.Assets
+                .Where(a => a.OrganizationUnitId == _tenantContext.CurrentTenantId)
+                .ToDictionaryAsync(a => a.Key.ToLower(), a => a);
+            
+            return new ImportLookupData
+            {
+                BotAgentNameToId = botAgents.ToDictionary(ba => ba.Name.ToLower(), ba => ba.Id),
+                ExistingAssets = existingAssets
+            };
+        }
+        
+        /// <summary>
+        /// Processes CSV rows and creates assets
+        /// </summary>
+        private async Task<ImportProcessingData> ProcessCsvRowsAsync(CsvReader csv, CsvImportResultDto result, ImportLookupData lookupData)
+        {
+            var assetsToCreate = new List<Asset>();
+            var assetsToUpdate = new List<Asset>();
+            var assetBotAgentRelations = new List<(Asset asset, List<Guid> botAgentIds)>();
+            var processedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var rowNumber = 1;
+            
+            while (csv.Read())
+            {
+                rowNumber++;
+                result.TotalRows++;
+                
+                var rowResult = await ProcessSingleCsvRowAsync(csv, rowNumber, result, lookupData, processedKeys);
+                if (rowResult.Asset != null)
+                {
+                    if (rowResult.IsUpdate)
+                    {
+                        assetsToUpdate.Add(rowResult.Asset);
+                    }
+                    else
+                    {
+                        assetsToCreate.Add(rowResult.Asset);
+                    }
+                    
+                    assetBotAgentRelations.Add((rowResult.Asset, rowResult.BotAgentIds));
+                }
+            }
+            
+            return new ImportProcessingData
+            {
+                AssetsToCreate = assetsToCreate,
+                AssetsToUpdate = assetsToUpdate,
+                AssetBotAgentRelations = assetBotAgentRelations
+            };
+        }
+        
+        /// <summary>
+        /// Processes a single CSV row
+        /// </summary>
+        private async Task<RowProcessingResult> ProcessSingleCsvRowAsync(CsvReader csv, int rowNumber, CsvImportResultDto result, ImportLookupData lookupData, HashSet<string> processedKeys)
+        {
+            try
+            {
+                var csvRecord = ReadCsvRecord(csv, rowNumber, result);
+                if (csvRecord == null)
+                {
+                    return new RowProcessingResult();
+                }
+                
+                if (!ValidateBasicFields(csvRecord, rowNumber, result))
+                {
+                    return new RowProcessingResult();
+                }
+                
+                if (!ValidateDuplicateKey(csvRecord, rowNumber, result, processedKeys))
+                {
+                    return new RowProcessingResult();
+                }
+                
+                var asset = CreateOrUpdateAsset(csvRecord, rowNumber, result, lookupData);
+                if (asset == null)
+                {
+                    return new RowProcessingResult();
+                }
+                
+                var botAgentIds = ProcessBotAgents(csvRecord, rowNumber, result, lookupData);
+                if (botAgentIds == null)
+                {
+                    return new RowProcessingResult();
+                }
+                
+                return new RowProcessingResult
+                {
+                    Asset = asset.Asset,
+                    IsUpdate = asset.IsUpdate,
+                    BotAgentIds = botAgentIds
+                };
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add($"Row {rowNumber}: Error processing row - {ex.Message}");
+                result.FailedImports++;
+                return new RowProcessingResult();
+            }
+        }
+        
+        /// <summary>
+        /// Saves import data to database
+        /// </summary>
+        private async Task SaveImportDataAsync(ImportProcessingData processingData, CsvImportResultDto result)
+        {
+            var totalProcessed = 0;
+            
+            if (processingData.AssetsToCreate.Count > 0)
+            {
+                _context.Assets.AddRange(processingData.AssetsToCreate);
+                totalProcessed += processingData.AssetsToCreate.Count;
+                result.AssetsCreated = processingData.AssetsToCreate.Count;
+            }
+            
+            if (processingData.AssetsToUpdate.Count > 0)
+            {
+                _context.Assets.UpdateRange(processingData.AssetsToUpdate);
+                totalProcessed += processingData.AssetsToUpdate.Count;
+                result.AssetsUpdated = processingData.AssetsToUpdate.Count;
+            }
+            
+            if (totalProcessed > 0)
+            {
+                await _context.SaveChangesAsync();
+                await SaveBotAgentRelationshipsAsync(processingData.AssetBotAgentRelations);
+                result.SuccessfulImports = totalProcessed;
+            }
+        }
+        
+        /// <summary>
+        /// Saves bot agent relationships
+        /// </summary>
+        private async Task SaveBotAgentRelationshipsAsync(List<(Asset asset, List<Guid> botAgentIds)> assetBotAgentRelations)
+        {
+            foreach (var (asset, botAgentIds) in assetBotAgentRelations)
+            {
+                var existingRelations = await _context.AssetBotAgents
+                    .Where(aba => aba.AssetId == asset.Id)
+                    .ToListAsync();
+                
+                if (existingRelations.Any())
+                {
+                    _context.AssetBotAgents.RemoveRange(existingRelations);
+                }
+                
+                foreach (var botAgentId in botAgentIds)
+                {
+                    _context.AssetBotAgents.Add(new AssetBotAgent
+                    {
+                        AssetId = asset.Id,
+                        BotAgentId = botAgentId
+                    });
+                }
+            }
+            
+            if (assetBotAgentRelations.Any())
+            {
+                await _context.SaveChangesAsync();
+            }
+        }
+        
+        /// <summary>
+        /// Reads CSV record from current row
+        /// </summary>
+        private AssetCsvDto? ReadCsvRecord(CsvReader csv, int rowNumber, CsvImportResultDto result)
+        {
+            try
+            {
+                var keyField = csv.GetField("Key");
+                var valueField = csv.GetField("Value");
+                var descriptionField = csv.GetField("Description");
+                var typeField = csv.GetField("Type");
+                var botAgentNamesField = csv.GetField("BotAgentNames");
+                
+                return new AssetCsvDto
+                {
+                    Key = keyField?.Trim() ?? string.Empty,
+                    Value = valueField?.Trim() ?? string.Empty,
+                    Description = descriptionField?.Trim() ?? string.Empty,
+                    Type = typeField?.Trim() ?? "String",
+                    BotAgentNames = botAgentNamesField?.Trim() ?? string.Empty
+                };
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add($"Row {rowNumber}: Error reading CSV fields - {ex.Message}");
+                result.FailedImports++;
+                return null;
+            }
+        }
+        
+        /// <summary>
+        /// Validates basic required fields
+        /// </summary>
+        private bool ValidateBasicFields(AssetCsvDto csvRecord, int rowNumber, CsvImportResultDto result)
+        {
+            if (string.IsNullOrWhiteSpace(csvRecord.Key))
+            {
+                result.Errors.Add($"Row {rowNumber}: Key field is required and cannot be empty");
+                result.FailedImports++;
+                return false;
+            }
+            
+            if (string.IsNullOrWhiteSpace(csvRecord.Value))
+            {
+                result.Errors.Add($"Row {rowNumber}: Value field is required and cannot be empty");
+                result.FailedImports++;
+                return false;
+            }
+            
+            var validationErrors = ValidateCsvRecord(csvRecord, rowNumber);
+            if (validationErrors.Count > 0)
+            {
+                result.Errors.AddRange(validationErrors);
+                result.FailedImports++;
+                return false;
+            }
+            
+            return true;
+        }
+        
+        /// <summary>
+        /// Validates duplicate key within import
+        /// </summary>
+        private bool ValidateDuplicateKey(AssetCsvDto csvRecord, int rowNumber, CsvImportResultDto result, HashSet<string> processedKeys)
+        {
+            var keyLower = csvRecord.Key.ToLower();
+            if (processedKeys.Contains(keyLower))
+            {
+                result.Errors.Add($"Row {rowNumber}: Duplicate key '{csvRecord.Key}' found within the import file");
+                result.FailedImports++;
+                return false;
+            }
+            processedKeys.Add(keyLower);
+            return true;
+        }
+        
+        /// <summary>
+        /// Creates or updates asset based on CSV record
+        /// </summary>
+        private (Asset Asset, bool IsUpdate)? CreateOrUpdateAsset(AssetCsvDto csvRecord, int rowNumber, CsvImportResultDto result, ImportLookupData lookupData)
+        {
+            var assetType = csvRecord.Type.ToLower() switch
+            {
+                "secret" => AssetType.Secret,
+                "string" => AssetType.String,
+                _ => AssetType.String
+            };
+            
+            var isEncrypted = assetType == AssetType.Secret;
+            var keyLower = csvRecord.Key.ToLower();
+            
+            if (lookupData.ExistingAssets.TryGetValue(keyLower, out var existingAsset))
+            {
+                existingAsset.Value = isEncrypted ? EncryptValue(csvRecord.Value) : csvRecord.Value;
+                existingAsset.Description = csvRecord.Description;
+                existingAsset.IsEncrypted = isEncrypted;
+                existingAsset.LastModifyAt = DateTime.UtcNow;
+                
+                result.Warnings.Add($"Row {rowNumber}: Updated existing asset '{csvRecord.Key}' (Type: {csvRecord.Type})");
+                return (existingAsset, true);
+            }
+            else
+            {
+                var newAsset = new Asset
+                {
+                    Id = Guid.NewGuid(),
+                    Key = csvRecord.Key,
+                    Value = isEncrypted ? EncryptValue(csvRecord.Value) : csvRecord.Value,
+                    Description = csvRecord.Description,
+                    IsEncrypted = isEncrypted,
+                    OrganizationUnitId = _tenantContext.CurrentTenantId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                return (newAsset, false);
+            }
+        }
+        
+        /// <summary>
+        /// Processes bot agents for asset
+        /// </summary>
+        private List<Guid>? ProcessBotAgents(AssetCsvDto csvRecord, int rowNumber, CsvImportResultDto result, ImportLookupData lookupData)
+        {
+            var botAgentIds = new List<Guid>();
+            
+            if (string.IsNullOrEmpty(csvRecord.BotAgentNames))
+            {
+                return botAgentIds;
+            }
+            
+            var names = csvRecord.BotAgentNames.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(n => n.Trim())
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .ToList();
+            
+            if (names.Count == 0)
+            {
+                return botAgentIds;
+            }
+            
+            var hasInvalidBotAgents = false;
+            foreach (var name in names)
+            {
+                if (lookupData.BotAgentNameToId.TryGetValue(name.ToLower(), out var botAgentId))
+                {
+                    botAgentIds.Add(botAgentId);
+                }
+                else
+                {
+                    result.Errors.Add($"Row {rowNumber}: Bot Agent '{name}' not found. Please check the bot agent name.");
+                    hasInvalidBotAgents = true;
+                }
+            }
+            
+            if (hasInvalidBotAgents)
+            {
+                result.FailedImports++;
+                return null;
+            }
+            
+            return botAgentIds;
         }
         
         /// <summary>
@@ -1079,6 +1194,39 @@ namespace OpenAutomate.Infrastructure.Services
                 errors.Add($"Row {rowNumber}: Type must be either 'String' or 'Secret'");
             
             return errors;
+        }
+        
+        #endregion
+        
+        #region Private Helper Classes for CSV Import
+        
+        /// <summary>
+        /// Helper class for import lookup data
+        /// </summary>
+        private class ImportLookupData
+        {
+            public Dictionary<string, Guid> BotAgentNameToId { get; set; } = new();
+            public Dictionary<string, Asset> ExistingAssets { get; set; } = new();
+        }
+        
+        /// <summary>
+        /// Helper class for import processing data
+        /// </summary>
+        private class ImportProcessingData
+        {
+            public List<Asset> AssetsToCreate { get; set; } = new();
+            public List<Asset> AssetsToUpdate { get; set; } = new();
+            public List<(Asset asset, List<Guid> botAgentIds)> AssetBotAgentRelations { get; set; } = new();
+        }
+        
+        /// <summary>
+        /// Helper class for row processing result
+        /// </summary>
+        private class RowProcessingResult
+        {
+            public Asset? Asset { get; set; }
+            public bool IsUpdate { get; set; }
+            public List<Guid> BotAgentIds { get; set; } = new();
         }
         
         #endregion
