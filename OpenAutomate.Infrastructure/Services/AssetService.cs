@@ -874,8 +874,8 @@ namespace OpenAutomate.Infrastructure.Services
                     return new RowProcessingResult();
                 }
                 
-                var asset = CreateOrUpdateAsset(csvRecord, rowNumber, result, lookupData);
-                if (asset == null)
+                var assetResult = CreateOrUpdateAsset(csvRecord, rowNumber, result, lookupData);
+                if (assetResult == null)
                 {
                     return new RowProcessingResult();
                 }
@@ -888,8 +888,8 @@ namespace OpenAutomate.Infrastructure.Services
                 
                 return new RowProcessingResult
                 {
-                    Asset = asset.Asset,
-                    IsUpdate = asset.IsUpdate,
+                    Asset = assetResult.Value.Asset,
+                    IsUpdate = assetResult.Value.IsUpdate,
                     BotAgentIds = botAgentIds
                 };
             }
