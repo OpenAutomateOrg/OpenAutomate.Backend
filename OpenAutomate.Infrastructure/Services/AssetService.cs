@@ -695,11 +695,24 @@ namespace OpenAutomate.Infrastructure.Services
                 foreach (var asset in assets)
                 {
                     csv.WriteField(asset.Key);
-                    csv.WriteField(asset.IsEncrypted ? DecryptValue(asset.Value) : asset.Value);
+                    
+                    // Security fix: Do not export encrypted values in plain text
+                    if (asset.IsEncrypted)
+                    {
+                        csv.WriteField("***ENCRYPTED***"); // Placeholder for encrypted values
+                    }
+                    else
+                    {
+                        csv.WriteField(asset.Value);
+                    }
+                    
                     csv.WriteField(asset.Description);
                     csv.WriteField(asset.IsEncrypted ? "Secret" : "String");
                     
-                    var botAgentNames = string.Join(",", asset.AssetBotAgents.Select(aba => aba.BotAgent.Name));
+                    // Null safety fix: Handle cases where BotAgent might be null
+                    var botAgentNames = string.Join(",", asset.AssetBotAgents
+                        .Where(aba => aba.BotAgent != null)
+                        .Select(aba => aba.BotAgent.Name));
                     csv.WriteField(botAgentNames);
                     csv.NextRecord();
                 }
