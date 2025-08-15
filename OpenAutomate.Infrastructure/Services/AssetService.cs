@@ -951,7 +951,9 @@ namespace OpenAutomate.Infrastructure.Services
                     _context.AssetBotAgents.Add(new AssetBotAgent
                     {
                         AssetId = asset.Id,
-                        BotAgentId = botAgentId
+                        BotAgentId = botAgentId,
+                        OrganizationUnitId = _tenantContext.CurrentTenantId,
+                        CreatedAt = DateTime.UtcNow
                     });
                 }
             }
