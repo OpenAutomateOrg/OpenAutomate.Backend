@@ -666,8 +666,9 @@ namespace OpenAutomate.Infrastructure.Services
         /// <summary>
         /// Exports all Assets to CSV format
         /// </summary>
+        /// <param name="includeSecrets">Whether to include actual secret values or use placeholders (default: false for security)</param>
         /// <returns>CSV content as byte array</returns>
-        public async Task<byte[]> ExportAssetsToCsvAsync()
+        public async Task<byte[]> ExportAssetsToCsvAsync(bool includeSecrets = false)
         {
             try
             {
@@ -696,10 +697,19 @@ namespace OpenAutomate.Infrastructure.Services
                 {
                     csv.WriteField(asset.Key);
                     
-                    // Security fix: Do not export encrypted values in plain text
+                    // Handle secret values based on user preference
                     if (asset.IsEncrypted)
                     {
-                        csv.WriteField("***ENCRYPTED***"); // Placeholder for encrypted values
+                        if (includeSecrets)
+                        {
+                            // User explicitly wants to include secrets - decrypt and export
+                            csv.WriteField(DecryptValue(asset.Value));
+                        }
+                        else
+                        {
+                            // Default secure behavior - use placeholder
+                            csv.WriteField("***ENCRYPTED***");
+                        }
                     }
                     else
                     {

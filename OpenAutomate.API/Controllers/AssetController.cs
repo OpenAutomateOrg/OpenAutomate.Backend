@@ -345,6 +345,7 @@ namespace OpenAutomate.API.Controllers
         /// <summary>
         /// Exports all Assets to CSV format
         /// </summary>
+        /// <param name="includeSecrets">Whether to include actual secret values or use placeholders (default: false for security)</param>
         /// <returns>CSV file download</returns>
         [HttpGet("export/csv")]
         [RequireSubscription(SubscriptionOperationType.Read)]
@@ -352,11 +353,11 @@ namespace OpenAutomate.API.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<IActionResult> ExportAssetsToCsv()
+        public async Task<IActionResult> ExportAssetsToCsv([FromQuery] bool includeSecrets = false)
         {
             try
             {
-                var csvData = await _assetService.ExportAssetsToCsvAsync();
+                var csvData = await _assetService.ExportAssetsToCsvAsync(includeSecrets);
                 var fileName = $"assets_export_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
                 
                 return File(csvData, "text/csv", fileName);

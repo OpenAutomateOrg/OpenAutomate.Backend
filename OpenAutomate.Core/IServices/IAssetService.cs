@@ -102,8 +102,9 @@ namespace OpenAutomate.Core.IServices
         /// <summary>
         /// Exports all Assets to CSV format
         /// </summary>
+        /// <param name="includeSecrets">Whether to include actual secret values or use placeholders (default: false for security)</param>
         /// <returns>CSV content as byte array</returns>
-        Task<byte[]> ExportAssetsToCsvAsync();
+        Task<byte[]> ExportAssetsToCsvAsync(bool includeSecrets = false);
         
         /// <summary>
         /// Imports Assets from CSV data
