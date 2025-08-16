@@ -8,10 +8,13 @@ using OpenAutomate.Core.IServices;
 using OpenAutomate.Infrastructure.DbContext;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using CsvHelper;
+using CsvHelper.Configuration;
 
 namespace OpenAutomate.Infrastructure.Services
 {
@@ -654,6 +657,504 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 throw new AssetEncryptionException("Error decrypting asset value", ex);
             }
+        }
+        
+        #endregion
+        
+        #region CSV Import/Export Methods
+        
+        /// <summary>
+        /// Exports all Assets to CSV format
+        /// </summary>
+        /// <param name="includeSecrets">Whether to include actual secret values or use placeholders (default: false for security)</param>
+        /// <returns>CSV content as byte array</returns>
+        public async Task<byte[]> ExportAssetsToCsvAsync(bool includeSecrets = false)
+        {
+            try
+            {
+                _logger.LogInformation("Exporting assets to CSV for tenant {TenantId}", _tenantContext.CurrentTenantId);
+                
+                var assets = await _context.Assets
+                    .Where(a => a.OrganizationUnitId == _tenantContext.CurrentTenantId)
+                    .ToListAsync();
+                
+                using var memoryStream = new MemoryStream();
+                using var writer = new StreamWriter(memoryStream);
+                using var csv = new CsvWriter(writer, System.Globalization.CultureInfo.InvariantCulture);
+                
+                // Write header
+                csv.WriteField("Key");
+                csv.WriteField("Value");
+                csv.WriteField("Description");
+                csv.WriteField("Type");
+                csv.NextRecord();
+                
+                // Write data
+                foreach (var asset in assets)
+                {
+                    csv.WriteField(asset.Key);
+                    
+                    // Handle secret values based on user preference
+                    if (asset.IsEncrypted)
+                    {
+                        if (includeSecrets)
+                        {
+                            // User explicitly wants to include secrets - decrypt and export
+                            csv.WriteField(DecryptValue(asset.Value));
+                        }
+                        else
+                        {
+                            // Default secure behavior - use placeholder
+                            csv.WriteField("***ENCRYPTED***");
+                        }
+                    }
+                    else
+                    {
+                        csv.WriteField(asset.Value);
+                    }
+                    
+                    csv.WriteField(asset.Description);
+                    csv.WriteField(asset.IsEncrypted ? "Secret" : "String");
+                    csv.NextRecord();
+                }
+                
+                writer.Flush();
+                _logger.LogInformation("Successfully exported {Count} assets to CSV", assets.Count);
+                return memoryStream.ToArray();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exporting assets to CSV for tenant {TenantId}: {Message}", 
+                    _tenantContext.CurrentTenantId, ex.Message);
+                throw new AssetException("Error exporting assets to CSV", ex);
+            }
+        }
+        
+        /// <summary>
+        /// Imports Assets from CSV data
+        /// </summary>
+        /// <param name="csvData">CSV file content as byte array</param>
+        /// <returns>Import result with statistics and errors</returns>
+        public async Task<CsvImportResultDto> ImportAssetsFromCsvAsync(byte[] csvData)
+        {
+            var result = new CsvImportResultDto();
+            
+            try
+            {
+                _logger.LogInformation("Starting CSV import for tenant {TenantId}", _tenantContext.CurrentTenantId);
+                
+                using var memoryStream = new MemoryStream(csvData);
+                using var reader = new StreamReader(memoryStream);
+                using var csv = new CsvReader(reader, System.Globalization.CultureInfo.InvariantCulture);
+                
+                // Validate CSV headers
+                var headerValidationResult = await ValidateCsvHeadersAsync(csv, result);
+                if (!headerValidationResult.IsValid)
+                {
+                    return result;
+                }
+                
+                // Get lookup dictionaries
+                var lookupData = await GetImportLookupDataAsync();
+                
+                // Process CSV rows
+                var processingData = await ProcessCsvRowsAsync(csv, result, lookupData);
+                
+                // Save to database
+                await SaveImportDataAsync(processingData, result);
+                
+                _logger.LogInformation("CSV import completed for tenant {TenantId}. Success: {Success}, Failed: {Failed}", 
+                    _tenantContext.CurrentTenantId, result.SuccessfulImports, result.FailedImports);
+                
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error importing assets from CSV for tenant {TenantId}: {Message}", 
+                    _tenantContext.CurrentTenantId, ex.Message);
+                result.Errors.Add($"Import failed: {ex.Message}");
+                return result;
+            }
+        }
+        
+        /// <summary>
+        /// Validates CSV headers for import
+        /// </summary>
+        private async Task<(bool IsValid, string ErrorMessage)> ValidateCsvHeadersAsync(CsvReader csv, CsvImportResultDto result)
+        {
+            if (!csv.Read())
+            {
+                result.Errors.Add("CSV file is empty or cannot be read");
+                return (false, "Empty file");
+            }
+            
+            csv.ReadHeader();
+            var headers = csv.HeaderRecord;
+            
+            var headerValidation = ValidateCsvHeadersDetailed(headers);
+            if (!headerValidation.IsValid)
+            {
+                result.Errors.Add($"Invalid CSV format. {headerValidation.ErrorMessage}");
+                if (headerValidation.MissingHeaders.Count > 0)
+                {
+                    result.Errors.Add($"Missing required headers: {string.Join(", ", headerValidation.MissingHeaders)}");
+                }
+                return (false, headerValidation.ErrorMessage);
+            }
+            
+            return (true, string.Empty);
+        }
+        
+        /// <summary>
+        /// Gets lookup data for import process
+        /// </summary>
+        private async Task<ImportLookupData> GetImportLookupDataAsync()
+        {
+            var existingAssets = await _context.Assets
+                .Where(a => a.OrganizationUnitId == _tenantContext.CurrentTenantId)
+                .ToDictionaryAsync(a => a.Key.ToLower(), a => a);
+            
+            return new ImportLookupData
+            {
+                BotAgentNameToId = new Dictionary<string, Guid>(),
+                ExistingAssets = existingAssets
+            };
+        }
+        
+        /// <summary>
+        /// Processes CSV rows and creates assets
+        /// </summary>
+        private async Task<ImportProcessingData> ProcessCsvRowsAsync(CsvReader csv, CsvImportResultDto result, ImportLookupData lookupData)
+        {
+            var assetsToCreate = new List<Asset>();
+            var assetsToUpdate = new List<Asset>();
+            var assetBotAgentRelations = new List<(Asset asset, List<Guid> botAgentIds)>();
+            var processedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var rowNumber = 1;
+            
+            while (csv.Read())
+            {
+                rowNumber++;
+                result.TotalRows++;
+                
+                var rowResult = await ProcessSingleCsvRowAsync(csv, rowNumber, result, lookupData, processedKeys);
+                if (rowResult.Asset != null)
+                {
+                    if (rowResult.IsUpdate)
+                    {
+                        assetsToUpdate.Add(rowResult.Asset);
+                    }
+                    else
+                    {
+                        assetsToCreate.Add(rowResult.Asset);
+                    }
+                    
+                    assetBotAgentRelations.Add((rowResult.Asset, rowResult.BotAgentIds));
+                }
+            }
+            
+            return new ImportProcessingData
+            {
+                AssetsToCreate = assetsToCreate,
+                AssetsToUpdate = assetsToUpdate,
+                AssetBotAgentRelations = assetBotAgentRelations
+            };
+        }
+        
+        /// <summary>
+        /// Processes a single CSV row
+        /// </summary>
+        private async Task<RowProcessingResult> ProcessSingleCsvRowAsync(CsvReader csv, int rowNumber, CsvImportResultDto result, ImportLookupData lookupData, HashSet<string> processedKeys)
+        {
+            try
+            {
+                var csvRecord = ReadCsvRecord(csv, rowNumber, result);
+                if (csvRecord == null)
+                {
+                    return new RowProcessingResult();
+                }
+                
+                if (!ValidateBasicFields(csvRecord, rowNumber, result))
+                {
+                    return new RowProcessingResult();
+                }
+                
+                if (!ValidateDuplicateKey(csvRecord, rowNumber, result, processedKeys))
+                {
+                    return new RowProcessingResult();
+                }
+                
+                var assetResult = CreateOrUpdateAsset(csvRecord, rowNumber, result, lookupData);
+                if (assetResult == null)
+                {
+                    return new RowProcessingResult();
+                }
+                
+                return new RowProcessingResult
+                {
+                    Asset = assetResult.Value.Asset,
+                    IsUpdate = assetResult.Value.IsUpdate,
+                    BotAgentIds = new List<Guid>()
+                };
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add($"Row {rowNumber}: Error processing row - {ex.Message}");
+                result.FailedImports++;
+                return new RowProcessingResult();
+            }
+        }
+        
+        /// <summary>
+        /// Saves import data to database
+        /// </summary>
+        private async Task SaveImportDataAsync(ImportProcessingData processingData, CsvImportResultDto result)
+        {
+            var totalProcessed = 0;
+            
+            if (processingData.AssetsToCreate.Count > 0)
+            {
+                _context.Assets.AddRange(processingData.AssetsToCreate);
+                totalProcessed += processingData.AssetsToCreate.Count;
+                result.AssetsCreated = processingData.AssetsToCreate.Count;
+            }
+            
+            if (processingData.AssetsToUpdate.Count > 0)
+            {
+                _context.Assets.UpdateRange(processingData.AssetsToUpdate);
+                totalProcessed += processingData.AssetsToUpdate.Count;
+                result.AssetsUpdated = processingData.AssetsToUpdate.Count;
+            }
+            
+            if (totalProcessed > 0)
+            {
+                await _context.SaveChangesAsync();
+                result.SuccessfulImports = totalProcessed;
+            }
+        }
+        
+
+        
+        /// <summary>
+        /// Reads CSV record from current row
+        /// </summary>
+        private AssetCsvDto? ReadCsvRecord(CsvReader csv, int rowNumber, CsvImportResultDto result)
+        {
+            try
+            {
+                var keyField = csv.GetField("Key");
+                var valueField = csv.GetField("Value");
+                var descriptionField = csv.GetField("Description");
+                var typeField = csv.GetField("Type");
+                
+                return new AssetCsvDto
+                {
+                    Key = keyField?.Trim() ?? string.Empty,
+                    Value = valueField?.Trim() ?? string.Empty,
+                    Description = descriptionField?.Trim() ?? string.Empty,
+                    Type = typeField?.Trim() ?? "String"
+                };
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add($"Row {rowNumber}: Error reading CSV fields - {ex.Message}");
+                result.FailedImports++;
+                return null;
+            }
+        }
+        
+        /// <summary>
+        /// Validates basic required fields
+        /// </summary>
+        private bool ValidateBasicFields(AssetCsvDto csvRecord, int rowNumber, CsvImportResultDto result)
+        {
+            if (string.IsNullOrWhiteSpace(csvRecord.Key))
+            {
+                result.Errors.Add($"Row {rowNumber}: Key field is required and cannot be empty");
+                result.FailedImports++;
+                return false;
+            }
+            
+            if (string.IsNullOrWhiteSpace(csvRecord.Value))
+            {
+                result.Errors.Add($"Row {rowNumber}: Value field is required and cannot be empty");
+                result.FailedImports++;
+                return false;
+            }
+            
+            var validationErrors = ValidateCsvRecord(csvRecord, rowNumber);
+            if (validationErrors.Count > 0)
+            {
+                result.Errors.AddRange(validationErrors);
+                result.FailedImports++;
+                return false;
+            }
+            
+            return true;
+        }
+        
+        /// <summary>
+        /// Validates duplicate key within import
+        /// </summary>
+        private bool ValidateDuplicateKey(AssetCsvDto csvRecord, int rowNumber, CsvImportResultDto result, HashSet<string> processedKeys)
+        {
+            var keyLower = csvRecord.Key.ToLower();
+            if (processedKeys.Contains(keyLower))
+            {
+                result.Errors.Add($"Row {rowNumber}: Duplicate key '{csvRecord.Key}' found within the import file");
+                result.FailedImports++;
+                return false;
+            }
+            processedKeys.Add(keyLower);
+            return true;
+        }
+        
+        /// <summary>
+        /// Creates or updates asset based on CSV record
+        /// </summary>
+        private (Asset Asset, bool IsUpdate)? CreateOrUpdateAsset(AssetCsvDto csvRecord, int rowNumber, CsvImportResultDto result, ImportLookupData lookupData)
+        {
+            var assetType = csvRecord.Type.ToLower() switch
+            {
+                "secret" => AssetType.Secret,
+                "string" => AssetType.String,
+                _ => AssetType.String
+            };
+            
+            var isEncrypted = assetType == AssetType.Secret;
+            var keyLower = csvRecord.Key.ToLower();
+            
+            if (lookupData.ExistingAssets.TryGetValue(keyLower, out var existingAsset))
+            {
+                existingAsset.Value = isEncrypted ? EncryptValue(csvRecord.Value) : csvRecord.Value;
+                existingAsset.Description = csvRecord.Description;
+                existingAsset.IsEncrypted = isEncrypted;
+                existingAsset.LastModifyAt = DateTime.UtcNow;
+                
+                result.Warnings.Add($"Row {rowNumber}: Updated existing asset '{csvRecord.Key}' (Type: {csvRecord.Type})");
+                return (existingAsset, true);
+            }
+            else
+            {
+                var newAsset = new Asset
+                {
+                    Id = Guid.NewGuid(),
+                    Key = csvRecord.Key,
+                    Value = isEncrypted ? EncryptValue(csvRecord.Value) : csvRecord.Value,
+                    Description = csvRecord.Description,
+                    IsEncrypted = isEncrypted,
+                    OrganizationUnitId = _tenantContext.CurrentTenantId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                return (newAsset, false);
+            }
+        }
+        
+
+        
+        /// <summary>
+        /// Validates CSV headers with detailed error information
+        /// </summary>
+        private static (bool IsValid, string ErrorMessage, List<string> MissingHeaders) ValidateCsvHeadersDetailed(string[]? headers)
+        {
+            var missingHeaders = new List<string>();
+            
+            if (headers == null || headers.Length == 0)
+            {
+                return (false, "CSV file has no headers", new List<string> { "Key", "Value", "Description", "Type" });
+            }
+                
+            // Only Key, Value, and Type are truly required
+            var requiredHeaders = new[] { "Key", "Value", "Type" };
+            var optionalHeaders = new[] { "Description" };
+            
+            foreach (var requiredHeader in requiredHeaders)
+            {
+                if (!headers.Contains(requiredHeader, StringComparer.OrdinalIgnoreCase))
+                {
+                    missingHeaders.Add(requiredHeader);
+                }
+            }
+            
+            if (missingHeaders.Count > 0)
+            {
+                return (false, "Required headers are missing", missingHeaders);
+            }
+            
+            return (true, string.Empty, new List<string>());
+        }
+        
+        /// <summary>
+        /// Validates CSV headers (legacy method for backward compatibility)
+        /// </summary>
+        private static bool ValidateCsvHeaders(string[]? headers)
+        {
+            var result = ValidateCsvHeadersDetailed(headers);
+            return result.IsValid;
+        }
+        
+        /// <summary>
+        /// Validates a CSV record
+        /// </summary>
+        private static List<string> ValidateCsvRecord(AssetCsvDto record, int rowNumber)
+        {
+            var errors = new List<string>();
+            
+            // Key validation (required)
+            if (string.IsNullOrWhiteSpace(record.Key))
+                errors.Add($"Row {rowNumber}: Key is required");
+            else if (record.Key.Length > 50)
+                errors.Add($"Row {rowNumber}: Key must be 50 characters or less");
+            else if (!System.Text.RegularExpressions.Regex.IsMatch(record.Key, @"^[a-zA-Z0-9_\-.]+$", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromMilliseconds(100)))
+                errors.Add($"Row {rowNumber}: Key can only contain letters, numbers, underscores, hyphens, and periods");
+            
+            // Value validation (required)
+            if (string.IsNullOrWhiteSpace(record.Value))
+                errors.Add($"Row {rowNumber}: Value is required");
+            
+            // Description validation (optional - can be null or empty)
+            if (!string.IsNullOrEmpty(record.Description) && record.Description.Length > 500)
+                errors.Add($"Row {rowNumber}: Description must be 500 characters or less");
+            
+            // Type validation (optional - defaults to String if not provided)
+            if (!string.IsNullOrEmpty(record.Type) && 
+                !new[] { "String", "Secret" }.Contains(record.Type, StringComparer.OrdinalIgnoreCase))
+                errors.Add($"Row {rowNumber}: Type must be either 'String' or 'Secret'");
+            
+            return errors;
+        }
+        
+        #endregion
+        
+        #region Private Helper Classes for CSV Import
+        
+        /// <summary>
+        /// Helper class for import lookup data
+        /// </summary>
+        private class ImportLookupData
+        {
+            public Dictionary<string, Guid> BotAgentNameToId { get; set; } = new();
+            public Dictionary<string, Asset> ExistingAssets { get; set; } = new();
+        }
+        
+        /// <summary>
+        /// Helper class for import processing data
+        /// </summary>
+        private class ImportProcessingData
+        {
+            public List<Asset> AssetsToCreate { get; set; } = new();
+            public List<Asset> AssetsToUpdate { get; set; } = new();
+            public List<(Asset asset, List<Guid> botAgentIds)> AssetBotAgentRelations { get; set; } = new();
+        }
+        
+        /// <summary>
+        /// Helper class for row processing result
+        /// </summary>
+        private class RowProcessingResult
+        {
+            public Asset? Asset { get; set; }
+            public bool IsUpdate { get; set; }
+            public List<Guid> BotAgentIds { get; set; } = new();
         }
         
         #endregion
