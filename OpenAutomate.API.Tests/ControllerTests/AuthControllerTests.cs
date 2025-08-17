@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Moq;
 using OpenAutomate.API.Controllers;
+using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.Dto.UserDto;
 using OpenAutomate.Core.Exceptions;
 using OpenAutomate.Core.IServices;
@@ -19,6 +21,7 @@ namespace OpenAutomate.API.Tests.ControllerTests
         private readonly Mock<IAuthService> _mockAuthService;
         private readonly Mock<ILogger<AuthController>> _mockLogger;
         private readonly Mock<ITenantContext> _mockTenantContext;
+        private readonly Mock<IOptions<AppSettings>> _mockAppSettings;
         private readonly AuthController _controller;
         private readonly Dictionary<string, string> _cookies;
         private readonly Mock<IRequestCookieCollection> _mockCookieCollection;
@@ -28,6 +31,20 @@ namespace OpenAutomate.API.Tests.ControllerTests
             _mockAuthService = new Mock<IAuthService>();
             _mockLogger = new Mock<ILogger<AuthController>>();
             _mockTenantContext = new Mock<ITenantContext>();
+            _mockAppSettings = new Mock<IOptions<AppSettings>>();
+            
+            // Setup AppSettings with default CookieSettings
+            var appSettings = new AppSettings
+            {
+                CookieSettings = new CookieSettings
+                {
+                    Domain = null,
+                    SameSite = "Lax", 
+                    Secure = false
+                }
+            };
+            _mockAppSettings.Setup(x => x.Value).Returns(appSettings);
+            
             _cookies = new Dictionary<string, string>();
 
             // Create mock cookie collection that reads from the dictionary
@@ -53,7 +70,8 @@ namespace OpenAutomate.API.Tests.ControllerTests
             _controller = new AuthController(
                 _mockAuthService.Object,
                 _mockLogger.Object,
-                _mockTenantContext.Object)
+                _mockTenantContext.Object,
+                _mockAppSettings.Object)
             {
                 ControllerContext = controllerContext
             };

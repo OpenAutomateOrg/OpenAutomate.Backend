@@ -9,6 +9,8 @@ public class AppSettings
     public JwtSettings Jwt { get; set; } = new JwtSettings();
     public DatabaseSettings Database { get; set; } = new DatabaseSettings();
     public CorsSettings Cors { get; set; } = new CorsSettings();
+    public CookieSettings CookieSettings { get; set; } = new CookieSettings();
     public RedisSettings Redis { get; set; } = new RedisSettings();
     public LemonSqueezySettings LemonSqueezy { get; set; } = new LemonSqueezySettings();
+    public AdminSeedSettings AdminSeed { get; set; } = new AdminSeedSettings();
 } 
