@@ -74,6 +74,7 @@ namespace OpenAutomate.API
             builder.Services.Configure<RedisCacheConfiguration>(appSettingsSection.GetSection("RedisCache"));
             builder.Services.Configure<EmailSettings>(appSettingsSection.GetSection("EmailSettings"));
             builder.Services.Configure<LemonSqueezySettings>(appSettingsSection.GetSection("LemonSqueezy"));
+            builder.Services.Configure<AdminSeedSettings>(appSettingsSection.GetSection("AdminSeed"));
         }
         
         private static void ConfigureLogging(WebApplicationBuilder builder)
@@ -312,6 +313,9 @@ namespace OpenAutomate.API
 
             // Register system statistics service
             builder.Services.AddScoped<ISystemStatisticsService, SystemStatisticsService>();
+            
+            // Register admin seeding service
+            builder.Services.AddScoped<IAdminSeedService, AdminSeedService>();
         }
         
         private static void ConfigureAuthentication(WebApplicationBuilder builder)
@@ -546,6 +550,25 @@ namespace OpenAutomate.API
                 catch (Exception ex)
                 {
                     Console.WriteLine($"An error occurred ensuring Quartz.NET schema: {ex.Message}");
+                }
+
+                // Seed system administrator account
+                var adminSeedService = scope.ServiceProvider.GetRequiredService<IAdminSeedService>();
+                try
+                {
+                    var adminSeeded = await adminSeedService.SeedSystemAdminAsync();
+                    if (adminSeeded)
+                    {
+                        Console.WriteLine("System administrator account seeded successfully.");
+                    }
+                    else
+                    {
+                        Console.WriteLine("System administrator account already exists or seeding is disabled.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"An error occurred seeding system admin: {ex.Message}");
                 }
             }
         }

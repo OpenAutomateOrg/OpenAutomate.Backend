@@ -42,9 +42,9 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 throw new InvalidOperationException(TenantNotAvailableMessage);
             }
-            
+
             var currentTenantId = _tenantContext.CurrentTenantId;
-            
+
             var execution = new Execution
             {
                 BotAgentId = dto.BotAgentId,
@@ -57,8 +57,8 @@ namespace OpenAutomate.Infrastructure.Services
             await _unitOfWork.Executions.AddAsync(execution);
             await _unitOfWork.CompleteAsync();
 
-            _logger.LogInformation("Execution created: {ExecutionId}, BotAgent: {BotAgentId}, Package: {PackageId}",
-                execution.Id, dto.BotAgentId, dto.PackageId);
+            _logger.LogInformation("Execution created: {ExecutionId} - Status: {Status} - BotAgent: {BotAgentId} - Package: {PackageId} - Tenant: {TenantId}",
+                execution.Id.ToString().Substring(0, 8), execution.Status, dto.BotAgentId, dto.PackageId, currentTenantId);
 
             return execution;
         }        /// <summary>
@@ -91,9 +91,9 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 throw new InvalidOperationException(TenantNotAvailableMessage);
             }
-            
+
             var currentTenantId = _tenantContext.CurrentTenantId;
-            
+
             var executions = await _unitOfWork.Executions.GetAllAsync(
                 e => e.OrganizationUnitId == currentTenantId,
                 null,
@@ -132,9 +132,11 @@ namespace OpenAutomate.Infrastructure.Services
             var execution = await GetExecutionByIdAsync(id);
             if (execution == null)
             {
+                _logger.LogWarning("UpdateExecutionStatusAsync: Execution {ExecutionId} not found", id);
                 return null;
             }
 
+            var oldStatus = execution.Status;
             execution.Status = status;
             execution.ErrorMessage = errorMessage;
             execution.LogOutput = logOutput;
@@ -149,8 +151,8 @@ namespace OpenAutomate.Infrastructure.Services
 
             await _unitOfWork.CompleteAsync();
 
-            _logger.LogInformation("Execution status updated: {ExecutionId}, Status: {Status}",
-                execution.Id, status);
+            _logger.LogInformation("Execution status updated: {ExecutionId} - {OldStatus} -> {NewStatus}",
+                execution.Id.ToString().Substring(0, 8), oldStatus, status);
 
             return execution;
         }
