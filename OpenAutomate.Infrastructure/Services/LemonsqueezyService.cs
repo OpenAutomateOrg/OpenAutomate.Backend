@@ -136,18 +136,30 @@ namespace OpenAutomate.Infrastructure.Services
 
 
 
-            // Build query parameters supported by Lemon Squeezy buy links
-            var uri = new UriBuilder(buyUrl);
-            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
-            query["checkout[email]"] = userEmail;
-            query["checkout[custom][organization_unit_id]"] = organizationUnitId.ToString();
-            query["checkout[success_url]"] = successUrl;
-            query["checkout[cancel_url]"] = cancelUrl;
-            uri.Query = query.ToString();
+            // Build query parameters supported by Lemon Squeezy buy links (cross-platform, no System.Web)
+            string finalUrl;
+            try
+            {
+                var hasQuery = buyUrl.Contains("?");
+                var prefix = hasQuery ? "&" : "?";
 
-            var final = uri.ToString();
+                var sb = new StringBuilder();
+                sb.Append(prefix);
+                sb.Append("checkout%5Bemail%5D=").Append(Uri.EscapeDataString(userEmail));
+                sb.Append("&checkout%5Bcustom%5D%5Borganization_unit_id%5D=").Append(Uri.EscapeDataString(organizationUnitId.ToString()));
+                sb.Append("&checkout%5Bsuccess_url%5D=").Append(Uri.EscapeDataString(successUrl));
+                sb.Append("&checkout%5Bcancel_url%5D=").Append(Uri.EscapeDataString(cancelUrl));
+
+                finalUrl = buyUrl + sb.ToString();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to build Lemon Squeezy buy link query string. Falling back to plain URL for organization {OrganizationUnitId}", organizationUnitId);
+                finalUrl = buyUrl;
+            }
+
             _logger.LogInformation("Using buy link fallback for organization {OrganizationUnitId}", organizationUnitId);
-            return final;
+            return finalUrl;
         }
 
         private async Task<string?> GetVariantBuyUrlAsync(string variantId)
