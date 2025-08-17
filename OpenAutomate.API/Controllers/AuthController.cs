@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Dto.UserDto;
 using OpenAutomate.Core.Exceptions;
@@ -23,6 +25,7 @@ namespace OpenAutomate.API.Controllers
         private readonly IAuthService _authService;
         private readonly ILogger<AuthController> _logger;
         private readonly ITenantContext _tenantContext;
+        private readonly CookieSettings _cookieSettings;
 
         // Define static log message templates for consistent logging
         private static class LogMessages
@@ -62,14 +65,17 @@ namespace OpenAutomate.API.Controllers
         /// <param name="authService">The auth service for authentication operations</param>
         /// <param name="logger">The logger for recording authentication events</param>
         /// <param name="tenantContext">The tenant context for current tenant information</param>
+        /// <param name="appSettings">Application settings including cookie configuration</param>
         public AuthController(
             IAuthService authService, 
             ILogger<AuthController> logger,
-            ITenantContext tenantContext)
+            ITenantContext tenantContext,
+            IOptions<AppSettings> appSettings)
         {
             _authService = authService ?? throw new ArgumentNullException(nameof(authService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _tenantContext = tenantContext ?? throw new ArgumentNullException(nameof(tenantContext));
+            _cookieSettings = appSettings?.Value?.CookieSettings ?? throw new ArgumentNullException(nameof(appSettings));
         }
 
         /// <summary>
@@ -469,16 +475,31 @@ namespace OpenAutomate.API.Controllers
             
             try
             {
+                // Parse SameSite mode from configuration
+                var sameSiteMode = _cookieSettings.SameSite?.ToLowerInvariant() switch
+                {
+                    "strict" => SameSiteMode.Strict,
+                    "lax" => SameSiteMode.Lax,
+                    "none" => SameSiteMode.None,
+                    _ => SameSiteMode.None
+                };
+
                 // Configure cookie options
                 var cookieOptions = new CookieOptions
                 {
                     HttpOnly = true,          // Prevents client-side JS from accessing the cookie
                     Expires = expires,
-                    SameSite = SameSiteMode.None, // Use None for both development and production with CORS
-                    Secure = true,            // Always use secure cookies (required with SameSite=None)
+                    SameSite = sameSiteMode,  // Use configured SameSite mode
+                    Secure = _cookieSettings.Secure, // Use configured Secure setting
                     Path = "/",               // Make cookie available to all paths
                     MaxAge = TimeSpan.FromDays(7) // Explicit max age as backup to Expires
                 };
+
+                // Set domain if configured (for cross-subdomain cookies)
+                if (!string.IsNullOrEmpty(_cookieSettings.Domain))
+                {
+                    cookieOptions.Domain = _cookieSettings.Domain;
+                }
 
                 string tokenPreview = token.Length > 10 ? 
                     token.Substring(0, Math.Min(10, token.Length)) : 
@@ -486,6 +507,7 @@ namespace OpenAutomate.API.Controllers
                 
                 _logger.LogDebug(LogMessages.CookieSet, 
                     tokenPreview, cookieOptions.SameSite, cookieOptions.Secure, cookieOptions.Expires);
+                _logger.LogDebug("Cookie domain set to: {Domain}", cookieOptions.Domain ?? "default");
                     
                 // Clear any existing cookie first to ensure we're not having duplicates
                 Response.Cookies.Delete("refreshToken");

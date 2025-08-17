@@ -85,7 +85,7 @@ namespace OpenAutomate.API.Controllers.OData
                 }
 
                 var executions = await _executionService.GetAllExecutionsAsync();
-                
+
                 // Transform to DTOs for OData
                 var executionDtos = executions.Select(execution => new ExecutionResponseDto
                 {
