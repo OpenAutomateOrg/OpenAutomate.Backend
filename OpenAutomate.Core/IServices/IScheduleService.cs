@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using OpenAutomate.Core.Dto.Schedule;
+using OpenAutomate.Core.Dto.Common;
 
 namespace OpenAutomate.Core.IServices
 {
@@ -73,5 +74,12 @@ namespace OpenAutomate.Core.IServices
         /// <param name="count">Number of upcoming run times to calculate</param>
         /// <returns>List of upcoming run times</returns>
         List<DateTime> CalculateUpcomingRunTimes(ScheduleResponseDto schedule, int count = 5);
+        
+        /// <summary>
+        /// Deletes multiple Schedules in a single operation
+        /// </summary>
+        /// <param name="ids">List of Schedule IDs to delete</param>
+        /// <returns>Result of the bulk delete operation</returns>
+        Task<BulkDeleteResultDto> BulkDeleteSchedulesAsync(List<Guid> ids);
     }
 } 

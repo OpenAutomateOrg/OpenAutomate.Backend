@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Domain.IRepository;
 using OpenAutomate.Core.Dto.UserDto;
+using OpenAutomate.Core.Dto.Common;
 using Microsoft.Extensions.Options;
 using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.Exceptions;
@@ -497,6 +498,42 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 _logger.LogError(ex, "Error retrieving user profile for user: {UserId}", userId);
                 throw new ServiceException($"Error retrieving user profile for user: {userId}", ex);
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<BulkDeleteResultDto> BulkDeleteUsersAsync(List<Guid> ids)
+        {
+            var result = new BulkDeleteResultDto
+            {
+                TotalRequested = ids.Count
+            };
+
+            try
+            {
+                _logger.LogInformation("User bulk delete requested for {Count} users", ids.Count);
+
+                // For now, we'll return an error for all user deletions
+                // User deletion is complex and requires careful handling of relationships
+                foreach (var id in ids)
+                {
+                    result.Errors.Add(new BulkDeleteErrorDto
+                    {
+                        Id = id,
+                        ErrorMessage = "User bulk delete is not implemented for safety reasons",
+                        ErrorCode = "NotImplemented"
+                    });
+                }
+
+                result.Failed = result.Errors.Count;
+
+                _logger.LogWarning("User bulk delete operation declined - not implemented for safety");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in bulk delete users operation: {Message}", ex.Message);
+                throw new ServiceException("Error occurred during bulk delete operation", ex);
             }
         }
     }

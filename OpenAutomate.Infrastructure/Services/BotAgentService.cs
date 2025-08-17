@@ -8,6 +8,7 @@ using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Domain.IRepository;
 using OpenAutomate.Core.Dto.Asset;
 using OpenAutomate.Core.Dto.BotAgent;
+using OpenAutomate.Core.Dto.Common;
 using OpenAutomate.Core.IServices;
 
 namespace OpenAutomate.Infrastructure.Services
@@ -255,6 +256,87 @@ namespace OpenAutomate.Infrastructure.Services
             await _unitOfWork.CompleteAsync();
             _logger.LogInformation("Bot Agent updated: {BotAgentId}", botAgent.Id);
             return MapToResponseDto(botAgent);
+        }
+
+        /// <inheritdoc />
+        public async Task<BulkDeleteResultDto> BulkDeleteBotAgentsAsync(List<Guid> ids)
+        {
+            var result = new BulkDeleteResultDto
+            {
+                TotalRequested = ids.Count
+            };
+
+            try
+            {
+                // Get bot agents that exist and belong to the current tenant
+                var botAgents = await _unitOfWork.BotAgents.GetAllAsync();
+                var botAgentsToDelete = botAgents
+                    .Where(ba => ids.Contains(ba.Id) && ba.OrganizationUnitId == _tenantContext.CurrentTenantId)
+                    .ToList();
+
+                var foundIds = botAgentsToDelete.Select(ba => ba.Id).ToList();
+
+                // Track bot agents not found
+                var notFoundIds = ids.Except(foundIds).ToList();
+                foreach (var notFoundId in notFoundIds)
+                {
+                    result.Errors.Add(new BulkDeleteErrorDto
+                    {
+                        Id = notFoundId,
+                        ErrorMessage = "Bot Agent not found or access denied",
+                        ErrorCode = "NotFound"
+                    });
+                }
+
+                // Delete each bot agent and handle dependencies
+                foreach (var botAgent in botAgentsToDelete)
+                {
+                    try
+                    {
+                        // Simple check - just delete the bot agent
+                        // In production, you might want to check for running executions
+
+                        // Remove asset-bot agent relationships
+                        var assetBotAgents = await _unitOfWork.AssetBotAgents.GetAllAsync();
+                        var relatedAssetBotAgents = assetBotAgents.Where(aba => aba.BotAgentId == botAgent.Id).ToList();
+                        _unitOfWork.AssetBotAgents.RemoveRange(relatedAssetBotAgents);
+
+                        // Remove the bot agent
+                        _unitOfWork.BotAgents.Remove(botAgent);
+                        
+                        result.DeletedIds.Add(botAgent.Id);
+                        result.SuccessfullyDeleted++;
+                        
+                        _logger.LogInformation("Bot Agent deleted: {BotAgentId}", botAgent.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error deleting bot agent with ID {Id}: {Message}", botAgent.Id, ex.Message);
+                        result.Errors.Add(new BulkDeleteErrorDto
+                        {
+                            Id = botAgent.Id,
+                            ErrorMessage = ex.Message,
+                            ErrorCode = "DeleteError"
+                        });
+                        result.Failed++;
+                    }
+                }
+
+                // Save changes if there were successful deletions
+                if (result.SuccessfullyDeleted > 0)
+                {
+                    await _unitOfWork.CompleteAsync();
+                }
+
+                result.Failed = result.Errors.Count;
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in bulk delete bot agents operation: {Message}", ex.Message);
+                throw new ApplicationException("Error occurred during bulk delete operation", ex);
+            }
         }
     }
 } 

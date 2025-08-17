@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Dto.Asset;
 using OpenAutomate.Core.Dto.BotAgent;
+using OpenAutomate.Core.Dto.Common;
 using OpenAutomate.Core.Exceptions;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Infrastructure.DbContext;
@@ -591,9 +592,85 @@ namespace OpenAutomate.Infrastructure.Services
                 throw new ServiceException("Error retrieving accessible assets for bot agent", ex);
             }
         }
-        
+
+        /// <inheritdoc />
+        public async Task<BulkDeleteResultDto> BulkDeleteAssetsAsync(List<Guid> ids)
+        {
+            var result = new BulkDeleteResultDto
+            {
+                TotalRequested = ids.Count
+            };
+
+            try
+            {
+                // Get assets that exist and belong to the current tenant
+                var assetsToDelete = await _context.Assets
+                    .Where(a => ids.Contains(a.Id) && a.OrganizationUnitId == _tenantContext.CurrentTenantId)
+                    .ToListAsync();
+
+                var foundIds = assetsToDelete.Select(a => a.Id).ToList();
+
+                // Track assets not found
+                var notFoundIds = ids.Except(foundIds).ToList();
+                foreach (var notFoundId in notFoundIds)
+                {
+                    result.Errors.Add(new BulkDeleteErrorDto
+                    {
+                        Id = notFoundId,
+                        ErrorMessage = "Asset not found or access denied",
+                        ErrorCode = "NotFound"
+                    });
+                }
+
+                // Delete related asset-bot agent relationships first
+                foreach (var asset in assetsToDelete)
+                {
+                    try
+                    {
+                        var assetBotAgents = await _context.AssetBotAgents
+                            .Where(a => a.AssetId == asset.Id)
+                            .ToListAsync();
+
+                        _context.AssetBotAgents.RemoveRange(assetBotAgents);
+
+                        // Delete the asset
+                        _context.Assets.Remove(asset);
+
+                        result.DeletedIds.Add(asset.Id);
+                        result.SuccessfullyDeleted++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error deleting asset with ID {Id}: {Message}", asset.Id, ex.Message);
+                        result.Errors.Add(new BulkDeleteErrorDto
+                        {
+                            Id = asset.Id,
+                            ErrorMessage = ex.Message,
+                            ErrorCode = "DeleteError"
+                        });
+                        result.Failed++;
+                    }
+                }
+
+                // Save changes if there were successful deletions
+                if (result.SuccessfullyDeleted > 0)
+                {
+                    await _context.SaveChangesAsync();
+                }
+
+                result.Failed = result.Errors.Count;
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in bulk delete assets operation: {Message}", ex.Message);
+                throw new ServiceException("Error occurred during bulk delete operation", ex);
+            }
+        }
+
         #region Helper Methods
-        
+
         private AssetResponseDto MapToResponseDto(Asset asset)
         {
             return new AssetResponseDto

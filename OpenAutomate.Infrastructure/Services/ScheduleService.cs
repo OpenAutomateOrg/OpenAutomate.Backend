@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Domain.Enums;
 using OpenAutomate.Core.Dto.Schedule;
+using OpenAutomate.Core.Dto.Common;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Infrastructure.DbContext;
 using System;
@@ -20,17 +22,23 @@ namespace OpenAutomate.Infrastructure.Services
         private readonly IBotAgentService _botAgentService;
         private readonly IAutomationPackageService _packageService;
         private readonly IQuartzScheduleManager _quartzManager;
+        private readonly ITenantContext _tenantContext;
+        private readonly ILogger<ScheduleService> _logger;
 
         public ScheduleService(
             ApplicationDbContext context,
             IBotAgentService botAgentService,
             IAutomationPackageService packageService,
-            IQuartzScheduleManager quartzManager)
+            IQuartzScheduleManager quartzManager,
+            ITenantContext tenantContext,
+            ILogger<ScheduleService> logger)
         {
             _context = context;
             _botAgentService = botAgentService;
             _packageService = packageService;
             _quartzManager = quartzManager;
+            _tenantContext = tenantContext;
+            _logger = logger;
         }
 
         public async Task<ScheduleResponseDto> CreateScheduleAsync(CreateScheduleDto dto)
@@ -589,6 +597,83 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 // Fallback to UTC if timezone is invalid
                 return TimeZoneInfo.Utc;
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<BulkDeleteResultDto> BulkDeleteSchedulesAsync(List<Guid> ids)
+        {
+            var result = new BulkDeleteResultDto
+            {
+                TotalRequested = ids.Count
+            };
+
+            try
+            {
+                _logger.LogInformation("Starting bulk delete for {Count} schedules", ids.Count);
+
+                // Get schedules that exist and belong to the current tenant
+                var schedulesToDelete = await _context.Schedules
+                    .Where(s => ids.Contains(s.Id) && s.OrganizationUnitId == _tenantContext.CurrentTenantId)
+                    .ToListAsync();
+
+                var foundIds = schedulesToDelete.Select(s => s.Id).ToList();
+
+                // Track schedules not found
+                var notFoundIds = ids.Except(foundIds).ToList();
+                foreach (var notFoundId in notFoundIds)
+                {
+                    result.Errors.Add(new BulkDeleteErrorDto
+                    {
+                        Id = notFoundId,
+                        ErrorMessage = "Schedule not found or access denied",
+                        ErrorCode = "NotFound"
+                    });
+                }
+
+                // Delete each schedule
+                foreach (var schedule in schedulesToDelete)
+                {
+                    try
+                    {
+                        // Remove the schedule
+                        _context.Schedules.Remove(schedule);
+                        
+                        result.DeletedIds.Add(schedule.Id);
+                        result.SuccessfullyDeleted++;
+                        
+                        _logger.LogInformation("Schedule deleted: {ScheduleId}", schedule.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error deleting schedule {ScheduleId}: {Message}", schedule.Id, ex.Message);
+                        result.Errors.Add(new BulkDeleteErrorDto
+                        {
+                            Id = schedule.Id,
+                            ErrorMessage = ex.Message,
+                            ErrorCode = "DeleteError"
+                        });
+                        result.Failed++;
+                    }
+                }
+
+                // Save changes if there were successful deletions
+                if (result.SuccessfullyDeleted > 0)
+                {
+                    await _context.SaveChangesAsync();
+                }
+
+                result.Failed = result.Errors.Count;
+
+                _logger.LogInformation("Bulk delete completed. Successful: {Success}, Failed: {Failed}", 
+                    result.SuccessfullyDeleted, result.Failed);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in bulk delete schedules operation: {Message}", ex.Message);
+                throw new InvalidOperationException("Error occurred during bulk delete operation", ex);
             }
         }
     }

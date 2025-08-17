@@ -1,5 +1,6 @@
 using OpenAutomate.Core.Dto.Asset;
 using OpenAutomate.Core.Dto.BotAgent;
+using OpenAutomate.Core.Dto.Common;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -112,5 +113,12 @@ namespace OpenAutomate.Core.IServices
         /// <param name="csvData">CSV file content as byte array</param>
         /// <returns>Import result with statistics and errors</returns>
         Task<CsvImportResultDto> ImportAssetsFromCsvAsync(byte[] csvData);
+        
+        /// <summary>
+        /// Deletes multiple Assets in a single operation
+        /// </summary>
+        /// <param name="ids">List of Asset IDs to delete</param>
+        /// <returns>Result of the bulk delete operation</returns>
+        Task<BulkDeleteResultDto> BulkDeleteAssetsAsync(List<Guid> ids);
     }
 } 

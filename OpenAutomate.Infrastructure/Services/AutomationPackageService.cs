@@ -9,6 +9,7 @@ using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Domain.IRepository;
 using OpenAutomate.Core.Dto.Package;
+using OpenAutomate.Core.Dto.Common;
 using OpenAutomate.Core.IServices;
 
 namespace OpenAutomate.Infrastructure.Services
@@ -378,6 +379,71 @@ namespace OpenAutomate.Infrastructure.Services
                       pv.OrganizationUnitId == _tenantContext.CurrentTenantId);
 
             return existingVersion != null;
+        }
+
+        /// <inheritdoc />
+        public async Task<BulkDeleteResultDto> BulkDeletePackagesAsync(List<Guid> ids)
+        {
+            var result = new BulkDeleteResultDto
+            {
+                TotalRequested = ids.Count
+            };
+
+            try
+            {
+                // Get packages that exist and belong to the current tenant
+                var allPackages = await _unitOfWork.AutomationPackages.GetAllAsync();
+                var packagesToDelete = allPackages
+                    .Where(p => ids.Contains(p.Id) && p.OrganizationUnitId == _tenantContext.CurrentTenantId)
+                    .ToList();
+
+                var foundIds = packagesToDelete.Select(p => p.Id).ToList();
+
+                // Track packages not found
+                var notFoundIds = ids.Except(foundIds).ToList();
+                foreach (var notFoundId in notFoundIds)
+                {
+                    result.Errors.Add(new BulkDeleteErrorDto
+                    {
+                        Id = notFoundId,
+                        ErrorMessage = "Package not found or access denied",
+                        ErrorCode = "NotFound"
+                    });
+                }
+
+                // Delete each package and its versions
+                foreach (var package in packagesToDelete)
+                {
+                    try
+                    {
+                        // Delete package and versions using the existing method
+                        await DeletePackageAsync(package.Id);
+                        
+                        result.DeletedIds.Add(package.Id);
+                        result.SuccessfullyDeleted++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error deleting package with ID {Id}: {Message}", package.Id, ex.Message);
+                        result.Errors.Add(new BulkDeleteErrorDto
+                        {
+                            Id = package.Id,
+                            ErrorMessage = ex.Message,
+                            ErrorCode = "DeleteError"
+                        });
+                        result.Failed++;
+                    }
+                }
+
+                result.Failed = result.Errors.Count;
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in bulk delete packages operation: {Message}", ex.Message);
+                throw new InvalidOperationException("Error occurred during bulk delete operation", ex);
+            }
         }
     }
 } 
