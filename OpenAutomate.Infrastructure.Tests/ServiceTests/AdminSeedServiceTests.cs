@@ -14,7 +14,7 @@ namespace OpenAutomate.Infrastructure.Tests.ServiceTests;
 public class AdminSeedServiceTests
 {
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
-    private readonly Mock<IUserRepository> _mockUserRepository;
+    private readonly Mock<IRepository<User>> _mockUserRepository;
     private readonly Mock<ILogger<AdminSeedService>> _mockLogger;
     private readonly Mock<IOptions<AdminSeedSettings>> _mockOptions;
     private readonly AdminSeedService _adminSeedService;
@@ -23,7 +23,7 @@ public class AdminSeedServiceTests
     public AdminSeedServiceTests()
     {
         _mockUnitOfWork = new Mock<IUnitOfWork>();
-        _mockUserRepository = new Mock<IUserRepository>();
+        _mockUserRepository = new Mock<IRepository<User>>();
         _mockLogger = new Mock<ILogger<AdminSeedService>>();
         _mockOptions = new Mock<IOptions<AdminSeedSettings>>();
 
