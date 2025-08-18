@@ -131,11 +131,10 @@ namespace OpenAutomate.Infrastructure.Services
                             .GetAllAsync(ua => ua.OrganizationUnitId == ou.Id && ua.UserId == userId);
                         _unitOfWork.UserAuthorities.RemoveRange(userAuthorities);
 
-                        // Remove OU user relationship
-                        _unitOfWork.OrganizationUnitUsers.Remove(orgUnitUser);
+                                                 // Remove OU user relationship
+                         _unitOfWork.OrganizationUnitUsers.Remove(orgUnitUser);
 
-                        result.DeletedIds.Add(userId);
-                        result.SuccessfullyDeleted++;
+                         result.DeletedIds.Add(userId);
                     }
                     catch (Exception ex)
                     {
@@ -149,9 +148,10 @@ namespace OpenAutomate.Infrastructure.Services
                 }
 
                 // Commit all changes atomically at the end
-                if (result.SuccessfullyDeleted > 0)
+                if (result.DeletedIds.Count > 0)
                 {
                     await _unitOfWork.CompleteAsync();
+                    result.SuccessfullyDeleted = result.DeletedIds.Count;
                 }
                 
                 result.Failed = result.Errors.Count;

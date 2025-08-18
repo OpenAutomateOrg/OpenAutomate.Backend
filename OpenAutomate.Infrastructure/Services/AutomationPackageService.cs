@@ -416,11 +416,27 @@ namespace OpenAutomate.Infrastructure.Services
                 {
                     try
                     {
-                        // Delete package and versions using the existing method
-                        await DeletePackageAsync(package.Id);
+                        // Get all versions to delete from S3 (inline logic for atomicity)
+                        var versions = await _unitOfWork.PackageVersions.GetAllAsync(
+                            pv => pv.PackageId == package.Id && pv.OrganizationUnitId == _tenantContext.CurrentTenantId);
+
+                        // Delete files from S3
+                        foreach (var version in versions)
+                        {
+                            try
+                            {
+                                await _storageService.DeleteAsync(version.FilePath);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Failed to delete S3 object: {ObjectKey}", version.FilePath);
+                            }
+                        }
+
+                        // Remove from database (don't commit yet)
+                        _unitOfWork.AutomationPackages.Remove(package);
                         
                         result.DeletedIds.Add(package.Id);
-                        result.SuccessfullyDeleted++;
                     }
                     catch (Exception ex)
                     {
@@ -433,6 +449,13 @@ namespace OpenAutomate.Infrastructure.Services
                         });
                         result.Failed++;
                     }
+                }
+
+                // Commit all changes atomically at the end
+                if (result.DeletedIds.Count > 0)
+                {
+                    await _unitOfWork.CompleteAsync();
+                    result.SuccessfullyDeleted = result.DeletedIds.Count;
                 }
 
                 // result.Failed is already calculated correctly from incremental result.Failed++

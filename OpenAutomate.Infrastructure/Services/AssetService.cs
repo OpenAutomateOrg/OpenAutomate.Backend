@@ -622,6 +622,8 @@ namespace OpenAutomate.Infrastructure.Services
                     });
                 }
 
+                var successfullyProcessed = new List<Guid>();
+
                 // Delete related asset-bot agent relationships first
                 foreach (var asset in assetsToDelete)
                 {
@@ -636,8 +638,7 @@ namespace OpenAutomate.Infrastructure.Services
                         // Delete the asset
                         _context.Assets.Remove(asset);
 
-                        result.DeletedIds.Add(asset.Id);
-                        result.SuccessfullyDeleted++;
+                        successfullyProcessed.Add(asset.Id);
                     }
                     catch (Exception ex)
                     {
@@ -653,9 +654,13 @@ namespace OpenAutomate.Infrastructure.Services
                 }
 
                 // Save changes if there were successful deletions
-                if (result.SuccessfullyDeleted > 0)
+                if (successfullyProcessed.Count > 0)
                 {
                     await _context.SaveChangesAsync();
+                    
+                    // Update counters only after successful commit
+                    result.DeletedIds.AddRange(successfullyProcessed);
+                    result.SuccessfullyDeleted = successfullyProcessed.Count;
                 }
 
                 // result.Failed is already calculated correctly from incremental result.Failed++

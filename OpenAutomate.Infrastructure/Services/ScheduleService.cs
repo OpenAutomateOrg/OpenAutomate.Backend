@@ -59,7 +59,7 @@ namespace OpenAutomate.Infrastructure.Services
             if (package == null)
             {
                 throw new ArgumentException("Automation package not found or does not belong to the current tenant");
-            }https://github.com/OpenAutomateOrg/OpenAutomate.Backend/pull/258
+            }
 
             // Validate schedule configuration
             ValidateScheduleConfiguration(dto.RecurrenceType, dto.CronExpression, dto.OneTimeExecution);
@@ -459,7 +459,7 @@ namespace OpenAutomate.Infrastructure.Services
             // Default to 9:00 AM if no cron expression
             var targetHour = 9;
             var targetMinute = 0;
-            
+
             if (schedule.CronExpression != null && TryParseDailyCronTime(schedule.CronExpression, out var hour, out var minute))
             {
                 targetHour = hour;
@@ -748,6 +748,8 @@ namespace OpenAutomate.Infrastructure.Services
                     });
                 }
 
+                                  var successfullyProcessed = new List<Guid>();
+
                  // Delete each schedule
                  foreach (var schedule in schedulesToDelete)
                  {
@@ -759,29 +761,31 @@ namespace OpenAutomate.Infrastructure.Services
                          // Remove the schedule from database
                          _context.Schedules.Remove(schedule);
                          
-                         result.DeletedIds.Add(schedule.Id);
-                         result.SuccessfullyDeleted++;
-                         
-                         _logger.LogInformation("Schedule and Quartz job deleted: {ScheduleId}", schedule.Id);
+                         successfullyProcessed.Add(schedule.Id);
+                         _logger.LogInformation("Schedule and Quartz job prepared for deletion: {ScheduleId}", schedule.Id);
                      }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error deleting schedule {ScheduleId}: {Message}", schedule.Id, ex.Message);
-                        result.Errors.Add(new BulkDeleteErrorDto
-                        {
-                            Id = schedule.Id,
-                            ErrorMessage = ex.Message,
-                            ErrorCode = "DeleteError"
-                        });
-                        result.Failed++;
-                    }
-                }
+                     catch (Exception ex)
+                     {
+                         _logger.LogError(ex, "Error deleting schedule {ScheduleId}: {Message}", schedule.Id, ex.Message);
+                         result.Errors.Add(new BulkDeleteErrorDto
+                         {
+                             Id = schedule.Id,
+                             ErrorMessage = ex.Message,
+                             ErrorCode = "DeleteError"
+                         });
+                         result.Failed++;
+                     }
+                 }
 
-                // Save changes if there were successful deletions
-                if (result.SuccessfullyDeleted > 0)
-                {
-                    await _context.SaveChangesAsync();
-                }
+                 // Save changes if there were successful deletions
+                 if (successfullyProcessed.Count > 0)
+                 {
+                     await _context.SaveChangesAsync();
+                     
+                     // Update counters only after successful commit
+                     result.DeletedIds.AddRange(successfullyProcessed);
+                     result.SuccessfullyDeleted = successfullyProcessed.Count;
+                 }
 
                 // result.Failed is already calculated correctly from incremental result.Failed++
 
