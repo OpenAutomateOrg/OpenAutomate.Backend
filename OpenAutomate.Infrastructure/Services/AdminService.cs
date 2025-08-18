@@ -5,6 +5,7 @@ using OpenAutomate.Core.Dto.OrganizationUnit;
 using OpenAutomate.Core.Dto.UserDto;
 using OpenAutomate.Core.Exceptions;
 using OpenAutomate.Core.IServices;
+using OpenAutomate.Core.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -95,7 +96,7 @@ namespace OpenAutomate.Infrastructure.Services
                 Description = organizationUnit.Description,
                 Slug = organizationUnit.Slug,
                 IsActive = organizationUnit.IsActive,
-                CreatedAt = organizationUnit.CreatedAt ?? DateTime.Now,
+                CreatedAt = organizationUnit.CreatedAt ?? DateTimeUtility.UtcNow,
                 UpdatedAt = organizationUnit.LastModifyAt
             };
         }
