@@ -1,6 +1,8 @@
 ﻿using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Dto.UserDto;
+using OpenAutomate.Core.Dto.Common;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace OpenAutomate.Core.IServices

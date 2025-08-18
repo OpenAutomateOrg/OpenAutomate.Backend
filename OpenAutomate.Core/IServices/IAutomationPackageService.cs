@@ -1,4 +1,5 @@
 using OpenAutomate.Core.Dto.Package;
+using OpenAutomate.Core.Dto.Common;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -76,5 +77,12 @@ namespace OpenAutomate.Core.IServices
         /// <param name="version">The version number</param>
         /// <returns>True if the combination exists, false otherwise</returns>
         Task<bool> PackageVersionExistsAsync(string packageName, string version);
+        
+        /// <summary>
+        /// Deletes multiple Automation Packages in a single operation
+        /// </summary>
+        /// <param name="ids">List of Package IDs to delete</param>
+        /// <returns>Result of the bulk delete operation</returns>
+        Task<BulkDeleteResultDto> BulkDeletePackagesAsync(List<Guid> ids);
     }
 } 

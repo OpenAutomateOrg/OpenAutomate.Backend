@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Domain.Enums;
 using OpenAutomate.Core.Dto.Schedule;
+using OpenAutomate.Core.Dto.Common;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Utilities;
 using OpenAutomate.Infrastructure.DbContext;
@@ -22,6 +23,8 @@ namespace OpenAutomate.Infrastructure.Services
         private readonly IBotAgentService _botAgentService;
         private readonly IAutomationPackageService _packageService;
         private readonly IQuartzScheduleManager _quartzManager;
+        private readonly ITenantContext _tenantContext;
+
         private readonly ILogger<ScheduleService> _logger;
 
         public ScheduleService(
@@ -29,12 +32,16 @@ namespace OpenAutomate.Infrastructure.Services
             IBotAgentService botAgentService,
             IAutomationPackageService packageService,
             IQuartzScheduleManager quartzManager,
+            ITenantContext tenantContext,
+
             ILogger<ScheduleService> logger)
         {
             _context = context;
             _botAgentService = botAgentService;
             _packageService = packageService;
             _quartzManager = quartzManager;
+            _tenantContext = tenantContext;
+
             _logger = logger;
         }
 
@@ -452,7 +459,7 @@ namespace OpenAutomate.Infrastructure.Services
             // Default to 9:00 AM if no cron expression
             var targetHour = 9;
             var targetMinute = 0;
-            
+
             if (schedule.CronExpression != null && TryParseDailyCronTime(schedule.CronExpression, out var hour, out var minute))
             {
                 targetHour = hour;
@@ -707,6 +714,91 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 _logger.LogError(ex, "Error recalculating schedule {ScheduleId}: {Message}", scheduleId, ex.Message);
                 throw;
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<BulkDeleteResultDto> BulkDeleteSchedulesAsync(List<Guid> ids)
+        {
+            var result = new BulkDeleteResultDto
+            {
+                TotalRequested = ids.Count
+            };
+
+            try
+            {
+                _logger.LogInformation("Starting bulk delete for {Count} schedules", ids.Count);
+
+                // Get schedules that exist and belong to the current tenant
+                var schedulesToDelete = await _context.Schedules
+                    .Where(s => ids.Contains(s.Id) && s.OrganizationUnitId == _tenantContext.CurrentTenantId)
+                    .ToListAsync();
+
+                var foundIds = schedulesToDelete.Select(s => s.Id).ToList();
+
+                // Track schedules not found
+                var notFoundIds = ids.Except(foundIds).ToList();
+                foreach (var notFoundId in notFoundIds)
+                {
+                    result.Errors.Add(new BulkDeleteErrorDto
+                    {
+                        Id = notFoundId,
+                        ErrorMessage = "Schedule not found or access denied",
+                        ErrorCode = "NotFound"
+                    });
+                    result.Failed++;
+                }
+
+                                  var successfullyProcessed = new List<Guid>();
+
+                 // Delete each schedule
+                 foreach (var schedule in schedulesToDelete)
+                 {
+                     try
+                     {
+                         // Remove Quartz job first
+                         await _quartzManager.DeleteJobAsync(schedule.Id);
+                         
+                         // Remove the schedule from database
+                         _context.Schedules.Remove(schedule);
+                         
+                         successfullyProcessed.Add(schedule.Id);
+                         _logger.LogInformation("Schedule and Quartz job prepared for deletion: {ScheduleId}", schedule.Id);
+                     }
+                     catch (Exception ex)
+                     {
+                         _logger.LogError(ex, "Error deleting schedule {ScheduleId}: {Message}", schedule.Id, ex.Message);
+                         result.Errors.Add(new BulkDeleteErrorDto
+                         {
+                             Id = schedule.Id,
+                             ErrorMessage = ex.Message,
+                             ErrorCode = "DeleteError"
+                         });
+                         result.Failed++;
+                     }
+                 }
+
+                 // Save changes if there were successful deletions
+                 if (successfullyProcessed.Count > 0)
+                 {
+                     await _context.SaveChangesAsync();
+                     
+                     // Update counters only after successful commit
+                     result.DeletedIds.AddRange(successfullyProcessed);
+                     result.SuccessfullyDeleted = successfullyProcessed.Count;
+                 }
+
+                // result.Failed is calculated from both incremental errors and final assignment
+
+                _logger.LogInformation("Bulk delete completed. Successful: {Success}, Failed: {Failed}", 
+                    result.SuccessfullyDeleted, result.Failed);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in bulk delete schedules operation: {Message}", ex.Message);
+                throw new InvalidOperationException("Error occurred during bulk delete operation", ex);
             }
         }
     }

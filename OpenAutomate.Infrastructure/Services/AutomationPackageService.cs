@@ -9,6 +9,7 @@ using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Domain.IRepository;
 using OpenAutomate.Core.Dto.Package;
+using OpenAutomate.Core.Dto.Common;
 using OpenAutomate.Core.IServices;
 
 namespace OpenAutomate.Infrastructure.Services
@@ -378,6 +379,100 @@ namespace OpenAutomate.Infrastructure.Services
                       pv.OrganizationUnitId == _tenantContext.CurrentTenantId);
 
             return existingVersion != null;
+        }
+
+        /// <inheritdoc />
+        public async Task<BulkDeleteResultDto> BulkDeletePackagesAsync(List<Guid> ids)
+        {
+            var result = new BulkDeleteResultDto
+            {
+                TotalRequested = ids.Count
+            };
+            var successfullyProcessedIds = new List<Guid>();
+
+            try
+            {
+                // Get packages that exist and belong to the current tenant
+                var allPackages = await _unitOfWork.AutomationPackages.GetAllAsync();
+                var packagesToDelete = allPackages
+                    .Where(p => ids.Contains(p.Id) && p.OrganizationUnitId == _tenantContext.CurrentTenantId)
+                    .ToList();
+
+                var foundIds = packagesToDelete.Select(p => p.Id).ToList();
+
+                // Track packages not found
+                var notFoundIds = ids.Except(foundIds).ToList();
+                foreach (var notFoundId in notFoundIds)
+                {
+                    result.Errors.Add(new BulkDeleteErrorDto
+                    {
+                        Id = notFoundId,
+                        ErrorMessage = "Package not found or access denied",
+                        ErrorCode = "NotFound"
+                    });
+                    result.Failed++;
+                }
+
+                // Delete each package and its versions
+                foreach (var package in packagesToDelete)
+                {
+                    try
+                    {
+                        // Get all versions to delete from S3 (inline logic for atomicity)
+                        var versions = await _unitOfWork.PackageVersions.GetAllAsync(
+                            pv => pv.PackageId == package.Id && pv.OrganizationUnitId == _tenantContext.CurrentTenantId);
+
+                        // Delete files from S3
+                        foreach (var version in versions)
+                        {
+                            try
+                            {
+                                await _storageService.DeleteAsync(version.FilePath);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Failed to delete S3 object: {ObjectKey}", version.FilePath);
+                            }
+                        }
+
+                        // Remove from database (don't commit yet)
+                        _unitOfWork.AutomationPackages.Remove(package);
+                        
+                        // Track for commit - only update result after successful commit
+                        successfullyProcessedIds.Add(package.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error deleting package with ID {Id}: {Message}", package.Id, ex.Message);
+                        result.Errors.Add(new BulkDeleteErrorDto
+                        {
+                            Id = package.Id,
+                            ErrorMessage = ex.Message,
+                            ErrorCode = "DeleteError"
+                        });
+                        result.Failed++;
+                    }
+                }
+
+                // Commit all changes atomically at the end
+                if (successfullyProcessedIds.Count > 0)
+                {
+                    await _unitOfWork.CompleteAsync();
+                    
+                    // Only now update result with successful deletions
+                    result.DeletedIds.AddRange(successfullyProcessedIds);
+                    result.SuccessfullyDeleted = successfullyProcessedIds.Count;
+                }
+
+                // result.Failed is calculated from both incremental errors and final assignment
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in bulk delete packages operation: {Message}", ex.Message);
+                throw new InvalidOperationException("Error occurred during bulk delete operation", ex);
+            }
         }
     }
 } 
