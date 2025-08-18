@@ -1,6 +1,7 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using OpenAutomate.Core.Utilities;
 
 namespace OpenAutomate.Core.Domain.Base
 {
@@ -9,7 +10,7 @@ namespace OpenAutomate.Core.Domain.Base
         protected BaseEntity()
         {
             Id = Guid.NewGuid();
-            CreatedAt = DateTime.Now;
+            CreatedAt = DateTimeUtility.UtcNow;
         }
 
         [Key]

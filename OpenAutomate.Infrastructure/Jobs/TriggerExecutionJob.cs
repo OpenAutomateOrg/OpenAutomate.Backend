@@ -51,22 +51,15 @@ namespace OpenAutomate.Infrastructure.Jobs
             
             try
             {
-                // Get scoped services
-                var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
+                // Get scoped services - get concrete TenantContext to set tenant info
+                var concreteTenantContext = scope.ServiceProvider.GetRequiredService<TenantContext>();
                 var scheduleService = scope.ServiceProvider.GetRequiredService<IScheduleService>();
                 var executionTriggerService = scope.ServiceProvider.GetRequiredService<IExecutionTriggerService>();
                 var packageService = scope.ServiceProvider.GetRequiredService<IAutomationPackageService>();
                 
                 // Set tenant context for this job execution
-                if (tenantContext is TenantContext concreteTenantContext)
-                {
-                    concreteTenantContext.SetTenant(tenantId, tenantSlug);
-                }
-                else
-                {
-                    _logger.LogError("Unable to set tenant context for scheduled job");
-                    return;
-                }
+                concreteTenantContext.SetTenant(tenantId, tenantSlug);
+                _logger.LogInformation("Set tenant context for scheduled job: Tenant {TenantId} ({TenantSlug})", tenantId, tenantSlug);
 
                 // Get the schedule details
                 var schedule = await scheduleService.GetScheduleByIdAsync(scheduleId);
