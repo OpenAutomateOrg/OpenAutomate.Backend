@@ -284,6 +284,7 @@ namespace OpenAutomate.Infrastructure.Services
                         ErrorMessage = "Bot Agent not found or access denied",
                         ErrorCode = "NotFound"
                     });
+                    result.Failed++;
                 }
 
                                                  var successfullyProcessed = new List<Guid>();
@@ -302,6 +303,7 @@ namespace OpenAutomate.Infrastructure.Services
                                 ErrorMessage = "Bot Agent must be disconnected before deletion",
                                 ErrorCode = "AgentNotDisconnected"
                             });
+                            result.Failed++;
                             continue;
                         }
 
@@ -338,7 +340,7 @@ namespace OpenAutomate.Infrastructure.Services
                     result.SuccessfullyDeleted = successfullyProcessed.Count;
                 }
 
-                // result.Failed is already calculated correctly from incremental result.Failed++
+                // result.Failed is calculated from both incremental errors and final assignment
 
                 return result;
             }

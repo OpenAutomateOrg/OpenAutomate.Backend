@@ -409,6 +409,7 @@ namespace OpenAutomate.Infrastructure.Services
                         ErrorMessage = "Package not found or access denied",
                         ErrorCode = "NotFound"
                     });
+                    result.Failed++;
                 }
 
                 // Delete each package and its versions
@@ -458,7 +459,7 @@ namespace OpenAutomate.Infrastructure.Services
                     result.SuccessfullyDeleted = result.DeletedIds.Count;
                 }
 
-                // result.Failed is already calculated correctly from incremental result.Failed++
+                // result.Failed is calculated from both incremental errors and final assignment
 
                 return result;
             }

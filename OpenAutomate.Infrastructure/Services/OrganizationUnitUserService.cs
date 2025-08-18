@@ -108,6 +108,7 @@ namespace OpenAutomate.Infrastructure.Services
                                 ErrorMessage = "Cannot remove yourself from the organization unit",
                                 ErrorCode = "SelfRemoval"
                             });
+                            result.Failed++;
                             continue;
                         }
 
@@ -123,6 +124,7 @@ namespace OpenAutomate.Infrastructure.Services
                                 ErrorMessage = $"User not found in organization unit '{tenantSlug}'",
                                 ErrorCode = "UserNotFoundInOU"
                             });
+                            result.Failed++;
                             continue;
                         }
 
