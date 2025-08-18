@@ -50,5 +50,12 @@ namespace OpenAutomate.Core.IServices
         /// <param name="scheduleId">Schedule ID</param>
         /// <returns>True if job exists, false otherwise</returns>
         Task<bool> JobExistsAsync(Guid scheduleId);
+
+        /// <summary>
+        /// Gets detailed status information about a scheduled job
+        /// </summary>
+        /// <param name="scheduleId">Schedule ID</param>
+        /// <returns>Job status information or null if job doesn't exist</returns>
+        Task<object?> GetJobStatusAsync(Guid scheduleId);
     }
 } 

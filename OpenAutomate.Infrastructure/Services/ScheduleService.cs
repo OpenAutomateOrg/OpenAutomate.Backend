@@ -5,6 +5,7 @@ using OpenAutomate.Core.Domain.Enums;
 using OpenAutomate.Core.Dto.Schedule;
 using OpenAutomate.Core.Dto.Common;
 using OpenAutomate.Core.IServices;
+using OpenAutomate.Core.Utilities;
 using OpenAutomate.Infrastructure.DbContext;
 using System;
 using System.Collections.Generic;
@@ -23,6 +24,7 @@ namespace OpenAutomate.Infrastructure.Services
         private readonly IAutomationPackageService _packageService;
         private readonly IQuartzScheduleManager _quartzManager;
         private readonly ITenantContext _tenantContext;
+
         private readonly ILogger<ScheduleService> _logger;
 
         public ScheduleService(
@@ -31,6 +33,7 @@ namespace OpenAutomate.Infrastructure.Services
             IAutomationPackageService packageService,
             IQuartzScheduleManager quartzManager,
             ITenantContext tenantContext,
+
             ILogger<ScheduleService> logger)
         {
             _context = context;
@@ -38,6 +41,7 @@ namespace OpenAutomate.Infrastructure.Services
             _packageService = packageService;
             _quartzManager = quartzManager;
             _tenantContext = tenantContext;
+
             _logger = logger;
         }
 
@@ -55,7 +59,7 @@ namespace OpenAutomate.Infrastructure.Services
             if (package == null)
             {
                 throw new ArgumentException("Automation package not found or does not belong to the current tenant");
-            }
+            }https://github.com/OpenAutomateOrg/OpenAutomate.Backend/pull/258
 
             // Validate schedule configuration
             ValidateScheduleConfiguration(dto.RecurrenceType, dto.CronExpression, dto.OneTimeExecution);
@@ -70,7 +74,7 @@ namespace OpenAutomate.Infrastructure.Services
                 IsEnabled = dto.IsEnabled,
                 RecurrenceType = dto.RecurrenceType,
                 CronExpression = dto.CronExpression,
-                OneTimeExecution = dto.OneTimeExecution,
+                OneTimeExecution = dto.OneTimeExecution.HasValue ? DateTimeUtility.EnsureUtc(dto.OneTimeExecution.Value, DateTimeUtility.GetTimeZoneInfo(dto.TimeZoneId)) : null,
                 TimeZoneId = dto.TimeZoneId,
                 AutomationPackageId = dto.AutomationPackageId,
                 BotAgentId = dto.BotAgentId
@@ -293,7 +297,7 @@ namespace OpenAutomate.Infrastructure.Services
             if (!schedule.IsEnabled)
                 return new List<DateTime>();
 
-            var timeZone = GetTimeZoneInfo(schedule.TimeZoneId);
+            var timeZone = DateTimeUtility.GetTimeZoneInfo(schedule.TimeZoneId);
             var upcomingTimes = TryCalculateMultipleCronTimes(schedule, timeZone, count);
 
             // If we couldn't calculate multiple times, fall back to single next time
@@ -339,14 +343,14 @@ namespace OpenAutomate.Infrastructure.Services
 
             if (TryParseCronTimeParts(parts, out var hour, out var minute, out var second))
             {
-                var now = DateTime.UtcNow;
-                var localNow = TimeZoneInfo.ConvertTimeFromUtc(now, timeZone);
+                var now = DateTimeUtility.UtcNow;
+                var localNow = DateTimeUtility.ConvertFromUtc(now, timeZone);
                 var baseTime = localNow.Date.AddHours(hour).AddMinutes(minute).AddSeconds(second);
                 var nextTime = baseTime > localNow ? baseTime : baseTime.AddDays(1);
 
                 for (int i = 0; i < count; i++)
                 {
-                    upcomingTimes.Add(TimeZoneInfo.ConvertTimeToUtc(nextTime.AddDays(i), timeZone));
+                    upcomingTimes.Add(DateTimeUtility.EnsureUtc(nextTime.AddDays(i), timeZone));
                 }
             }
 
@@ -371,13 +375,13 @@ namespace OpenAutomate.Infrastructure.Services
             if (!schedule.IsEnabled)
                 return null;
 
-            var now = DateTime.UtcNow;
-            var timeZone = GetTimeZoneInfo(schedule.TimeZoneId);
+            var now = DateTimeUtility.UtcNow;
+            var timeZone = DateTimeUtility.GetTimeZoneInfo(schedule.TimeZoneId);
 
             return schedule.RecurrenceType switch
             {
                 RecurrenceType.Once => CalculateOnceNextRunTime(schedule, timeZone, now),
-                RecurrenceType.Minutes => now.AddMinutes(30), // Default to 30 minutes to match Quartz configuration
+                RecurrenceType.Minutes => CalculateMinutesNextRunTime(schedule, now),
                 RecurrenceType.Hourly => CalculateHourlyNextRunTime(schedule, timeZone, now),
                 RecurrenceType.Daily => CalculateDailyNextRunTime(schedule, timeZone, now),
                 RecurrenceType.Weekly => CalculateWeeklyNextRunTime(schedule, timeZone, now),
@@ -387,22 +391,54 @@ namespace OpenAutomate.Infrastructure.Services
             };
         }
 
+        private static DateTime? CalculateMinutesNextRunTime(ScheduleResponseDto schedule, DateTime now)
+        {
+            // Extract interval from cron expression or default to 30 minutes
+            int intervalMinutes = 30; // Default
+            
+            if (!string.IsNullOrWhiteSpace(schedule.CronExpression))
+            {
+                if (TryParseMinuteInterval(schedule.CronExpression, out var parsedInterval))
+                {
+                    intervalMinutes = parsedInterval;
+                }
+            }
+
+            return now.AddMinutes(intervalMinutes);
+        }
+
         private static DateTime? CalculateOnceNextRunTime(ScheduleResponseDto schedule, TimeZoneInfo timeZone, DateTime now)
         {
             if (!schedule.OneTimeExecution.HasValue)
                 return null;
 
-            // Ensure the stored time is treated as UTC
-            var oneTimeUtc = DateTime.SpecifyKind(schedule.OneTimeExecution.Value, DateTimeKind.Utc);
+            var oneTimeValue = schedule.OneTimeExecution.Value;
+            
+            // If the datetime has a timezone specified (Kind.Utc or Kind.Local), use it as-is
+            // If it's unspecified, treat it as local time in the schedule's timezone
+            DateTime targetTime;
+            
+            if (oneTimeValue.Kind == DateTimeKind.Unspecified)
+            {
+                // Treat as local time in the schedule's timezone
+                targetTime = DateTimeUtility.EnsureUtc(oneTimeValue, timeZone);
+            }
+            else if (oneTimeValue.Kind == DateTimeKind.Utc)
+            {
+                // Already UTC, use as-is
+                targetTime = oneTimeValue;
+            }
+            else
+            {
+                // Local time, convert to UTC assuming system timezone
+                targetTime = oneTimeValue.ToUniversalTime();
+            }
 
-            // Convert to the schedule's local time zone
-            var localTime = TimeZoneInfo.ConvertTimeFromUtc(oneTimeUtc, timeZone);
-
-            // Only return if the time is in the future (in the schedule's timezone)
-            if (localTime <= TimeZoneInfo.ConvertTimeFromUtc(now, timeZone))
+            // Only return if the time is in the future
+            if (targetTime <= now)
                 return null;
 
-            return localTime;
+            return targetTime;
         }
 
         private static DateTime? CalculateHourlyNextRunTime(ScheduleResponseDto schedule, TimeZoneInfo timeZone, DateTime now)
@@ -417,16 +453,28 @@ namespace OpenAutomate.Infrastructure.Services
             if (cronResult.HasValue)
                 return cronResult;
 
-            // Fallback: Calculate next occurrence at the same time tomorrow
-            var localNow = TimeZoneInfo.ConvertTimeFromUtc(now, timeZone);
-            var tomorrow = localNow.Date.AddDays(1);
-
+            // Fallback: Calculate next occurrence at the same time
+            var localNow = DateTimeUtility.ConvertFromUtc(now, timeZone);
+            
+            // Default to 9:00 AM if no cron expression
+            var targetHour = 9;
+            var targetMinute = 0;
+            
             if (schedule.CronExpression != null && TryParseDailyCronTime(schedule.CronExpression, out var hour, out var minute))
             {
-                tomorrow = tomorrow.AddHours(hour).AddMinutes(minute);
+                targetHour = hour;
+                targetMinute = minute;
             }
 
-            return TimeZoneInfo.ConvertTimeToUtc(tomorrow, timeZone);
+            // Calculate today's scheduled time
+            var todayScheduledTime = localNow.Date.AddHours(targetHour).AddMinutes(targetMinute);
+            
+            // Add a small buffer to handle timing precision issues
+            // If the scheduled time is more than 10 seconds in the future, use today; otherwise use tomorrow
+            var timeDifference = todayScheduledTime.Subtract(localNow).TotalSeconds;
+            var nextRunTime = timeDifference > 10 ? todayScheduledTime : todayScheduledTime.AddDays(1);
+
+            return DateTimeUtility.EnsureUtc(nextRunTime, timeZone);
         }
 
         private static DateTime? CalculateWeeklyNextRunTime(ScheduleResponseDto schedule, TimeZoneInfo timeZone, DateTime now)
@@ -471,16 +519,22 @@ namespace OpenAutomate.Infrastructure.Services
                 if (parts.Length != 6)
                     return null;
 
-                var now = DateTime.UtcNow;
-                var localNow = TimeZoneInfo.ConvertTimeFromUtc(now, timeZone);
+                var now = DateTimeUtility.UtcNow;
+                var localNow = DateTimeUtility.ConvertFromUtc(now, timeZone);
 
                 // For daily schedules, calculate next occurrence
                 if (parts[3] == "*" && parts[4] == "*" && parts[5] == "*" &&
                     int.TryParse(parts[2], out var hour) && int.TryParse(parts[1], out var minute) && int.TryParse(parts[0], out var second))
                 {
                     var todayAtTime = localNow.Date.AddHours(hour).AddMinutes(minute).AddSeconds(second);
-                    var nextRun = todayAtTime > localNow ? todayAtTime : todayAtTime.AddDays(1);
-                    return TimeZoneInfo.ConvertTimeToUtc(nextRun, timeZone);
+                    
+                    // For daily schedules, if the time has already passed today, schedule for tomorrow
+                    // Add a small buffer (10 seconds) to handle timing precision issues
+                    var timeDifference = todayAtTime.Subtract(localNow).TotalSeconds;
+                    var nextRun = timeDifference >= 10 ? todayAtTime : todayAtTime.AddDays(1);
+                    
+                    // Convert the local time to UTC for storage
+                    return DateTimeUtility.EnsureUtc(nextRun, timeZone);
                 }
 
                 // For other patterns, we'd need a full cron parser
@@ -523,7 +577,7 @@ namespace OpenAutomate.Infrastructure.Services
                     {
                         throw new ArgumentException("OneTimeExecution must be specified for Once recurrence type");
                     }
-                    if (oneTimeExecution.Value <= DateTime.UtcNow)
+                    if (oneTimeExecution.Value <= DateTimeUtility.UtcNow)
                     {
                         throw new ArgumentException("OneTimeExecution must be in the future");
                     }
@@ -577,8 +631,8 @@ namespace OpenAutomate.Infrastructure.Services
                 AutomationPackageName = schedule.AutomationPackage?.Name,
                 BotAgentName = schedule.BotAgent?.Name,
                 OrganizationUnitId = schedule.OrganizationUnitId,
-                CreatedAt = schedule.CreatedAt ?? DateTime.UtcNow,
-                UpdatedAt = schedule.LastModifyAt ?? DateTime.UtcNow
+                CreatedAt = schedule.CreatedAt ?? DateTimeUtility.UtcNow,
+                UpdatedAt = schedule.LastModifyAt ?? DateTimeUtility.UtcNow
             };
 
             // Calculate next run time
@@ -587,16 +641,79 @@ namespace OpenAutomate.Infrastructure.Services
             return responseDto;
         }
 
-        private static TimeZoneInfo GetTimeZoneInfo(string timeZoneId)
+
+        /// <summary>
+        /// Tries to parse minute interval from cron expressions like "0 */5 * * * *"
+        /// </summary>
+        private static bool TryParseMinuteInterval(string cronExpression, out int interval)
         {
+            interval = 30; // Default fallback
+            
             try
             {
-                return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+                var parts = cronExpression.Split(' ');
+                if (parts.Length == 6)
+                {
+                    // Look for minute part like "*/5" 
+                    var minutePart = parts[1];
+                    if (minutePart.StartsWith("*/"))
+                    {
+                        var intervalStr = minutePart.Substring(2);
+                        if (int.TryParse(intervalStr, out var parsedInterval) && parsedInterval > 0 && parsedInterval <= 60)
+                        {
+                            interval = parsedInterval;
+                            return true;
+                        }
+                    }
+                }
             }
             catch
             {
-                // Fallback to UTC if timezone is invalid
-                return TimeZoneInfo.Utc;
+                // Fall back to default
+            }
+            
+            return false;
+        }
+
+        public async Task<ScheduleResponseDto?> RecalculateScheduleAsync(Guid scheduleId)
+        {
+            var schedule = await _context.Schedules
+                .Where(s => s.Id == scheduleId)
+                .FirstOrDefaultAsync();
+
+            if (schedule == null)
+                return null;
+
+            try
+            {
+                // Get the current schedule as DTO to recalculate next run time
+                var responseDto = await MapToResponseDto(schedule);
+                
+                // Recalculate next run time with the corrected logic
+                var newNextRunTime = CalculateNextRunTime(responseDto);
+                
+                _logger.LogInformation("Recalculating schedule {ScheduleId}: Old next run {OldNextRun}, New next run {NewNextRun}", 
+                    scheduleId, responseDto.NextRunTime, newNextRunTime);
+
+                // Update the response DTO with new calculation
+                responseDto.NextRunTime = newNextRunTime;
+
+                // Recreate Quartz job with updated timing
+                await _quartzManager.DeleteJobAsync(scheduleId);
+                
+                if (schedule.IsEnabled && newNextRunTime.HasValue)
+                {
+                    await _quartzManager.CreateJobAsync(responseDto);
+                    _logger.LogInformation("Successfully recreated Quartz job for schedule {ScheduleId} with next run time {NextRunTime}", 
+                        scheduleId, newNextRunTime);
+                }
+
+                return responseDto;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error recalculating schedule {ScheduleId}: {Message}", scheduleId, ex.Message);
+                throw;
             }
         }
 
