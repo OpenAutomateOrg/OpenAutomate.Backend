@@ -78,12 +78,5 @@ namespace OpenAutomate.Core.IServices
         /// <param name="userId">The ID of the user to get profile for</param>
         /// <returns>Complete user profile with permissions for all organization units</returns>
         Task<UserProfileDto> GetUserProfileAsync(Guid userId);
-        
-        /// <summary>
-        /// Deletes multiple Users in a single operation
-        /// </summary>
-        /// <param name="ids">List of User IDs to delete</param>
-        /// <returns>Result of the bulk delete operation</returns>
-        Task<BulkDeleteResultDto> BulkDeleteUsersAsync(List<Guid> ids);
     }
 }

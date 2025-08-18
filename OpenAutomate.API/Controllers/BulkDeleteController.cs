@@ -20,7 +20,6 @@ namespace OpenAutomate.API.Controllers
     {
         private readonly IAssetService _assetService;
         private readonly IBotAgentService _botAgentService;
-        private readonly IUserService _userService;
         private readonly IScheduleService _scheduleService;
         private readonly IAutomationPackageService _automationPackageService;
         private readonly ILogger<BulkDeleteController> _logger;
@@ -28,14 +27,12 @@ namespace OpenAutomate.API.Controllers
         public BulkDeleteController(
             IAssetService assetService,
             IBotAgentService botAgentService,
-            IUserService userService,
             IScheduleService scheduleService,
             IAutomationPackageService automationPackageService,
             ILogger<BulkDeleteController> logger)
         {
             _assetService = assetService;
             _botAgentService = botAgentService;
-            _userService = userService;
             _scheduleService = scheduleService;
             _automationPackageService = automationPackageService;
             _logger = logger;
@@ -88,31 +85,6 @@ namespace OpenAutomate.API.Controllers
             {
                 _logger.LogError(ex, "Error bulk deleting bot agents: {Message}", ex.Message);
                 return StatusCode(500, new { message = "An error occurred while bulk deleting bot agents." });
-            }
-        }
-
-        /// <summary>
-        /// Bulk delete users
-        /// </summary>
-        /// <param name="dto">Bulk delete request with user IDs</param>
-        [HttpDelete("users")]
-        [RequireSubscription(SubscriptionOperationType.Write)]
-        [RequirePermission(Resources.UserResource, Permissions.Delete)]
-        [ProducesResponseType(typeof(BulkDeleteResultDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<BulkDeleteResultDto>> BulkDeleteUsers([FromBody] BulkDeleteDto dto)
-        {
-            try
-            {
-                var result = await _userService.BulkDeleteUsersAsync(dto.Ids);
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error bulk deleting users: {Message}", ex.Message);
-                return StatusCode(500, new { message = "An error occurred while bulk deleting users." });
             }
         }
 
