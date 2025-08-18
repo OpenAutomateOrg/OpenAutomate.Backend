@@ -270,6 +270,104 @@ namespace OpenAutomate.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Recalculates next run time for a schedule with corrected timezone logic
+        /// </summary>
+        /// <param name="id">Schedule ID</param>
+        /// <returns>Updated schedule response</returns>
+        [HttpPost("{id}/recalculate")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
+        [RequirePermission(Resources.ScheduleResource, Permissions.Update)]
+        public async Task<ActionResult<ScheduleResponseDto>> RecalculateSchedule(Guid id)
+        {
+            try
+            {
+                var schedule = await _scheduleService.RecalculateScheduleAsync(id);
+                if (schedule == null)
+                    return NotFound(new { error = "Schedule not found" });
+
+                _logger.LogInformation("Successfully recalculated schedule {ScheduleId} with new next run time {NextRunTime}", 
+                    id, schedule.NextRunTime);
+
+                return Ok(schedule);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error recalculating schedule {ScheduleId}", id);
+                return StatusCode(500, new { error = "Failed to recalculate schedule" });
+            }
+        }
+
+        /// <summary>
+        /// Gets Quartz job status for debugging schedule execution issues
+        /// </summary>
+        /// <param name="id">Schedule ID</param>
+        /// <returns>Job status information</returns>
+        [HttpGet("{id}/job-status")]
+        [RequireSubscription(SubscriptionOperationType.Read)]
+        [RequirePermission(Resources.ScheduleResource, Permissions.View)]
+        public async Task<ActionResult<object>> GetJobStatus(Guid id)
+        {
+            try
+            {
+                var quartzManager = HttpContext.RequestServices.GetRequiredService<IQuartzScheduleManager>();
+                var status = await quartzManager.GetJobStatusAsync(id);
+                
+                if (status == null)
+                    return NotFound(new { error = "Job status not available" });
+
+                return Ok(status);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting job status for schedule {ScheduleId}", id);
+                return StatusCode(500, new { error = "Failed to get job status" });
+            }
+        }
+
+        /// <summary>
+        /// Manually triggers a schedule execution for testing
+        /// </summary>
+        /// <param name="id">Schedule ID</param>
+        /// <returns>Execution result</returns>
+        [HttpPost("{id}/manual-trigger")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
+        [RequirePermission(Resources.ScheduleResource, Permissions.Update)]
+        public async Task<IActionResult> ManualTrigger(Guid id)
+        {
+            try
+            {
+                var executionTriggerService = HttpContext.RequestServices.GetRequiredService<IExecutionTriggerService>();
+                var schedule = await _scheduleService.GetScheduleByIdAsync(id);
+                
+                if (schedule == null)
+                    return NotFound(new { error = "Schedule not found" });
+
+                _logger.LogInformation("Manually triggering execution for schedule {ScheduleId}", id);
+
+                var execution = await executionTriggerService.TriggerScheduledExecutionAsync(
+                    schedule.Id,
+                    schedule.BotAgentId,
+                    schedule.AutomationPackageId,
+                    schedule.AutomationPackageName,
+                    "latest");
+
+                return Ok(new { 
+                    success = true, 
+                    executionId = execution.Id,
+                    message = "Manual execution triggered successfully" 
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error manually triggering schedule {ScheduleId}", id);
+                return StatusCode(500, new { 
+                    error = ex.Message, 
+                    details = ex.ToString() 
+                });
+            }
+        }
+
         private static TimeZoneInfo GetTimeZoneInfo(string timeZoneId)
         {
             try
