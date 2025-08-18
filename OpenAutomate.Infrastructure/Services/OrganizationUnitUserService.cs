@@ -2,6 +2,7 @@
 using OpenAutomate.Core.Domain.IRepository;
 using OpenAutomate.Core.Dto.Authority;
 using OpenAutomate.Core.Dto.OrganizationUnitUser;
+using OpenAutomate.Core.Dto.Common;
 using OpenAutomate.Core.IServices;
 
 namespace OpenAutomate.Infrastructure.Services
@@ -65,6 +66,112 @@ namespace OpenAutomate.Infrastructure.Services
 
             await _unitOfWork.CompleteAsync();
             return true;
+        }
+
+        public async Task<BulkDeleteResultDto> BulkRemoveUsersAsync(string tenantSlug, List<Guid> userIds, Guid currentUserId)
+        {
+            var result = new BulkDeleteResultDto
+            {
+                TotalRequested = userIds.Count
+            };
+
+            try
+            {
+                // Get organization unit
+                var ou = await _unitOfWork.OrganizationUnits.GetFirstOrDefaultAsync(o => o.Slug == tenantSlug);
+                if (ou == null)
+                {
+                    foreach (var userId in userIds)
+                    {
+                        result.Errors.Add(new BulkDeleteErrorDto
+                        {
+                            Id = userId,
+                            ErrorMessage = $"Organization unit '{tenantSlug}' not found",
+                            ErrorCode = "OrganizationUnitNotFound"
+                        });
+                    }
+                    result.Failed = result.Errors.Count;
+                    return result;
+                }
+
+                // Process each user
+                foreach (var userId in userIds)
+                {
+                    try
+                    {
+                        // Skip self-removal
+                        if (userId == currentUserId)
+                        {
+                            result.Errors.Add(new BulkDeleteErrorDto
+                            {
+                                Id = userId,
+                                ErrorMessage = "Cannot remove yourself from the organization unit",
+                                ErrorCode = "SelfRemoval"
+                            });
+                            continue;
+                        }
+
+                        // Check if user exists in OU
+                        var orgUnitUser = (await _unitOfWork.OrganizationUnitUsers
+                            .GetAllAsync(ouu => ouu.OrganizationUnitId == ou.Id && ouu.UserId == userId)).FirstOrDefault();
+                        
+                        if (orgUnitUser == null)
+                        {
+                            result.Errors.Add(new BulkDeleteErrorDto
+                            {
+                                Id = userId,
+                                ErrorMessage = $"User not found in organization unit '{tenantSlug}'",
+                                ErrorCode = "UserNotFoundInOU"
+                            });
+                            continue;
+                        }
+
+                        // Remove user authorities in this OU
+                        var userAuthorities = await _unitOfWork.UserAuthorities
+                            .GetAllAsync(ua => ua.OrganizationUnitId == ou.Id && ua.UserId == userId);
+                        _unitOfWork.UserAuthorities.RemoveRange(userAuthorities);
+
+                        // Remove OU user relationship
+                        _unitOfWork.OrganizationUnitUsers.Remove(orgUnitUser);
+
+                        // Save changes for this user
+                        await _unitOfWork.CompleteAsync();
+
+                        result.DeletedIds.Add(userId);
+                        result.SuccessfullyDeleted++;
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Errors.Add(new BulkDeleteErrorDto
+                        {
+                            Id = userId,
+                            ErrorMessage = $"Error removing user: {ex.Message}",
+                            ErrorCode = "RemovalError"
+                        });
+                    }
+                }
+
+                result.Failed = result.Errors.Count;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                // If general error, mark all remaining as failed
+                foreach (var userId in userIds.Except(result.DeletedIds))
+                {
+                    if (!result.Errors.Any(e => e.Id == userId))
+                    {
+                        result.Errors.Add(new BulkDeleteErrorDto
+                        {
+                            Id = userId,
+                            ErrorMessage = $"Operation failed: {ex.Message}",
+                            ErrorCode = "OperationError"
+                        });
+                    }
+                }
+                result.Failed = result.Errors.Count;
+                return result;
+            }
         }
 
         public async Task<IEnumerable<AuthorityDto>> GetRolesInOrganizationUnitAsync(string tenantSlug)

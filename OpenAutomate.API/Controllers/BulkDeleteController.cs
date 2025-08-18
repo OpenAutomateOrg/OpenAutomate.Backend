@@ -22,6 +22,7 @@ namespace OpenAutomate.API.Controllers
         private readonly IBotAgentService _botAgentService;
         private readonly IScheduleService _scheduleService;
         private readonly IAutomationPackageService _automationPackageService;
+        private readonly IOrganizationUnitUserService _organizationUnitUserService;
         private readonly ILogger<BulkDeleteController> _logger;
 
         public BulkDeleteController(
@@ -29,12 +30,14 @@ namespace OpenAutomate.API.Controllers
             IBotAgentService botAgentService,
             IScheduleService scheduleService,
             IAutomationPackageService automationPackageService,
+            IOrganizationUnitUserService organizationUnitUserService,
             ILogger<BulkDeleteController> logger)
         {
             _assetService = assetService;
             _botAgentService = botAgentService;
             _scheduleService = scheduleService;
             _automationPackageService = automationPackageService;
+            _organizationUnitUserService = organizationUnitUserService;
             _logger = logger;
         }
 
@@ -138,6 +141,31 @@ namespace OpenAutomate.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Bulk remove users from organization unit
+        /// </summary>
+        /// <param name="tenant">The tenant slug (organization unit)</param>
+        /// <param name="dto">Bulk remove request with user IDs</param>
+        [HttpDelete("remove-users")]
+        [RequirePermission(Resources.UserResource, Permissions.Delete)]
+        [ProducesResponseType(typeof(BulkDeleteResultDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<ActionResult<BulkDeleteResultDto>> BulkRemoveUsersFromOU([FromRoute] string tenant, [FromBody] BulkDeleteDto dto)
+        {
+            try
+            {
+                var currentUserId = GetCurrentUserId();
+                var result = await _organizationUnitUserService.BulkRemoveUsersAsync(tenant, dto.Ids, currentUserId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error bulk removing users from organization unit: {Message}", ex.Message);
+                return StatusCode(500, new { message = "An error occurred while bulk removing users from organization unit." });
+            }
+        }
 
     }
 }
