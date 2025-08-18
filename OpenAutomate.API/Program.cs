@@ -138,6 +138,10 @@ namespace OpenAutomate.API
                     
                     // Configure enums to be serialized as strings instead of integers
                     options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+                    
+                    // Configure DateTime to always serialize as UTC with 'Z' suffix
+                    options.JsonSerializerOptions.Converters.Add(new OpenAutomate.Core.Utilities.UtcDateTimeConverter());
+                    options.JsonSerializerOptions.Converters.Add(new OpenAutomate.Core.Utilities.UtcNullableDateTimeConverter());
                 })
                 .AddOData(options => 
                     options.Select()
@@ -729,6 +733,10 @@ namespace OpenAutomate.API
                 
                 // Configure enums to be serialized as strings for consistency with API
                 options.PayloadSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+                
+                // Configure DateTime to always serialize as UTC with 'Z' suffix
+                options.PayloadSerializerOptions.Converters.Add(new OpenAutomate.Core.Utilities.UtcDateTimeConverter());
+                options.PayloadSerializerOptions.Converters.Add(new OpenAutomate.Core.Utilities.UtcNullableDateTimeConverter());
             });
         }
     }

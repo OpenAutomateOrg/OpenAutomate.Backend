@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using OpenAutomate.Core.Domain.Enums;
 using OpenAutomate.Core.Dto.Schedule;
 using OpenAutomate.Core.IServices;
+using OpenAutomate.Core.Utilities;
 using OpenAutomate.Infrastructure.Jobs;
 using Quartz;
 using System;
@@ -168,6 +169,53 @@ namespace OpenAutomate.Infrastructure.Services
             return await scheduler.CheckExists(jobKey);
         }
 
+        public async Task<object?> GetJobStatusAsync(Guid scheduleId)
+        {
+            try
+            {
+                var scheduler = await GetSchedulerAsync();
+                var jobKey = GetJobKey(scheduleId);
+                var triggerKey = GetTriggerKey(scheduleId);
+
+                // Check if job exists
+                var jobExists = await scheduler.CheckExists(jobKey);
+                if (!jobExists)
+                {
+                    return new { exists = false, message = "Job does not exist" };
+                }
+
+                // Get job detail
+                var jobDetail = await scheduler.GetJobDetail(jobKey);
+                var trigger = await scheduler.GetTrigger(triggerKey);
+
+                // Get trigger state
+                var triggerState = await scheduler.GetTriggerState(triggerKey);
+
+                // Get next and previous fire times
+                var nextFireTime = trigger?.GetNextFireTimeUtc();
+                var previousFireTime = trigger?.GetPreviousFireTimeUtc();
+
+                return new
+                {
+                    exists = true,
+                    jobKey = jobKey.ToString(),
+                    triggerKey = triggerKey.ToString(),
+                    jobDescription = jobDetail?.Description,
+                    triggerState = triggerState.ToString(),
+                    nextFireTimeUtc = nextFireTime?.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                    previousFireTimeUtc = previousFireTime?.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                    jobData = jobDetail?.JobDataMap?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value?.ToString()),
+                    schedulerRunning = scheduler.IsStarted,
+                    schedulerName = scheduler.SchedulerName
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting job status for schedule {ScheduleId}", scheduleId);
+                return new { exists = false, error = ex.Message };
+            }
+        }
+
         private async Task<ITrigger?> CreateTriggerAsync(TriggerKey triggerKey, ScheduleResponseDto schedule)
         {
             var timeZone = GetTimeZoneInfo(schedule.TimeZoneId);
@@ -178,7 +226,7 @@ namespace OpenAutomate.Infrastructure.Services
             return schedule.RecurrenceType switch
             {
                 RecurrenceType.Once => CreateOnceTrigger(triggerBuilder, schedule, timeZone),
-                RecurrenceType.Minutes => CreateMinutesTrigger(triggerBuilder),
+                RecurrenceType.Minutes => CreateMinutesTrigger(triggerBuilder, schedule),
                 RecurrenceType.Hourly => CreateHourlyTrigger(triggerBuilder, schedule, timeZone),
                 RecurrenceType.Daily => CreateDailyTrigger(triggerBuilder, schedule, timeZone),
                 RecurrenceType.Weekly => CreateWeeklyTrigger(triggerBuilder),
@@ -197,21 +245,38 @@ namespace OpenAutomate.Infrastructure.Services
             }
 
             var oneTime = schedule.OneTimeExecution.Value;
+            DateTime utcTime;
 
-            if (oneTime.Kind == DateTimeKind.Local && timeZone != TimeZoneInfo.Local)
+            // Handle different DateTimeKind values
+            if (oneTime.Kind == DateTimeKind.Unspecified)
             {
-                oneTime = DateTime.SpecifyKind(oneTime, DateTimeKind.Unspecified);
+                // Treat as local time in the schedule's timezone
+                utcTime = DateTimeUtility.EnsureUtc(oneTime, timeZone);
+                _logger.LogDebug("Converted unspecified time {LocalTime} in timezone {TimeZone} to UTC {UtcTime}", 
+                    oneTime, timeZone.Id, utcTime);
             }
-
-            DateTime utcTime = (oneTime.Kind == DateTimeKind.Utc)
-                ? oneTime
-                : TimeZoneInfo.ConvertTimeToUtc(oneTime, timeZone);
+            else if (oneTime.Kind == DateTimeKind.Utc)
+            {
+                // Already UTC
+                utcTime = oneTime;
+                _logger.LogDebug("Using UTC time {UtcTime} directly", utcTime);
+            }
+            else
+            {
+                // DateTimeKind.Local - convert from system local time
+                utcTime = oneTime.ToUniversalTime();
+                _logger.LogDebug("Converted local time {LocalTime} to UTC {UtcTime}", oneTime, utcTime);
+            }
 
             if (utcTime <= DateTime.UtcNow)
             {
-                _logger.LogWarning("One-time execution date is in the past for schedule {ScheduleId}", schedule.Id);
+                _logger.LogWarning("One-time execution date {UtcTime} is in the past for schedule {ScheduleId}", 
+                    utcTime, schedule.Id);
                 return null;
             }
+
+            _logger.LogInformation("Creating once trigger for schedule {ScheduleId} to execute at {UtcTime}", 
+                schedule.Id, utcTime);
 
             return triggerBuilder
                 .StartAt(utcTime)
@@ -219,13 +284,27 @@ namespace OpenAutomate.Infrastructure.Services
                 .Build();
         }
 
-        private ITrigger CreateMinutesTrigger(TriggerBuilder triggerBuilder)
+        private ITrigger CreateMinutesTrigger(TriggerBuilder triggerBuilder, ScheduleResponseDto schedule)
         {
-            // Default to 30 minutes for now - this could be configurable in the future
+            // Extract interval from cron expression or default to 30 minutes
+            int intervalMinutes = 30; // Default
+            
+            if (!string.IsNullOrWhiteSpace(schedule.CronExpression))
+            {
+                // Parse cron expression like "0 */5 * * * *" to get the interval
+                if (TryParseMinuteInterval(schedule.CronExpression, out var parsedInterval))
+                {
+                    intervalMinutes = parsedInterval;
+                }
+            }
+            
+            _logger.LogInformation("Creating minutes trigger with {IntervalMinutes} minute interval for schedule {ScheduleId}", 
+                intervalMinutes, schedule.Id);
+
             return triggerBuilder
                 .StartNow()
                 .WithSimpleSchedule(x => x
-                    .WithIntervalInMinutes(30)
+                    .WithIntervalInMinutes(intervalMinutes)
                     .RepeatForever())
                 .Build();
         }
@@ -252,12 +331,19 @@ namespace OpenAutomate.Infrastructure.Services
             if (!string.IsNullOrWhiteSpace(schedule.CronExpression))
             {
                 var fixedCronExpression = FixDailyCronExpression(schedule.CronExpression);
+                
+                _logger.LogInformation("Creating daily trigger for schedule {ScheduleId}: Original cron '{OriginalCron}', Fixed cron '{FixedCron}', Timezone '{TimeZone}'", 
+                    schedule.Id, schedule.CronExpression, fixedCronExpression, timeZone.Id);
+                    
                 var cronTrigger = TryCreateCronTrigger(triggerBuilder, fixedCronExpression, timeZone, "daily", schedule.Id);
                 if (cronTrigger != null)
+                {
                     return cronTrigger;
+                }
             }
 
             // Fallback to simple daily schedule if no cron expression
+            _logger.LogWarning("Using fallback simple schedule for daily schedule {ScheduleId}", schedule.Id);
             return triggerBuilder
                 .StartNow()
                 .WithSimpleSchedule(x => x
@@ -301,10 +387,15 @@ namespace OpenAutomate.Infrastructure.Services
         {
             try
             {
-                return triggerBuilder
-                    .StartNow()
+                // Don't use StartNow() for cron triggers - let Quartz calculate the proper start time based on cron expression
+                var trigger = triggerBuilder
                     .WithCronSchedule(cronExpression, x => x.InTimeZone(timeZone))
                     .Build();
+
+                _logger.LogInformation("Created cron trigger for {ScheduleType} schedule {ScheduleId}: Cron '{CronExpression}', Timezone '{TimeZone}', Next fire time '{NextFireTime}'",
+                    scheduleType, scheduleId, cronExpression, timeZone.Id, trigger.GetNextFireTimeUtc());
+
+                return trigger;
             }
             catch (Exception ex)
             {
@@ -334,12 +425,12 @@ namespace OpenAutomate.Infrastructure.Services
         {
             try
             {
-                return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+                return DateTimeUtility.GetTimeZoneInfo(timeZoneId);
             }
             catch
             {
                 // Fallback to UTC if timezone is invalid
-                return TimeZoneInfo.Utc;
+                return DateTimeUtility.GetTimeZoneInfo(null);
             }
         }
 
@@ -364,6 +455,39 @@ namespace OpenAutomate.Infrastructure.Services
             }
             
             return string.Join(" ", parts);
+        }
+
+        /// <summary>
+        /// Tries to parse minute interval from cron expressions like "0 */5 * * * *"
+        /// </summary>
+        private static bool TryParseMinuteInterval(string cronExpression, out int interval)
+        {
+            interval = 30; // Default fallback
+            
+            try
+            {
+                var parts = cronExpression.Split(' ');
+                if (parts.Length == 6)
+                {
+                    // Look for minute part like "*/5" 
+                    var minutePart = parts[1];
+                    if (minutePart.StartsWith("*/"))
+                    {
+                        var intervalStr = minutePart.Substring(2);
+                        if (int.TryParse(intervalStr, out var parsedInterval) && parsedInterval > 0 && parsedInterval <= 60)
+                        {
+                            interval = parsedInterval;
+                            return true;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Fall back to default
+            }
+            
+            return false;
         }
     }
 } 

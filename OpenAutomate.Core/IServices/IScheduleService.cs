@@ -73,5 +73,12 @@ namespace OpenAutomate.Core.IServices
         /// <param name="count">Number of upcoming run times to calculate</param>
         /// <returns>List of upcoming run times</returns>
         List<DateTime> CalculateUpcomingRunTimes(ScheduleResponseDto schedule, int count = 5);
+
+        /// <summary>
+        /// Recalculates next run time for an existing schedule and updates Quartz job
+        /// </summary>
+        /// <param name="scheduleId">Schedule ID to recalculate</param>
+        /// <returns>Updated schedule response</returns>
+        Task<ScheduleResponseDto?> RecalculateScheduleAsync(Guid scheduleId);
     }
 } 
