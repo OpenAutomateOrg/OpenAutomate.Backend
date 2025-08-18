@@ -74,6 +74,7 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 TotalRequested = userIds.Count
             };
+            var successfullyProcessedIds = new List<Guid>();
 
             try
             {
@@ -136,7 +137,8 @@ namespace OpenAutomate.Infrastructure.Services
                                                  // Remove OU user relationship
                          _unitOfWork.OrganizationUnitUsers.Remove(orgUnitUser);
 
-                         result.DeletedIds.Add(userId);
+                         // Track for commit - only update final result after successful commit
+                         successfullyProcessedIds.Add(userId);
                     }
                     catch (Exception ex)
                     {
@@ -146,17 +148,21 @@ namespace OpenAutomate.Infrastructure.Services
                             ErrorMessage = $"Error removing user: {ex.Message}",
                             ErrorCode = "RemovalError"
                         });
+                        result.Failed++;
                     }
                 }
 
                 // Commit all changes atomically at the end
-                if (result.DeletedIds.Count > 0)
+                if (successfullyProcessedIds.Count > 0)
                 {
                     await _unitOfWork.CompleteAsync();
-                    result.SuccessfullyDeleted = result.DeletedIds.Count;
+                    
+                    // Only now update result with successful deletions
+                    result.DeletedIds.AddRange(successfullyProcessedIds);
+                    result.SuccessfullyDeleted = successfullyProcessedIds.Count;
                 }
                 
-                result.Failed = result.Errors.Count;
+                // result.Failed is already correctly calculated from incremental counting
                 return result;
             }
             catch (Exception ex)
