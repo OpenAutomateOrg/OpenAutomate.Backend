@@ -631,19 +631,22 @@ namespace OpenAutomate.Infrastructure.Services
                     });
                 }
 
-                // Delete each schedule
-                foreach (var schedule in schedulesToDelete)
-                {
-                    try
-                    {
-                        // Remove the schedule
-                        _context.Schedules.Remove(schedule);
-                        
-                        result.DeletedIds.Add(schedule.Id);
-                        result.SuccessfullyDeleted++;
-                        
-                        _logger.LogInformation("Schedule deleted: {ScheduleId}", schedule.Id);
-                    }
+                 // Delete each schedule
+                 foreach (var schedule in schedulesToDelete)
+                 {
+                     try
+                     {
+                         // Remove Quartz job first
+                         await _quartzManager.DeleteJobAsync(schedule.Id);
+                         
+                         // Remove the schedule from database
+                         _context.Schedules.Remove(schedule);
+                         
+                         result.DeletedIds.Add(schedule.Id);
+                         result.SuccessfullyDeleted++;
+                         
+                         _logger.LogInformation("Schedule and Quartz job deleted: {ScheduleId}", schedule.Id);
+                     }
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Error deleting schedule {ScheduleId}: {Message}", schedule.Id, ex.Message);
@@ -663,7 +666,7 @@ namespace OpenAutomate.Infrastructure.Services
                     await _context.SaveChangesAsync();
                 }
 
-                result.Failed = result.Errors.Count;
+                // result.Failed is already calculated correctly from incremental result.Failed++
 
                 _logger.LogInformation("Bulk delete completed. Successful: {Success}, Failed: {Failed}", 
                     result.SuccessfullyDeleted, result.Failed);

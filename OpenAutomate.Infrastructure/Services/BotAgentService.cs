@@ -268,11 +268,9 @@ namespace OpenAutomate.Infrastructure.Services
 
             try
             {
-                // Get bot agents that exist and belong to the current tenant
-                var botAgents = await _unitOfWork.BotAgents.GetAllAsync();
-                var botAgentsToDelete = botAgents
-                    .Where(ba => ids.Contains(ba.Id) && ba.OrganizationUnitId == _tenantContext.CurrentTenantId)
-                    .ToList();
+                 // Get bot agents that exist and belong to the current tenant (efficient query)
+                 var botAgentsToDelete = await _unitOfWork.BotAgents.GetAllAsync(ba => 
+                     ids.Contains(ba.Id) && ba.OrganizationUnitId == _tenantContext.CurrentTenantId);
 
                 var foundIds = botAgentsToDelete.Select(ba => ba.Id).ToList();
 
@@ -288,18 +286,26 @@ namespace OpenAutomate.Infrastructure.Services
                     });
                 }
 
-                // Delete each bot agent and handle dependencies
-                foreach (var botAgent in botAgentsToDelete)
-                {
-                    try
-                    {
-                        // Simple check - just delete the bot agent
-                        // In production, you might want to check for running executions
+                                 // Delete each bot agent and handle dependencies
+                 foreach (var botAgent in botAgentsToDelete)
+                 {
+                     try
+                     {
+                         // Check if bot agent is disconnected (same as single delete)
+                         if (botAgent.Status != "Disconnected")
+                         {
+                             result.Errors.Add(new BulkDeleteErrorDto
+                             {
+                                 Id = botAgent.Id,
+                                 ErrorMessage = "Bot Agent must be disconnected before deletion",
+                                 ErrorCode = "AgentNotDisconnected"
+                             });
+                             continue;
+                         }
 
-                        // Remove asset-bot agent relationships
-                        var assetBotAgents = await _unitOfWork.AssetBotAgents.GetAllAsync();
-                        var relatedAssetBotAgents = assetBotAgents.Where(aba => aba.BotAgentId == botAgent.Id).ToList();
-                        _unitOfWork.AssetBotAgents.RemoveRange(relatedAssetBotAgents);
+                         // Remove asset-bot agent relationships (efficient query)
+                         var relatedAssetBotAgents = await _unitOfWork.AssetBotAgents.GetAllAsync(aba => aba.BotAgentId == botAgent.Id);
+                         _unitOfWork.AssetBotAgents.RemoveRange(relatedAssetBotAgents);
 
                         // Remove the bot agent
                         _unitOfWork.BotAgents.Remove(botAgent);
@@ -328,7 +334,7 @@ namespace OpenAutomate.Infrastructure.Services
                     await _unitOfWork.CompleteAsync();
                 }
 
-                result.Failed = result.Errors.Count;
+                // result.Failed is already calculated correctly from incremental result.Failed++
 
                 return result;
             }

@@ -134,9 +134,6 @@ namespace OpenAutomate.Infrastructure.Services
                         // Remove OU user relationship
                         _unitOfWork.OrganizationUnitUsers.Remove(orgUnitUser);
 
-                        // Save changes for this user
-                        await _unitOfWork.CompleteAsync();
-
                         result.DeletedIds.Add(userId);
                         result.SuccessfullyDeleted++;
                     }
@@ -151,6 +148,12 @@ namespace OpenAutomate.Infrastructure.Services
                     }
                 }
 
+                // Commit all changes atomically at the end
+                if (result.SuccessfullyDeleted > 0)
+                {
+                    await _unitOfWork.CompleteAsync();
+                }
+                
                 result.Failed = result.Errors.Count;
                 return result;
             }

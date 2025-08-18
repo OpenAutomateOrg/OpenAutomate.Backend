@@ -435,7 +435,7 @@ namespace OpenAutomate.Infrastructure.Services
                     }
                 }
 
-                result.Failed = result.Errors.Count;
+                // result.Failed is already calculated correctly from incremental result.Failed++
 
                 return result;
             }

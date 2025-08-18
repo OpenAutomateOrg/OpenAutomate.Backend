@@ -658,7 +658,7 @@ namespace OpenAutomate.Infrastructure.Services
                     await _context.SaveChangesAsync();
                 }
 
-                result.Failed = result.Errors.Count;
+                // result.Failed is already calculated correctly from incremental result.Failed++
 
                 return result;
             }
