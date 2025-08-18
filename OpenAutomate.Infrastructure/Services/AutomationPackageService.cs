@@ -388,6 +388,7 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 TotalRequested = ids.Count
             };
+            var successfullyProcessedIds = new List<Guid>();
 
             try
             {
@@ -437,7 +438,8 @@ namespace OpenAutomate.Infrastructure.Services
                         // Remove from database (don't commit yet)
                         _unitOfWork.AutomationPackages.Remove(package);
                         
-                        result.DeletedIds.Add(package.Id);
+                        // Track for commit - only update result after successful commit
+                        successfullyProcessedIds.Add(package.Id);
                     }
                     catch (Exception ex)
                     {
@@ -453,10 +455,13 @@ namespace OpenAutomate.Infrastructure.Services
                 }
 
                 // Commit all changes atomically at the end
-                if (result.DeletedIds.Count > 0)
+                if (successfullyProcessedIds.Count > 0)
                 {
                     await _unitOfWork.CompleteAsync();
-                    result.SuccessfullyDeleted = result.DeletedIds.Count;
+                    
+                    // Only now update result with successful deletions
+                    result.DeletedIds.AddRange(successfullyProcessedIds);
+                    result.SuccessfullyDeleted = successfullyProcessedIds.Count;
                 }
 
                 // result.Failed is calculated from both incremental errors and final assignment
