@@ -216,6 +216,20 @@ namespace OpenAutomate.Infrastructure.Services
                 throw new ArgumentException("Package not found");
             }
 
+            // Check if package is being used in any schedules
+            var schedulesUsingPackage = await _unitOfWork.Schedules.GetAllAsync(
+                s => s.AutomationPackageId == id && s.OrganizationUnitId == _tenantContext.CurrentTenantId);
+
+            if (schedulesUsingPackage.Any())
+            {
+                var scheduleNames = schedulesUsingPackage.Select(s => $"'{s.Name}'").ToList();
+                var scheduleList = string.Join(", ", scheduleNames);
+                
+                throw new InvalidOperationException(
+                    $"Cannot delete package '{package.Name}' because it is currently being used by {schedulesUsingPackage.Count()} schedule(s): {scheduleList}. " +
+                    "Please disable or delete these schedules first before deleting the package.");
+            }
+
             // Get all versions to delete from S3
             var versions = await _unitOfWork.PackageVersions.GetAllAsync(
                 pv => pv.PackageId == id && pv.OrganizationUnitId == _tenantContext.CurrentTenantId);
@@ -233,7 +247,8 @@ namespace OpenAutomate.Infrastructure.Services
                 }
             }
 
-            // Delete from database
+            // Delete from database - EF will automatically set PackageId to null in related executions
+            // due to OnDelete(DeleteBehavior.SetNull) configuration, preserving execution history
             _unitOfWork.AutomationPackages.Remove(package);
             await _unitOfWork.CompleteAsync();
 
@@ -413,7 +428,31 @@ namespace OpenAutomate.Infrastructure.Services
                     result.Failed++;
                 }
 
-                // Delete each package and its versions
+                // Check for schedule dependencies before deletion
+                foreach (var package in packagesToDelete.ToList()) // ToList to avoid modification during iteration
+                {
+                    var schedulesUsingPackage = await _unitOfWork.Schedules.GetAllAsync(
+                        s => s.AutomationPackageId == package.Id && s.OrganizationUnitId == _tenantContext.CurrentTenantId);
+
+                    if (schedulesUsingPackage.Any())
+                    {
+                        var scheduleNames = schedulesUsingPackage.Select(s => $"'{s.Name}'").ToList();
+                        var scheduleList = string.Join(", ", scheduleNames);
+                        
+                        result.Errors.Add(new BulkDeleteErrorDto
+                        {
+                            Id = package.Id,
+                            ErrorMessage = $"Cannot delete package '{package.Name}' because it is currently being used by {schedulesUsingPackage.Count()} schedule(s): {scheduleList}. Please disable or delete these schedules first.",
+                            ErrorCode = "PackageInUse"
+                        });
+                        result.Failed++;
+                        
+                        // Remove from packages to delete
+                        packagesToDelete.Remove(package);
+                    }
+                }
+
+                // Delete each remaining package and its versions
                 foreach (var package in packagesToDelete)
                 {
                     try
