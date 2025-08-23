@@ -8,6 +8,7 @@ using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Domain.IRepository;
 using OpenAutomate.Core.Dto.Asset;
 using OpenAutomate.Core.Dto.BotAgent;
+using OpenAutomate.Core.Dto.Common;
 using OpenAutomate.Core.IServices;
 
 namespace OpenAutomate.Infrastructure.Services
@@ -255,6 +256,99 @@ namespace OpenAutomate.Infrastructure.Services
             await _unitOfWork.CompleteAsync();
             _logger.LogInformation("Bot Agent updated: {BotAgentId}", botAgent.Id);
             return MapToResponseDto(botAgent);
+        }
+
+        /// <inheritdoc />
+        public async Task<BulkDeleteResultDto> BulkDeleteBotAgentsAsync(List<Guid> ids)
+        {
+            var result = new BulkDeleteResultDto
+            {
+                TotalRequested = ids.Count
+            };
+
+            try
+            {
+                 // Get bot agents that exist and belong to the current tenant (efficient query)
+                 var botAgentsToDelete = await _unitOfWork.BotAgents.GetAllAsync(ba => 
+                     ids.Contains(ba.Id) && ba.OrganizationUnitId == _tenantContext.CurrentTenantId);
+
+                var foundIds = botAgentsToDelete.Select(ba => ba.Id).ToList();
+
+                // Track bot agents not found
+                var notFoundIds = ids.Except(foundIds).ToList();
+                foreach (var notFoundId in notFoundIds)
+                {
+                    result.Errors.Add(new BulkDeleteErrorDto
+                    {
+                        Id = notFoundId,
+                        ErrorMessage = "Bot Agent not found or access denied",
+                        ErrorCode = "NotFound"
+                    });
+                    result.Failed++;
+                }
+
+                                                 var successfullyProcessed = new List<Guid>();
+
+                // Delete each bot agent and handle dependencies
+                foreach (var botAgent in botAgentsToDelete)
+                {
+                    try
+                    {
+                        // Check if bot agent is disconnected (same as single delete)
+                        if (botAgent.Status != "Disconnected")
+                        {
+                            result.Errors.Add(new BulkDeleteErrorDto
+                            {
+                                Id = botAgent.Id,
+                                ErrorMessage = "Bot Agent must be disconnected before deletion",
+                                ErrorCode = "AgentNotDisconnected"
+                            });
+                            result.Failed++;
+                            continue;
+                        }
+
+                        // Remove asset-bot agent relationships (efficient query)
+                        var relatedAssetBotAgents = await _unitOfWork.AssetBotAgents.GetAllAsync(aba => aba.BotAgentId == botAgent.Id);
+                        _unitOfWork.AssetBotAgents.RemoveRange(relatedAssetBotAgents);
+
+                        // Remove the bot agent
+                        _unitOfWork.BotAgents.Remove(botAgent);
+                        
+                        successfullyProcessed.Add(botAgent.Id);
+                        _logger.LogInformation("Bot Agent prepared for deletion: {BotAgentId}", botAgent.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error deleting bot agent with ID {Id}: {Message}", botAgent.Id, ex.Message);
+                        result.Errors.Add(new BulkDeleteErrorDto
+                        {
+                            Id = botAgent.Id,
+                            ErrorMessage = ex.Message,
+                            ErrorCode = "DeleteError"
+                        });
+                        result.Failed++;
+                    }
+                }
+
+                // Save changes if there were successful deletions
+                if (successfullyProcessed.Count > 0)
+                {
+                    await _unitOfWork.CompleteAsync();
+                    
+                    // Update counters only after successful commit
+                    result.DeletedIds.AddRange(successfullyProcessed);
+                    result.SuccessfullyDeleted = successfullyProcessed.Count;
+                }
+
+                // result.Failed is calculated from both incremental errors and final assignment
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in bulk delete bot agents operation: {Message}", ex.Message);
+                throw new ApplicationException("Error occurred during bulk delete operation", ex);
+            }
         }
     }
 } 

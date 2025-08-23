@@ -97,6 +97,7 @@ namespace OpenAutomate.API.Controllers.OData
                     EndTime = execution.EndTime,
                     ErrorMessage = execution.ErrorMessage,
                     LogOutput = execution.LogOutput,
+                    HasLogs = !string.IsNullOrEmpty(execution.LogS3Path),
                     BotAgentName = execution.BotAgent?.Name,
                     PackageName = execution.Package?.Name,
                     PackageVersion = execution.Package?.Versions?.FirstOrDefault()?.VersionNumber
@@ -164,6 +165,7 @@ namespace OpenAutomate.API.Controllers.OData
                     EndTime = execution.EndTime,
                     ErrorMessage = execution.ErrorMessage,
                     LogOutput = execution.LogOutput,
+                    HasLogs = !string.IsNullOrEmpty(execution.LogS3Path),
                     BotAgentName = execution.BotAgent?.Name,
                     PackageName = execution.Package?.Name,
                     PackageVersion = execution.Package?.Versions?.FirstOrDefault()?.VersionNumber

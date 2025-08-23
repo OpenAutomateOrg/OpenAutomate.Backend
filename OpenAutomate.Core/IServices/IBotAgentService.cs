@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using OpenAutomate.Core.Dto.Asset;
 using OpenAutomate.Core.Dto.BotAgent;
+using OpenAutomate.Core.Dto.Common;
 using OpenAutomate.Core.Domain.Entities;
 
 namespace OpenAutomate.Core.IServices
@@ -95,5 +96,12 @@ namespace OpenAutomate.Core.IServices
         /// <param name="dto">The update data</param>
         /// <returns>The updated Bot Agent</returns>
         Task<BotAgentResponseDto> UpdateBotAgentAsync(Guid id, UpdateBotAgentDto dto);
+        
+        /// <summary>
+        /// Deletes multiple Bot Agents in a single operation
+        /// </summary>
+        /// <param name="ids">List of Bot Agent IDs to delete</param>
+        /// <returns>Result of the bulk delete operation</returns>
+        Task<BulkDeleteResultDto> BulkDeleteBotAgentsAsync(List<Guid> ids);
     }
 } 

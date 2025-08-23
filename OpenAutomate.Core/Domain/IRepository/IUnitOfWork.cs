@@ -23,6 +23,7 @@ namespace OpenAutomate.Core.Domain.IRepository
         IRepository<Subscription> Subscriptions { get; }
         IRepository<UsageRecord> UsageRecords { get; }
         IRepository<Payment> Payments { get; }
+        IRepository<Schedule> Schedules { get; }
         
         // Get a repository for a specific entity type
         IRepository<T> GetRepository<T>() where T : class;

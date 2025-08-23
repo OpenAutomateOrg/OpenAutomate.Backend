@@ -312,6 +312,10 @@ namespace OpenAutomate.API.Controllers
             {
                 return NotFound(new { error = ex.Message });
             }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
         }
 
         /// <summary>

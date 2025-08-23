@@ -15,7 +15,7 @@ namespace OpenAutomate.Core.Tests.DomainTests
             // Assert
             Assert.NotNull(execution);
             Assert.Equal(Guid.Empty, execution.BotAgentId);
-            Assert.Equal(Guid.Empty, execution.PackageId);
+            Assert.Null(execution.PackageId);
             Assert.Equal(string.Empty, execution.Status);
             Assert.Equal(DateTime.MinValue, execution.StartTime);
             Assert.Null(execution.EndTime);
