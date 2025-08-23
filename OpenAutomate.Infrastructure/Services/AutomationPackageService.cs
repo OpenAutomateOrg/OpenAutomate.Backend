@@ -216,6 +216,20 @@ namespace OpenAutomate.Infrastructure.Services
                 throw new ArgumentException("Package not found");
             }
 
+            // Check if package is being used in any schedules
+            var schedulesUsingPackage = await _unitOfWork.Schedules.GetAllAsync(
+                s => s.AutomationPackageId == id && s.OrganizationUnitId == _tenantContext.CurrentTenantId);
+
+            if (schedulesUsingPackage.Any())
+            {
+                var scheduleNames = schedulesUsingPackage.Select(s => $"'{s.Name}'").ToList();
+                var scheduleList = string.Join(", ", scheduleNames);
+                
+                throw new InvalidOperationException(
+                    $"Cannot delete package '{package.Name}' because it is currently being used by {schedulesUsingPackage.Count()} schedule(s): {scheduleList}. " +
+                    "Please disable or delete these schedules first before deleting the package.");
+            }
+
             // Get all versions to delete from S3
             var versions = await _unitOfWork.PackageVersions.GetAllAsync(
                 pv => pv.PackageId == id && pv.OrganizationUnitId == _tenantContext.CurrentTenantId);
@@ -233,7 +247,8 @@ namespace OpenAutomate.Infrastructure.Services
                 }
             }
 
-            // Delete from database
+            // Delete from database - EF will automatically set PackageId to null in related executions
+            // due to OnDelete(DeleteBehavior.SetNull) configuration, preserving execution history
             _unitOfWork.AutomationPackages.Remove(package);
             await _unitOfWork.CompleteAsync();
 
@@ -400,71 +415,48 @@ namespace OpenAutomate.Infrastructure.Services
 
                 var foundIds = packagesToDelete.Select(p => p.Id).ToList();
 
-                // Track packages not found
-                var notFoundIds = ids.Except(foundIds).ToList();
-                foreach (var notFoundId in notFoundIds)
+                // Handle packages not found
+                HandleNotFoundPackages(ids, foundIds, result);
+
+                // Check for schedule dependencies before deletion
+                foreach (var package in packagesToDelete.ToList()) // ToList to avoid modification during iteration
                 {
-                    result.Errors.Add(new BulkDeleteErrorDto
+                    var schedulesUsingPackage = await _unitOfWork.Schedules.GetAllAsync(
+                        s => s.AutomationPackageId == package.Id && s.OrganizationUnitId == _tenantContext.CurrentTenantId);
+
+                    if (schedulesUsingPackage.Any())
                     {
-                        Id = notFoundId,
-                        ErrorMessage = "Package not found or access denied",
-                        ErrorCode = "NotFound"
-                    });
-                    result.Failed++;
-                }
-
-                // Delete each package and its versions
-                foreach (var package in packagesToDelete)
-                {
-                    try
-                    {
-                        // Get all versions to delete from S3 (inline logic for atomicity)
-                        var versions = await _unitOfWork.PackageVersions.GetAllAsync(
-                            pv => pv.PackageId == package.Id && pv.OrganizationUnitId == _tenantContext.CurrentTenantId);
-
-                        // Delete files from S3
-                        foreach (var version in versions)
-                        {
-                            try
-                            {
-                                await _storageService.DeleteAsync(version.FilePath);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogWarning(ex, "Failed to delete S3 object: {ObjectKey}", version.FilePath);
-                            }
-                        }
-
-                        // Remove from database (don't commit yet)
-                        _unitOfWork.AutomationPackages.Remove(package);
+                        var scheduleNames = schedulesUsingPackage.Select(s => $"'{s.Name}'").ToList();
+                        var scheduleList = string.Join(", ", scheduleNames);
                         
-                        // Track for commit - only update result after successful commit
-                        successfullyProcessedIds.Add(package.Id);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error deleting package with ID {Id}: {Message}", package.Id, ex.Message);
                         result.Errors.Add(new BulkDeleteErrorDto
                         {
                             Id = package.Id,
-                            ErrorMessage = ex.Message,
-                            ErrorCode = "DeleteError"
+                            ErrorMessage = $"Cannot delete package '{package.Name}' because it is currently being used by {schedulesUsingPackage.Count()} schedule(s): {scheduleList}. Please disable or delete these schedules first.",
+                            ErrorCode = "PackageInUse"
                         });
                         result.Failed++;
+                        
+                        // Remove from packages to delete
+                        packagesToDelete.Remove(package);
                     }
+                }
+
+                // Delete each remaining package and its versions
+                foreach (var package in packagesToDelete)
+                {
+                    await DeleteSinglePackageAsync(package, successfullyProcessedIds, result);
                 }
 
                 // Commit all changes atomically at the end
                 if (successfullyProcessedIds.Count > 0)
                 {
                     await _unitOfWork.CompleteAsync();
-                    
+
                     // Only now update result with successful deletions
                     result.DeletedIds.AddRange(successfullyProcessedIds);
                     result.SuccessfullyDeleted = successfullyProcessedIds.Count;
                 }
-
-                // result.Failed is calculated from both incremental errors and final assignment
 
                 return result;
             }
@@ -472,6 +464,74 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 _logger.LogError(ex, "Error in bulk delete packages operation: {Message}", ex.Message);
                 throw new InvalidOperationException("Error occurred during bulk delete operation", ex);
+            }
+        }
+
+        /// <summary>
+        /// Handles tracking of packages that were not found or access denied
+        /// </summary>
+        private void HandleNotFoundPackages(List<Guid> requestedIds, List<Guid> foundIds, BulkDeleteResultDto result)
+        {
+            var notFoundIds = requestedIds.Except(foundIds).ToList();
+            foreach (var notFoundId in notFoundIds)
+            {
+                result.Errors.Add(new BulkDeleteErrorDto
+                {
+                    Id = notFoundId,
+                    ErrorMessage = "Package not found or access denied",
+                    ErrorCode = "NotFound"
+                });
+                result.Failed++;
+            }
+        }
+
+        /// <summary>
+        /// Deletes a single package including its files from storage and database removal
+        /// </summary>
+        private async Task DeleteSinglePackageAsync(AutomationPackage package, List<Guid> successfullyProcessedIds, BulkDeleteResultDto result)
+        {
+            try
+            {
+                // Delete package files from storage
+                await DeletePackageFilesFromStorageAsync(package.Id);
+
+                // Remove from database (don't commit yet)
+                _unitOfWork.AutomationPackages.Remove(package);
+
+                // Track for commit - only update result after successful commit
+                successfullyProcessedIds.Add(package.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting package with ID {Id}: {Message}", package.Id, ex.Message);
+                result.Errors.Add(new BulkDeleteErrorDto
+                {
+                    Id = package.Id,
+                    ErrorMessage = ex.Message,
+                    ErrorCode = "DeleteError"
+                });
+                result.Failed++;
+            }
+        }
+
+        /// <summary>
+        /// Deletes all package version files from storage
+        /// </summary>
+        private async Task DeletePackageFilesFromStorageAsync(Guid packageId)
+        {
+            var versions = await _unitOfWork.PackageVersions.GetAllAsync(
+                pv => pv.PackageId == packageId && pv.OrganizationUnitId == _tenantContext.CurrentTenantId);
+
+            foreach (var version in versions)
+            {
+                try
+                {
+                    await _storageService.DeleteAsync(version.FilePath);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to delete S3 object: {ObjectKey}", version.FilePath);
+                }
             }
         }
     }
