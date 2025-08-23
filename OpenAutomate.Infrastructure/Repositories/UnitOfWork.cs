@@ -27,6 +27,7 @@ namespace OpenAutomate.Infrastructure.Repositories
         private IRepository<Subscription> _subscriptions;
         private IRepository<UsageRecord> _usageRecords;
         private IRepository<Payment> _payments;
+        private IRepository<Schedule> _schedules;
 
         public UnitOfWork(ApplicationDbContext context)
         {
@@ -83,6 +84,9 @@ namespace OpenAutomate.Infrastructure.Repositories
             
         public IRepository<Payment> Payments =>
             _payments ??= new Repository<Payment>(_context);
+            
+        public IRepository<Schedule> Schedules =>
+            _schedules ??= new Repository<Schedule>(_context);
             
         public IRepository<T> GetRepository<T>() where T : class
         {

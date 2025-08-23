@@ -22,7 +22,8 @@ namespace OpenAutomate.Core.Configurations
             builder.HasOne(e => e.Package)
                 .WithMany(ap => ap.Executions)
                 .HasForeignKey(e => e.PackageId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false);
                 
             // Create indexes for faster lookups
             builder.HasIndex(e => e.Status);

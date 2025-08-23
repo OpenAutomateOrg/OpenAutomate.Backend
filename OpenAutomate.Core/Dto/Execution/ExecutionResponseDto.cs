@@ -18,9 +18,9 @@ namespace OpenAutomate.Core.Dto.Execution
         public Guid BotAgentId { get; set; }
 
         /// <summary>
-        /// Package ID being executed
+        /// Package ID being executed (null if package was deleted)
         /// </summary>
-        public Guid PackageId { get; set; }
+        public Guid? PackageId { get; set; }
 
         /// <summary>
         /// Current execution status (Pending, Running, Completed, Failed, Cancelled)

@@ -7,7 +7,7 @@ namespace OpenAutomate.Core.Domain.Entities
     public class Execution : TenantEntity
     {
         public Guid BotAgentId { get; set; }
-        public Guid PackageId { get; set; }
+        public Guid? PackageId { get; set; }
         public string Status { get; set; } = string.Empty;
         public DateTime StartTime { get; set; }
         public DateTime? EndTime { get; set; }

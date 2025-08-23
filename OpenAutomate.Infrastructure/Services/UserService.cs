@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using OpenAutomate.Core.IServices;
 using OpenAutomate.Core.Domain.IRepository;
 using OpenAutomate.Core.Dto.UserDto;
+using OpenAutomate.Core.Dto.Common;
 using Microsoft.Extensions.Options;
 using OpenAutomate.Core.Configurations;
 using OpenAutomate.Core.Exceptions;
