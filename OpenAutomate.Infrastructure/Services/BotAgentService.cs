@@ -64,10 +64,10 @@ namespace OpenAutomate.Infrastructure.Services
             await _unitOfWork.BotAgents.AddAsync(botAgent);
             await _unitOfWork.CompleteAsync();
             
-            _logger.LogInformation("Bot Agent created: {BotAgentId}, Name: {Name}, Machine: {MachineName}",
+            _logger.LogInformation("Bot Agent created: {BotAgentId}, Name: {Name}, Machine: {MachineName}", 
                 botAgent.Id, botAgent.Name, botAgent.MachineName);
-
-            return MapToResponseDtoWithSensitiveFields(botAgent);
+                
+            return MapToResponseDto(botAgent);
         }
         
         /// <inheritdoc />
@@ -108,8 +108,8 @@ namespace OpenAutomate.Infrastructure.Services
             await _unitOfWork.CompleteAsync();
             
             _logger.LogInformation("Machine key regenerated for Bot Agent: {BotAgentId}", botAgent.Id);
-
-            return MapToResponseDtoWithSensitiveFields(botAgent);
+            
+            return MapToResponseDto(botAgent);
         }
 
         /// <inheritdoc />
@@ -147,30 +147,11 @@ namespace OpenAutomate.Infrastructure.Services
         }
         
         /// <summary>
-        /// Maps a BotAgent entity to a BotAgentResponseDto (excludes sensitive fields)
+        /// Maps a BotAgent entity to a BotAgentResponseDto
         /// </summary>
         /// <param name="botAgent">The Bot Agent entity</param>
-        /// <returns>DTO representation of the Bot Agent without sensitive fields</returns>
+        /// <returns>DTO representation of the Bot Agent</returns>
         private BotAgentResponseDto MapToResponseDto(BotAgent botAgent)
-        {
-            return new BotAgentResponseDto
-            {
-                Id = botAgent.Id,
-                Name = botAgent.Name,
-                MachineName = botAgent.MachineName,
-                MachineKey = null, // Excluded for security
-                Status = botAgent.Status,
-                LastConnected = null, // Excluded per user request
-                IsActive = botAgent.IsActive
-            };
-        }
-
-        /// <summary>
-        /// Maps a BotAgent entity to a BotAgentResponseDto including sensitive fields (for creation/regeneration)
-        /// </summary>
-        /// <param name="botAgent">The Bot Agent entity</param>
-        /// <returns>DTO representation of the Bot Agent with all fields</returns>
-        private BotAgentResponseDto MapToResponseDtoWithSensitiveFields(BotAgent botAgent)
         {
             return new BotAgentResponseDto
             {
