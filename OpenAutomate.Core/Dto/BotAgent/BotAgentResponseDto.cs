@@ -23,17 +23,17 @@ namespace OpenAutomate.Core.Dto.BotAgent
         public string MachineName { get; set; }
         
         /// <summary>
-        /// The machine key used for authentication (only returned once during creation)
+        /// The machine key used for authentication (only returned during creation/regeneration)
         /// </summary>
-        public string MachineKey { get; set; }
-        
+        public string? MachineKey { get; set; }
+
         /// <summary>
         /// Current status of the Bot Agent (Pending, Online, Offline, etc.)
         /// </summary>
         public string Status { get; set; }
-        
+
         /// <summary>
-        /// Timestamp of the last successful connection from this Bot Agent
+        /// Timestamp of the last successful connection from this Bot Agent (excluded from general responses)
         /// </summary>
         public DateTime? LastConnected { get; set; }
         
