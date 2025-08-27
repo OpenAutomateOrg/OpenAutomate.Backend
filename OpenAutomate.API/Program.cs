@@ -74,7 +74,7 @@ namespace OpenAutomate.API
             builder.Services.Configure<RedisCacheConfiguration>(appSettingsSection.GetSection("RedisCache"));
             builder.Services.Configure<EmailSettings>(appSettingsSection.GetSection("EmailSettings"));
             builder.Services.Configure<LemonSqueezySettings>(appSettingsSection.GetSection("LemonSqueezy"));
-            builder.Services.Configure<AdminSeedSettings>(appSettingsSection.GetSection("AdminSeed"));
+            builder.Services.Configure<UserSeedSettings>(appSettingsSection.GetSection("UserSeed"));
         }
         
         private static void ConfigureLogging(WebApplicationBuilder builder)
@@ -318,8 +318,8 @@ namespace OpenAutomate.API
             // Register system statistics service
             builder.Services.AddScoped<ISystemStatisticsService, SystemStatisticsService>();
             
-            // Register admin seeding service
-            builder.Services.AddScoped<IAdminSeedService, AdminSeedService>();
+            // Register user seeding service
+            builder.Services.AddScoped<IUserSeedService, UserSeedService>();
         }
         
         private static void ConfigureAuthentication(WebApplicationBuilder builder)
@@ -556,23 +556,23 @@ namespace OpenAutomate.API
                     Console.WriteLine($"An error occurred ensuring Quartz.NET schema: {ex.Message}");
                 }
 
-                // Seed system administrator account
-                var adminSeedService = scope.ServiceProvider.GetRequiredService<IAdminSeedService>();
+                // Seed user accounts
+                var userSeedService = scope.ServiceProvider.GetRequiredService<IUserSeedService>();
                 try
                 {
-                    var adminSeeded = await adminSeedService.SeedSystemAdminAsync();
-                    if (adminSeeded)
+                    var seededCount = await userSeedService.SeedUsersAsync();
+                    if (seededCount > 0)
                     {
-                        Console.WriteLine("System administrator account seeded successfully.");
+                        Console.WriteLine($"Successfully seeded {seededCount} user account(s).");
                     }
                     else
                     {
-                        Console.WriteLine("System administrator account already exists or seeding is disabled.");
+                        Console.WriteLine("No user accounts were seeded (already exist or seeding is disabled).");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"An error occurred seeding system admin: {ex.Message}");
+                    Console.WriteLine($"An error occurred seeding user accounts: {ex.Message}");
                 }
             }
         }

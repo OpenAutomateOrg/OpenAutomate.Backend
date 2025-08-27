@@ -47,13 +47,13 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
 
     public async Task<bool> HasPermissionAsync(Guid userId, string resourceName, int permission)
     {
-        if (!_tenantContext.HasTenant)
+        if (!_tenantContext.HasTenant || !_cacheConfig.EnableRoleCaching)
         {
             return await _innerManager.HasPermissionAsync(userId, resourceName, permission);
         }
 
         var cacheKey = CacheKeyUtility.GeneratePermissionKey(_tenantContext.CurrentTenantId.ToString(), userId.ToString(), $"{resourceName}:{permission}");
-        
+
         // Try to get from cache first
         var cachedResult = await _cacheService.GetAsync<CachedPermissionResult>(cacheKey);
         if (cachedResult != null)
@@ -66,7 +66,7 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
 
         // Get from database and cache the result
         var result = await _innerManager.HasPermissionAsync(userId, resourceName, permission);
-        
+
         var cacheValue = new CachedPermissionResult { HasPermission = result };
                     await _cacheService.SetAsync(cacheKey, cacheValue, _cacheConfig.PermissionCacheTtl);
 
@@ -75,13 +75,13 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
 
     public async Task<bool> HasAuthorityAsync(Guid userId, string authorityName)
     {
-        if (!_tenantContext.HasTenant)
+        if (!_tenantContext.HasTenant || !_cacheConfig.EnableRoleCaching)
         {
             return await _innerManager.HasAuthorityAsync(userId, authorityName);
         }
 
         var cacheKey = CacheKeyUtility.GenerateAuthorityKey(_tenantContext.CurrentTenantId.ToString(), userId.ToString()) + $":{authorityName}";
-        
+
         // Try to get from cache first
         var cachedResult = await _cacheService.GetAsync<CachedAuthorityResult>(cacheKey);
         if (cachedResult != null)
@@ -94,7 +94,7 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
 
         // Get from database and cache the result
         var result = await _innerManager.HasAuthorityAsync(userId, authorityName);
-        
+
         var cacheValue = new CachedAuthorityResult { HasAuthority = result };
                     await _cacheService.SetAsync(cacheKey, cacheValue, _cacheConfig.AuthorityCacheTtl);
 
@@ -207,22 +207,24 @@ public class AuthorizationManagerCachingDecorator : IAuthorizationManager
     /// </summary>
     private async Task InvalidateUserCaches(Guid userId)
     {
-        if (!_tenantContext.HasTenant) return;
+        if (!_tenantContext.HasTenant || !_cacheConfig.EnableRoleCaching) return;
 
-        var permissionPattern = $"{CacheKeyUtility.Prefixes.Permission}:{_tenantContext.CurrentTenantId}:{userId}";
-        var authorityPattern = $"{CacheKeyUtility.Prefixes.Authority}:{_tenantContext.CurrentTenantId}:{userId}";
-        
+        var permissionPattern = $"{CacheKeyUtility.Prefixes.Permission}:{_tenantContext.CurrentTenantId}:{userId}:*";
+        var authorityPattern = $"{CacheKeyUtility.Prefixes.Authority}:{_tenantContext.CurrentTenantId}:{userId}:*";
+
         // Use Redis pattern-based invalidation to remove all matching keys
         try
         {
-            await _cacheService.RemoveByPatternAsync($"{permissionPattern}*");
-            await _cacheService.RemoveByPatternAsync($"{authorityPattern}*");
-            
-            _logger.LogDebug(LogMessages.CacheInvalidated, $"{permissionPattern}* and {authorityPattern}*");
+            await _cacheService.RemoveByPatternAsync(permissionPattern);
+            await _cacheService.RemoveByPatternAsync(authorityPattern);
+
+            _logger.LogInformation("Successfully invalidated user caches for user {UserId} in tenant {TenantId}. Patterns: {PermissionPattern}, {AuthorityPattern}",
+                userId, _tenantContext.CurrentTenantId, permissionPattern, authorityPattern);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to invalidate user caches for user {UserId}, falling back to TTL expiration", userId);
+            _logger.LogError(ex, "Failed to invalidate user caches for user {UserId} in tenant {TenantId}, falling back to TTL expiration",
+                userId, _tenantContext.CurrentTenantId);
             // Fallback: TTL will handle cleanup if pattern removal fails
         }
     }
