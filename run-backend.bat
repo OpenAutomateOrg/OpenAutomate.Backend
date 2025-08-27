@@ -75,12 +75,31 @@ echo         "http://localhost:5252",
 echo         "https://localhost:5252"
 echo       ]
 echo     },
-echo     "AdminSeed": {
-echo       "Email": "admin@openautomate.io",
-echo       "Password": "openAutomate@12345",
-echo       "FirstName": "System",
-echo       "LastName": "Administrator",
-echo       "EnableSeeding": true
+echo     "UserSeed": {
+echo       "EnableSeeding": true,
+echo       "Users": [
+echo         {
+echo           "Email": "admin@openautomate.io",
+echo           "Password": "openAutomate@12345",
+echo           "SystemRole": "Admin",
+echo           "FirstName": "System",
+echo           "LastName": "Administrator"
+echo         },
+echo         {
+echo           "Email": "user1@openautomate.io",
+echo           "Password": "openAutomate@12345",
+echo           "SystemRole": "User",
+echo           "FirstName": "Test",
+echo           "LastName": "User1"
+echo         },
+echo         {
+echo           "Email": "user2@openautomate.io",
+echo           "Password": "openAutomate@12345",
+echo           "SystemRole": "User",
+echo           "FirstName": "Test",
+echo           "LastName": "User2"
+echo         }
+echo       ]
 echo     }
 echo   }
 echo }

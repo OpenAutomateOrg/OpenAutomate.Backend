@@ -12,5 +12,5 @@ public class AppSettings
     public CookieSettings CookieSettings { get; set; } = new CookieSettings();
     public RedisSettings Redis { get; set; } = new RedisSettings();
     public LemonSqueezySettings LemonSqueezy { get; set; } = new LemonSqueezySettings();
-    public AdminSeedSettings AdminSeed { get; set; } = new AdminSeedSettings();
+    public UserSeedSettings UserSeed { get; set; } = new UserSeedSettings();
 } 
