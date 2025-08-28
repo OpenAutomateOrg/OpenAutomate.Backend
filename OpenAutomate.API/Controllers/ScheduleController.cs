@@ -368,6 +368,65 @@ namespace OpenAutomate.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Diagnostic endpoint to test timezone resolution
+        /// </summary>
+        [HttpGet("timezone-test/{timeZoneId}")]
+        public ActionResult<object> TestTimezone(string timeZoneId)
+        {
+            try
+            {
+                var timeZone = OpenAutomate.Core.Utilities.DateTimeUtility.GetTimeZoneInfo(timeZoneId);
+                var utcNow = DateTime.UtcNow;
+                var localTime = OpenAutomate.Core.Utilities.DateTimeUtility.ConvertFromUtc(utcNow, timeZone);
+
+                // Test cron calculation
+                var testCron = "0 20 20 * * *"; // 8:20 PM
+                var cronParts = testCron.Split(' ');
+                if (cronParts.Length == 6 &&
+                    int.TryParse(cronParts[2], out var hour) &&
+                    int.TryParse(cronParts[1], out var minute))
+                {
+                    var todayAtTime = localTime.Date.AddHours(hour).AddMinutes(minute);
+                    var timeDiff = todayAtTime.Subtract(localTime).TotalSeconds;
+                    var nextRun = timeDiff >= 10 ? todayAtTime : todayAtTime.AddDays(1);
+                    var nextRunUtc = OpenAutomate.Core.Utilities.DateTimeUtility.EnsureUtc(nextRun, timeZone);
+
+                    return Ok(new
+                    {
+                        RequestedTimeZone = timeZoneId,
+                        ResolvedTimeZone = timeZone.Id,
+                        UtcNow = utcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                        LocalTime = localTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                        TestCron = testCron,
+                        TodayAtTime = todayAtTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                        TimeDifference = timeDiff,
+                        NextRunLocal = nextRun.ToString("yyyy-MM-dd HH:mm:ss"),
+                        NextRunUtc = nextRunUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                        IsWorkingCorrectly = timeZone.Id != "UTC" || timeZoneId == "UTC"
+                    });
+                }
+
+                return Ok(new
+                {
+                    RequestedTimeZone = timeZoneId,
+                    ResolvedTimeZone = timeZone.Id,
+                    UtcNow = utcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                    LocalTime = localTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                    IsWorkingCorrectly = timeZone.Id != "UTC" || timeZoneId == "UTC"
+                });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new
+                {
+                    RequestedTimeZone = timeZoneId,
+                    Error = ex.Message,
+                    IsWorkingCorrectly = false
+                });
+            }
+        }
+
         private static TimeZoneInfo GetTimeZoneInfo(string timeZoneId)
         {
             try
@@ -380,4 +439,4 @@ namespace OpenAutomate.API.Controllers
             }
         }
     }
-} 
+}
