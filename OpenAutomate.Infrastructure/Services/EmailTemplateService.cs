@@ -281,6 +281,93 @@ namespace OpenAutomate.Infrastructure.Services
             return Task.FromResult(WrapInEmailTemplate("Reset Your Password", "Password Reset Request 🔐", content));
         }
 
+        public Task<string> GetExecutionCompletionEmailTemplateAsync(string userName, string packageName, string status, DateTime startTime, DateTime? endTime, string duration, string? errorMessage = null)
+        {
+            var isSuccess = status.Equals("Completed", StringComparison.OrdinalIgnoreCase);
+            var statusIcon = isSuccess ? "✅" : "❌";
+            var statusClass = isSuccess ? "success" : "error";
+            var statusText = isSuccess ? "completed successfully" : "encountered an issue";
+
+            string content = $@"
+    <div class='email-container'>
+        <div class='greeting'>
+            <h3>Hello {userName},</h3>
+            <p>Your automation execution has {statusText}.</p>
+        </div>
+        
+        <div class='section'>
+            <div class='info-box {statusClass}'>
+                <div class='info-icon'>{statusIcon}</div>
+                <h4>Execution {status}</h4>
+                <div class='execution-details'>
+                    <div class='detail-row'>
+                        <span class='detail-label'>Package: </span>
+                        <span class='detail-value'>{packageName}</span>
+                    </div>
+                    <div class='detail-row'>
+                        <span class='detail-label'>Status: </span>
+                        <span class='detail-value {statusClass}'>{status}</span>
+                    </div>
+                    <div class='detail-row'>
+                        <span class='detail-label'>Started: </span>
+                        <span class='detail-value'>{startTime:yyyy-MM-dd HH:mm:ss} UTC</span>
+                    </div>";
+
+            if (endTime.HasValue)
+            {
+                content += $@"
+                    <div class='detail-row'>
+                        <span class='detail-label'>Finished: </span>
+                        <span class='detail-value'>{endTime.Value:yyyy-MM-dd HH:mm:ss} UTC</span>
+                    </div>";
+            }
+
+            content += $@"
+                    <div class='detail-row'>
+                        <span class='detail-label'>Duration: </span>
+                        <span class='detail-value'>{duration}</span>
+                    </div>
+                </div>";
+
+            if (!isSuccess && !string.IsNullOrEmpty(errorMessage))
+            {
+                content += $@"
+                <div class='error-details'>
+                    <h5>Error Details:</h5>
+                    <p class='error-message'>{errorMessage}</p>
+                </div>";
+            }
+
+            content += @"
+            </div>
+        </div>";
+
+            if (isSuccess)
+            {
+                content += @"
+        <div class='section'>
+            <h4>What's Next?</h4>
+            <p>Your automation has completed successfully. You can review the execution logs and results in your dashboard.</p>
+        </div>";
+            }
+            else
+            {
+                content += @"
+        <div class='section'>
+            <h4>Need Help?</h4>
+            <p>If you need assistance troubleshooting this issue, please check the execution logs in your dashboard or contact our support team.</p>
+        </div>";
+            }
+
+            content += @"
+    </div>";
+
+            var title = isSuccess ? "Execution Completed Successfully" : "Execution Failed";
+            var heading = $"Automation Execution {status} {statusIcon}";
+
+            return Task.FromResult(WrapInEmailTemplate(title, heading, content));
+        }
+
         #endregion
 
         #region Private Helper Methods
@@ -351,9 +438,31 @@ namespace OpenAutomate.Infrastructure.Services
         .info-box { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; text-align: center; }
         .info-box.verification { border-left: 4px solid #3b82f6; }
         .info-box.password-reset { border-left: 4px solid #ef4444; }
+        .info-box.success { border-left: 4px solid #22c55e; background-color: #f0fdf4; }
+        .info-box.error { border-left: 4px solid #ef4444; background-color: #fef2f2; }
+        .info-box.warning { border-left: 4px solid #f59e0b; background-color: #fffbeb; }
         .info-icon { font-size: 32px; margin-bottom: 15px; }
         .info-box h4 { color: #1f2937; margin: 10px 0; }
         .info-box p { color: #6b7280; margin-bottom: 15px; }
+        
+        /* Execution details */
+        .execution-details { text-align: left; margin: 15px 0; }
+        .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-label { font-weight: 600; color: #374151; }
+        .detail-value { color: #6b7280; }
+        .detail-value.success { color: #059669; font-weight: 600; }
+        .detail-value.error { color: #dc2626; font-weight: 600; }
+        
+        /* Error details */
+        .error-details { margin-top: 20px; padding: 15px; background-color: #fef2f2; border: 1px solid #fca5a5; border-radius: 6px; text-align: left; }
+        .error-details h5 { color: #dc2626; margin: 0 0 10px 0; font-size: 16px; }
+        .error-message { color: #7f1d1d; margin: 0; font-family: monospace; font-size: 14px; word-break: break-word; }
+        
+        /* Status-specific colors */
+        .status-completed { color: #059669; }
+        .status-failed { color: #dc2626; }
+        .status-cancelled { color: #d97706; }
         
         /* Security and help sections */
         .security-info { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; }

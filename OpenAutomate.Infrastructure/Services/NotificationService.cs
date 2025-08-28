@@ -158,5 +158,75 @@ namespace OpenAutomate.Infrastructure.Services
                 throw;
             }
         }
+
+        public async Task SendExecutionCompletionEmailAsync(Guid creatorId, Guid executionId, string packageName, string status, DateTime startTime, DateTime? endTime, string? errorMessage = null)
+        {
+            try
+            {
+                // Get the execution creator
+                var creator = await _unitOfWork.Users.GetByIdAsync(creatorId);
+                if (creator == null)
+                {
+                    _logger.LogWarning("Failed to send execution completion email: User not found with ID {CreatorId}", creatorId);
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(creator.Email))
+                {
+                    _logger.LogWarning("Failed to send execution completion email: User {CreatorId} has no email address", creatorId);
+                    return;
+                }
+
+                string userName = $"{creator.FirstName ?? ""} {creator.LastName ?? ""}".Trim();
+                if (string.IsNullOrEmpty(userName))
+                {
+                    userName = creator.Email;
+                }
+
+                // Calculate duration
+                string duration = "N/A";
+                if (endTime.HasValue)
+                {
+                    var timeSpan = endTime.Value - startTime;
+                    if (timeSpan.TotalDays >= 1)
+                    {
+                        duration = $"{(int)timeSpan.TotalDays}d {timeSpan.Hours}h {timeSpan.Minutes}m";
+                    }
+                    else if (timeSpan.TotalHours >= 1)
+                    {
+                        duration = $"{timeSpan.Hours}h {timeSpan.Minutes}m {timeSpan.Seconds}s";
+                    }
+                    else if (timeSpan.TotalMinutes >= 1)
+                    {
+                        duration = $"{timeSpan.Minutes}m {timeSpan.Seconds}s";
+                    }
+                    else
+                    {
+                        duration = $"{timeSpan.Seconds}s";
+                    }
+                }
+
+                // Get email template
+                var emailContent = await _emailTemplateService.GetExecutionCompletionEmailTemplateAsync(
+                    userName, packageName, status, startTime, endTime, duration, errorMessage);
+
+                // Send email
+                var isSuccess = status.Equals("Completed", StringComparison.OrdinalIgnoreCase);
+                string subject = isSuccess 
+                    ? $"Execution Completed Successfully - {packageName} - OpenAutomate"
+                    : $"Execution {status} - {packageName} - OpenAutomate";
+
+                await _emailService.SendEmailAsync(creator.Email, subject, emailContent);
+
+                _logger.LogInformation("Execution completion email sent to: {Email} for execution: {ExecutionId}, status: {Status}", 
+                    creator.Email, executionId, status);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send execution completion email for execution: {ExecutionId}, creator: {CreatorId}", 
+                    executionId, creatorId);
+                // Don't throw - we don't want email failures to affect execution status updates
+            }
+        }
     }
 } 

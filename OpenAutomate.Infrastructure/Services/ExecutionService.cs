@@ -19,6 +19,7 @@ namespace OpenAutomate.Infrastructure.Services
         
         private readonly IUnitOfWork _unitOfWork;
         private readonly ITenantContext _tenantContext;
+        private readonly INotificationService _notificationService;
         private readonly ILogger<ExecutionService> _logger;
 
         /// <summary>
@@ -27,9 +28,11 @@ namespace OpenAutomate.Infrastructure.Services
         public ExecutionService(
             IUnitOfWork unitOfWork,
             ITenantContext tenantContext,
+            INotificationService notificationService,
             ILogger<ExecutionService> logger)        {
             _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
             _tenantContext = tenantContext ?? throw new ArgumentNullException(nameof(tenantContext));
+            _notificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -51,7 +54,8 @@ namespace OpenAutomate.Infrastructure.Services
                 PackageId = dto.PackageId,
                 Status = "Pending",
                 StartTime = DateTime.UtcNow,
-                OrganizationUnitId = currentTenantId
+                OrganizationUnitId = currentTenantId,
+                CreatedBy = dto.CreatedBy
             };
 
             await _unitOfWork.Executions.AddAsync(execution);
@@ -153,6 +157,43 @@ namespace OpenAutomate.Infrastructure.Services
 
             _logger.LogInformation("Execution status updated: {ExecutionId} - {OldStatus} -> {NewStatus}",
                 execution.Id.ToString().Substring(0, 8), oldStatus, status);
+
+            // Send email notification if execution is completed, failed, or cancelled and has a creator
+            if ((status.Equals("Completed", StringComparison.OrdinalIgnoreCase) ||
+                status.Equals("Failed", StringComparison.OrdinalIgnoreCase) ||
+                status.Equals("Cancelled", StringComparison.OrdinalIgnoreCase)) &&
+                execution.CreatedBy.HasValue)
+            {
+                try
+                {
+                    // Get package name
+                    string packageName = "Unknown Package";
+                    if (execution.Package != null)
+                    {
+                        packageName = execution.Package.Name ?? "Unknown Package";
+                    }
+                    else if (execution.PackageId.HasValue)
+                    {
+                        var package = await _unitOfWork.AutomationPackages.GetByIdAsync(execution.PackageId.Value);
+                        packageName = package?.Name ?? "Unknown Package";
+                    }
+
+                    // Send email notification
+                    await _notificationService.SendExecutionCompletionEmailAsync(
+                        execution.CreatedBy.Value,
+                        execution.Id,
+                        packageName,
+                        status,
+                        execution.StartTime,
+                        execution.EndTime,
+                        errorMessage);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to send execution completion email for execution {ExecutionId}", execution.Id);
+                    // Don't let email failure affect the execution status update
+                }
+            }
 
             return execution;
         }

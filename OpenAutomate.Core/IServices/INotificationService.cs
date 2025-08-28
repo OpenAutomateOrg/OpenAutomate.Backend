@@ -44,5 +44,18 @@ namespace OpenAutomate.Core.IServices
         /// <param name="resetLink">The password reset link</param>
         /// <returns>A task representing the asynchronous operation</returns>
         Task SendResetPasswordEmailAsync(string email, string resetLink);
+
+        /// <summary>
+        /// Sends an execution completion notification email to the execution creator
+        /// </summary>
+        /// <param name="creatorId">The execution creator's user ID</param>
+        /// <param name="executionId">The execution ID</param>
+        /// <param name="packageName">The package name</param>
+        /// <param name="status">The execution status (Completed, Failed, etc.)</param>
+        /// <param name="startTime">The execution start time</param>
+        /// <param name="endTime">The execution end time</param>
+        /// <param name="errorMessage">The error message (if any)</param>
+        /// <returns>A task representing the asynchronous operation</returns>
+        Task SendExecutionCompletionEmailAsync(Guid creatorId, Guid executionId, string packageName, string status, DateTime startTime, DateTime? endTime, string? errorMessage = null);
     }
 }

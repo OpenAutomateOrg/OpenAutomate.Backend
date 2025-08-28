@@ -19,7 +19,7 @@ namespace OpenAutomate.API.Controllers
     [ApiController]
     [Route("{tenant}/api/executions")]
     [Authorize]
-    public class ExecutionController : ControllerBase
+    public class ExecutionController : CustomControllerBase
     {
         private readonly IExecutionService _executionService;
         private readonly IBotAgentService _botAgentService;
@@ -91,7 +91,8 @@ namespace OpenAutomate.API.Controllers
                 var execution = await _executionService.CreateExecutionAsync(new CreateExecutionDto
                 {
                     BotAgentId = dto.BotAgentId,
-                    PackageId = dto.PackageId
+                    PackageId = dto.PackageId,
+                    CreatedBy = GetCurrentUserId()
                 });
 
                 // Send command to bot agent via SignalR

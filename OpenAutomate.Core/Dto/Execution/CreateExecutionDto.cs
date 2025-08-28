@@ -19,5 +19,10 @@ namespace OpenAutomate.Core.Dto.Execution
         /// </summary>
         [Required]
         public Guid PackageId { get; set; }
+
+        /// <summary>
+        /// ID of the user creating this execution
+        /// </summary>
+        public Guid? CreatedBy { get; set; }
     }
 } 

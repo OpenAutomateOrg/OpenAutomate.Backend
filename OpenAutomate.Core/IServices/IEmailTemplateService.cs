@@ -45,5 +45,18 @@ namespace OpenAutomate.Core.IServices
         /// <param name="tokenValidityHours">The validity period in hours</param>
         /// <returns>The HTML email content</returns>
         Task<string> GetResetPasswordEmailTemplateAsync(string userName, string resetLink, int tokenValidityHours);
+
+        /// <summary>
+        /// Gets the execution completion email template
+        /// </summary>
+        /// <param name="userName">The user's name</param>
+        /// <param name="packageName">The package name</param>
+        /// <param name="status">The execution status</param>
+        /// <param name="startTime">The execution start time</param>
+        /// <param name="endTime">The execution end time</param>
+        /// <param name="duration">The execution duration</param>
+        /// <param name="errorMessage">The error message (if any)</param>
+        /// <returns>The HTML email content</returns>
+        Task<string> GetExecutionCompletionEmailTemplateAsync(string userName, string packageName, string status, DateTime startTime, DateTime? endTime, string duration, string? errorMessage = null);
     }
 } 
