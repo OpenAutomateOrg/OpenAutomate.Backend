@@ -248,12 +248,13 @@ namespace OpenAutomate.Infrastructure.Services
             DateTime utcTime;
 
             // Handle different DateTimeKind values
+            // OneTimeExecution is always stored as UTC in the database
             if (oneTime.Kind == DateTimeKind.Unspecified)
             {
-                // Treat as local time in the schedule's timezone
-                utcTime = DateTimeUtility.EnsureUtc(oneTime, timeZone);
-                _logger.LogDebug("Converted unspecified time {LocalTime} in timezone {TimeZone} to UTC {UtcTime}", 
-                    oneTime, timeZone.Id, utcTime);
+                // Database values are stored as UTC but have Unspecified kind
+                utcTime = DateTime.SpecifyKind(oneTime, DateTimeKind.Utc);
+                _logger.LogDebug("Treating unspecified time {Time} as UTC {UtcTime}",
+                    oneTime, utcTime);
             }
             else if (oneTime.Kind == DateTimeKind.Utc)
             {
@@ -263,7 +264,9 @@ namespace OpenAutomate.Infrastructure.Services
             }
             else
             {
-                // DateTimeKind.Local - convert from system local time
+                // DateTimeKind.Local - convert from system timezone to UTC
+                // NOTE: This should not happen in normal operation since we store UTC times
+                // This is a fallback that depends on server timezone
                 utcTime = oneTime.ToUniversalTime();
                 _logger.LogDebug("Converted local time {LocalTime} to UTC {UtcTime}", oneTime, utcTime);
             }

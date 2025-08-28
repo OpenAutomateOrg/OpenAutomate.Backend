@@ -21,7 +21,8 @@ namespace OpenAutomate.Infrastructure.Services
 
         public S3PackageStorageService(
             IOptions<AwsSettings> awsSettings,
-            ILogger<S3PackageStorageService> logger)
+            ILogger<S3PackageStorageService> logger,
+            IS3BucketInitializer bucketInitializer)
         {
             _awsSettings = awsSettings.Value;
             _logger = logger;
@@ -32,6 +33,20 @@ namespace OpenAutomate.Infrastructure.Services
             };
 
             _s3Client = new AmazonS3Client(_awsSettings.AccessKey, _awsSettings.SecretKey, config);
+
+            // Ensure the S3 bucket exists
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await bucketInitializer.EnsureBucketExistsAsync(_awsSettings.BucketName, _awsSettings.Region);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to initialize S3 bucket during service construction: {BucketName}", _awsSettings.BucketName);
+                    // Don't throw here to avoid breaking service registration, but log the error
+                }
+            });
         }
 
         public async Task<string> UploadAsync(Stream packageStream, string objectKey, string contentType = "application/zip")
