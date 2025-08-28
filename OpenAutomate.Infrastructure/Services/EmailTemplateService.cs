@@ -288,6 +288,11 @@ namespace OpenAutomate.Infrastructure.Services
             var statusClass = isSuccess ? "success" : "error";
             var statusText = isSuccess ? "completed successfully" : "encountered an issue";
 
+            // Convert UTC times to Vietnam timezone (UTC+7)
+            var vietnamTimeZone = TimeZoneInfo.CreateCustomTimeZone("Vietnam", TimeSpan.FromHours(7), "Vietnam Time", "Vietnam Time");
+            var startTimeVn = TimeZoneInfo.ConvertTimeFromUtc(startTime, vietnamTimeZone);
+            var endTimeVn = endTime.HasValue ? TimeZoneInfo.ConvertTimeFromUtc(endTime.Value, vietnamTimeZone) : (DateTime?)null;
+
             string content = $@"
     <div class='email-container'>
         <div class='greeting'>
@@ -310,7 +315,7 @@ namespace OpenAutomate.Infrastructure.Services
                     </div>
                     <div class='detail-row'>
                         <span class='detail-label'>Started: </span>
-                        <span class='detail-value'>{startTime:yyyy-MM-dd HH:mm:ss} UTC</span>
+                        <span class='detail-value'>{startTimeVn:yyyy-MM-dd HH:mm:ss} (GMT+7)</span>
                     </div>";
 
             if (endTime.HasValue)
@@ -318,7 +323,7 @@ namespace OpenAutomate.Infrastructure.Services
                 content += $@"
                     <div class='detail-row'>
                         <span class='detail-label'>Finished: </span>
-                        <span class='detail-value'>{endTime.Value:yyyy-MM-dd HH:mm:ss} UTC</span>
+                        <span class='detail-value'>{endTimeVn.Value:yyyy-MM-dd HH:mm:ss} (GMT+7)</span>
                     </div>";
             }
 
