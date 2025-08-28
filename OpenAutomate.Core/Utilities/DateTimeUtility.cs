@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using TimeZoneConverter;
 
 namespace OpenAutomate.Core.Utilities
 {
@@ -62,13 +63,65 @@ namespace OpenAutomate.Core.Utilities
 
             try
             {
+                // First try direct lookup (works for Windows timezone IDs)
                 return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
             }
-            catch
+            catch (TimeZoneNotFoundException)
             {
-                // Fallback to UTC if timezone is invalid
+                try
+                {
+                    // Try using TimeZoneConverter for IANA timezone IDs
+                    Console.WriteLine($"[TIMEZONE] Direct lookup failed for '{timeZoneId}', trying IANA conversion...");
+                    var windowsTimeZoneId = TZConvert.IanaToWindows(timeZoneId);
+                    Console.WriteLine($"[TIMEZONE] Converted IANA '{timeZoneId}' to Windows '{windowsTimeZoneId}'");
+                    return TimeZoneInfo.FindSystemTimeZoneById(windowsTimeZoneId);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[TIMEZONE ERROR] IANA conversion failed for '{timeZoneId}': {ex.Message}");
+
+                    // Try manual mapping as final fallback
+                    var manualMapping = MapIanaToWindows(timeZoneId);
+                    if (!string.IsNullOrEmpty(manualMapping))
+                    {
+                        try
+                        {
+                            Console.WriteLine($"[TIMEZONE] Trying manual mapping: {manualMapping}");
+                            return TimeZoneInfo.FindSystemTimeZoneById(manualMapping);
+                        }
+                        catch (Exception mappingEx)
+                        {
+                            Console.WriteLine($"[TIMEZONE ERROR] Manual mapping '{manualMapping}' also failed: {mappingEx.Message}");
+                        }
+                    }
+
+                    // Final fallback to UTC
+                    Console.WriteLine($"[TIMEZONE] All methods failed, falling back to UTC for timezone: {timeZoneId}");
+                    return TimeZoneInfo.Utc;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[TIMEZONE ERROR] Unexpected error for timezone '{timeZoneId}': {ex.Message}");
                 return TimeZoneInfo.Utc;
             }
+        }
+
+        /// <summary>
+        /// Manual mapping for common IANA timezone IDs as final fallback
+        /// </summary>
+        private static string? MapIanaToWindows(string? ianaTimeZoneId)
+        {
+            return ianaTimeZoneId switch
+            {
+                "Asia/Ho_Chi_Minh" => "SE Asia Standard Time",
+                "Asia/Singapore" => "Singapore Standard Time",
+                "Asia/Tokyo" => "Tokyo Standard Time",
+                "America/New_York" => "Eastern Standard Time",
+                "Europe/London" => "GMT Standard Time",
+                "Australia/Sydney" => "AUS Eastern Standard Time",
+                _ => null
+            };
         }
 
         /// <summary>
