@@ -297,6 +297,7 @@ namespace OpenAutomate.API
                     packageService,
                     tenantContext,
                     logger,
+                    provider,
                     signalRSender);
             });
 

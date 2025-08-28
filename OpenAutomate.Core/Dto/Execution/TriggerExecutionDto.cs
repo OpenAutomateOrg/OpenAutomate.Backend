@@ -31,5 +31,10 @@ namespace OpenAutomate.Core.Dto.Execution
         /// </summary>
         [Required]
         public string Version { get; set; } = string.Empty;
+
+        /// <summary>
+        /// ID of the user creating the execution (for scheduled executions, this is the schedule creator)
+        /// </summary>
+        public Guid? CreatedBy { get; set; }
     }
 } 

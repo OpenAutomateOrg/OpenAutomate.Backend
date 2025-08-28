@@ -77,7 +77,8 @@ namespace OpenAutomate.Infrastructure.Services
                 OneTimeExecution = dto.OneTimeExecution.HasValue ? DateTimeUtility.EnsureUtc(dto.OneTimeExecution.Value, DateTimeUtility.GetTimeZoneInfo(dto.TimeZoneId)) : null,
                 TimeZoneId = dto.TimeZoneId,
                 AutomationPackageId = dto.AutomationPackageId,
-                BotAgentId = dto.BotAgentId
+                BotAgentId = dto.BotAgentId,
+                CreatedBy = dto.CreatedBy
             };
 
             await _context.Schedules.AddAsync(schedule);
@@ -632,6 +633,7 @@ namespace OpenAutomate.Infrastructure.Services
                 BotAgentName = schedule.BotAgent?.Name,
                 OrganizationUnitId = schedule.OrganizationUnitId,
                 CreatedAt = schedule.CreatedAt ?? DateTimeUtility.UtcNow,
+                CreatedBy = schedule.CreatedBy,
                 UpdatedAt = schedule.LastModifyAt ?? DateTimeUtility.UtcNow
             };
 

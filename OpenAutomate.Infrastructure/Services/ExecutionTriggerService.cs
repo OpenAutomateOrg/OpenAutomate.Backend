@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OpenAutomate.Core.Dto.Execution;
 using OpenAutomate.Core.IServices;
@@ -17,6 +18,7 @@ namespace OpenAutomate.Infrastructure.Services
         private readonly IAutomationPackageService _packageService;
         private readonly ITenantContext _tenantContext;
         private readonly ILogger<ExecutionTriggerService> _logger;
+        private readonly IServiceProvider _serviceProvider;
 
         // Delegate for SignalR communication - will be injected from API layer
         private readonly Func<Guid, string, object, Task>? _signalRSender;
@@ -27,6 +29,7 @@ namespace OpenAutomate.Infrastructure.Services
             IAutomationPackageService packageService,
             ITenantContext tenantContext,
             ILogger<ExecutionTriggerService> logger,
+            IServiceProvider serviceProvider,
             Func<Guid, string, object, Task>? signalRSender = null)
         {
             _executionService = executionService;
@@ -34,6 +37,7 @@ namespace OpenAutomate.Infrastructure.Services
             _packageService = packageService;
             _tenantContext = tenantContext;
             _logger = logger;
+            _serviceProvider = serviceProvider;
             _signalRSender = signalRSender;
         }
 
@@ -56,7 +60,8 @@ namespace OpenAutomate.Infrastructure.Services
             var execution = await _executionService.CreateExecutionAsync(new CreateExecutionDto
             {
                 BotAgentId = dto.BotAgentId,
-                PackageId = dto.PackageId
+                PackageId = dto.PackageId,
+                CreatedBy = dto.CreatedBy
             });
 
             // Send command to bot agent via SignalR if available
@@ -119,6 +124,10 @@ namespace OpenAutomate.Infrastructure.Services
             string packageName, 
             string version)
         {
+            // Get schedule to retrieve CreatedBy information
+            var scheduleService = _serviceProvider.GetRequiredService<IScheduleService>();
+            var schedule = await scheduleService.GetScheduleByIdAsync(scheduleId);
+            
             // Get package details to get the latest version if needed
             var package = await _packageService.GetPackageByIdAsync(packageId);
             if (package == null)
@@ -136,7 +145,8 @@ namespace OpenAutomate.Infrastructure.Services
                 BotAgentId = botAgentId,
                 PackageId = packageId,
                 PackageName = packageName,
-                Version = actualVersion
+                Version = actualVersion,
+                CreatedBy = schedule?.CreatedBy
             };
 
             _logger.LogInformation("Triggering scheduled execution for schedule {ScheduleId}", scheduleId);

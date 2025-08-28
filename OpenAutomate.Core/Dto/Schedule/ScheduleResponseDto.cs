@@ -84,6 +84,11 @@ namespace OpenAutomate.Core.Dto.Schedule
         public DateTime CreatedAt { get; set; }
 
         /// <summary>
+        /// ID of the user who created the schedule
+        /// </summary>
+        public Guid? CreatedBy { get; set; }
+
+        /// <summary>
         /// Date and time when the schedule was last updated
         /// </summary>
         public DateTime UpdatedAt { get; set; }

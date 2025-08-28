@@ -60,5 +60,10 @@ namespace OpenAutomate.Core.Dto.Schedule
         /// </summary>
         [Required]
         public Guid BotAgentId { get; set; }
+
+        /// <summary>
+        /// ID of the user creating the schedule
+        /// </summary>
+        public Guid? CreatedBy { get; set; }
     }
 } 

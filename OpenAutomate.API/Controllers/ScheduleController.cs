@@ -16,7 +16,7 @@ namespace OpenAutomate.API.Controllers
     [ApiController]
     [Route("{tenant}/api/schedules")]
     [Authorize]
-    public class ScheduleController : ControllerBase
+    public class ScheduleController : CustomControllerBase
     {
         private readonly IScheduleService _scheduleService;
         private readonly ILogger<ScheduleController> _logger;
@@ -44,6 +44,9 @@ namespace OpenAutomate.API.Controllers
         {
             try
             {
+                // Set the current user as the creator
+                dto.CreatedBy = GetCurrentUserId();
+                
                 var schedule = await _scheduleService.CreateScheduleAsync(dto);
                 
                 // Get the tenant from the route data
