@@ -60,12 +60,12 @@ namespace OpenAutomate.API.Controllers
             catch (ArgumentException ex)
             {
                 _logger.LogWarning(ex, "Invalid argument when creating schedule: {Message}", ex.Message);
-                return BadRequest(new { error = ex.Message });
+                return BadRequest(ex.Message);
             }
             catch (InvalidOperationException ex)
             {
                 _logger.LogWarning(ex, "Invalid operation when creating schedule: {Message}", ex.Message);
-                return Conflict(new { error = ex.Message });
+                return Conflict(ex.Message);
             }
             catch (Exception ex)
             {
