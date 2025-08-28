@@ -74,7 +74,8 @@ namespace OpenAutomate.Infrastructure.Services
                 IsEnabled = dto.IsEnabled,
                 RecurrenceType = dto.RecurrenceType,
                 CronExpression = dto.CronExpression,
-                OneTimeExecution = dto.OneTimeExecution.HasValue ? DateTimeUtility.EnsureUtc(dto.OneTimeExecution.Value, DateTimeUtility.GetTimeZoneInfo(dto.TimeZoneId)) : null,
+                // Frontend sends OneTimeExecution already converted to UTC, so just ensure UTC kind
+                OneTimeExecution = dto.OneTimeExecution.HasValue ? DateTimeUtility.EnsureUtc(dto.OneTimeExecution.Value) : null,
                 TimeZoneId = dto.TimeZoneId,
                 AutomationPackageId = dto.AutomationPackageId,
                 BotAgentId = dto.BotAgentId
@@ -413,15 +414,15 @@ namespace OpenAutomate.Infrastructure.Services
                 return null;
 
             var oneTimeValue = schedule.OneTimeExecution.Value;
-            
-            // If the datetime has a timezone specified (Kind.Utc or Kind.Local), use it as-is
-            // If it's unspecified, treat it as local time in the schedule's timezone
+
+            // OneTimeExecution is always stored as UTC in the database
+            // If Kind is Unspecified (common from DB), treat as UTC
             DateTime targetTime;
-            
+
             if (oneTimeValue.Kind == DateTimeKind.Unspecified)
             {
-                // Treat as local time in the schedule's timezone
-                targetTime = DateTimeUtility.EnsureUtc(oneTimeValue, timeZone);
+                // Database values are stored as UTC but have Unspecified kind
+                targetTime = DateTime.SpecifyKind(oneTimeValue, DateTimeKind.Utc);
             }
             else if (oneTimeValue.Kind == DateTimeKind.Utc)
             {
@@ -430,7 +431,9 @@ namespace OpenAutomate.Infrastructure.Services
             }
             else
             {
-                // Local time, convert to UTC assuming system timezone
+                // DateTimeKind.Local - convert from system timezone to UTC
+                // NOTE: This should not happen in normal operation since we store UTC times
+                // This is a fallback that depends on server timezone
                 targetTime = oneTimeValue.ToUniversalTime();
             }
 
