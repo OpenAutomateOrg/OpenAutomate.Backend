@@ -70,7 +70,7 @@ namespace OpenAutomate.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating schedule");
-                return StatusCode(500, new { error = "Failed to create schedule" });
+                return BadRequest("Failed to create schedule");
             }
         }
 

@@ -127,7 +127,7 @@ namespace OpenAutomate.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error triggering execution");
-                return StatusCode(500, "Failed to trigger execution");
+                return BadRequest("Failed to trigger execution");
             }
         }
 
