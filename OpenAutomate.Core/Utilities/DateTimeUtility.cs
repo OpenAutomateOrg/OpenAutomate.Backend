@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using TimeZoneConverter;
 
 namespace OpenAutomate.Core.Utilities
 {
@@ -62,13 +63,148 @@ namespace OpenAutomate.Core.Utilities
 
             try
             {
+                // First try direct lookup (works for IANA timezone IDs on Linux)
                 return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
             }
-            catch
+            catch (TimeZoneNotFoundException)
             {
-                // Fallback to UTC if timezone is invalid
+                try
+                {
+                    // Try using TimeZoneConverter for IANA timezone IDs
+                    Console.WriteLine($"[TIMEZONE] Direct lookup failed for '{timeZoneId}', trying IANA conversion...");
+                    var windowsTimeZoneId = TZConvert.IanaToWindows(timeZoneId);
+                    Console.WriteLine($"[TIMEZONE] Converted IANA '{timeZoneId}' to Windows '{windowsTimeZoneId}'");
+                    return TimeZoneInfo.FindSystemTimeZoneById(windowsTimeZoneId);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[TIMEZONE ERROR] IANA conversion failed for '{timeZoneId}': {ex.Message}");
+
+                    // Create custom timezone for Linux containers
+                    var customTimeZone = CreateCustomTimeZone(timeZoneId);
+                    if (customTimeZone != null)
+                    {
+                        Console.WriteLine($"[TIMEZONE] Created custom timezone for '{timeZoneId}' with offset {customTimeZone.BaseUtcOffset}");
+                        return customTimeZone;
+                    }
+
+                    // Final fallback to UTC
+                    Console.WriteLine($"[TIMEZONE] All methods failed, falling back to UTC for timezone: {timeZoneId}");
+                    return TimeZoneInfo.Utc;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[TIMEZONE ERROR] Unexpected error for timezone '{timeZoneId}': {ex.Message}");
                 return TimeZoneInfo.Utc;
             }
+        }
+
+        /// <summary>
+        /// Creates a custom TimeZoneInfo for common timezones when system lookup fails
+        /// This is essential for Linux containers that may not have full timezone data
+        /// </summary>
+        private static TimeZoneInfo? CreateCustomTimeZone(string? timeZoneId)
+        {
+            var timezoneData = GetTimezoneData(timeZoneId);
+            if (timezoneData == null)
+                return null;
+
+            try
+            {
+                return TimeZoneInfo.CreateCustomTimeZone(
+                    timezoneData.Id,
+                    timezoneData.BaseOffset,
+                    timezoneData.DisplayName,
+                    timezoneData.StandardName
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[TIMEZONE ERROR] Failed to create custom timezone for '{timeZoneId}': {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Gets timezone data for common IANA timezone IDs
+        /// </summary>
+        private static TimezoneData? GetTimezoneData(string? timeZoneId)
+        {
+            return timeZoneId switch
+            {
+                "Asia/Ho_Chi_Minh" => new TimezoneData
+                {
+                    Id = "Asia/Ho_Chi_Minh",
+                    BaseOffset = TimeSpan.FromHours(7),
+                    DisplayName = "(UTC+07:00) Ho Chi Minh City",
+                    StandardName = "Indochina Time"
+                },
+                "Asia/Singapore" => new TimezoneData
+                {
+                    Id = "Asia/Singapore",
+                    BaseOffset = TimeSpan.FromHours(8),
+                    DisplayName = "(UTC+08:00) Singapore",
+                    StandardName = "Singapore Standard Time"
+                },
+                "Asia/Tokyo" => new TimezoneData
+                {
+                    Id = "Asia/Tokyo",
+                    BaseOffset = TimeSpan.FromHours(9),
+                    DisplayName = "(UTC+09:00) Tokyo",
+                    StandardName = "Japan Standard Time"
+                },
+                "America/New_York" => new TimezoneData
+                {
+                    Id = "America/New_York",
+                    BaseOffset = TimeSpan.FromHours(-5),
+                    DisplayName = "(UTC-05:00) New York",
+                    StandardName = "Eastern Standard Time"
+                },
+                "Europe/London" => new TimezoneData
+                {
+                    Id = "Europe/London",
+                    BaseOffset = TimeSpan.FromHours(0),
+                    DisplayName = "(UTC+00:00) London",
+                    StandardName = "Greenwich Mean Time"
+                },
+                "Australia/Sydney" => new TimezoneData
+                {
+                    Id = "Australia/Sydney",
+                    BaseOffset = TimeSpan.FromHours(10),
+                    DisplayName = "(UTC+10:00) Sydney",
+                    StandardName = "Australian Eastern Standard Time"
+                },
+                _ => null
+            };
+        }
+
+        /// <summary>
+        /// Manual mapping for common IANA timezone IDs as final fallback
+        /// </summary>
+        private static string? MapIanaToWindows(string? ianaTimeZoneId)
+        {
+            return ianaTimeZoneId switch
+            {
+                "Asia/Ho_Chi_Minh" => "SE Asia Standard Time",
+                "Asia/Singapore" => "Singapore Standard Time",
+                "Asia/Tokyo" => "Tokyo Standard Time",
+                "America/New_York" => "Eastern Standard Time",
+                "Europe/London" => "GMT Standard Time",
+                "Australia/Sydney" => "AUS Eastern Standard Time",
+                _ => null
+            };
+        }
+
+        /// <summary>
+        /// Helper class for timezone data
+        /// </summary>
+        private class TimezoneData
+        {
+            public string Id { get; set; } = string.Empty;
+            public TimeSpan BaseOffset { get; set; }
+            public string DisplayName { get; set; } = string.Empty;
+            public string StandardName { get; set; } = string.Empty;
         }
 
         /// <summary>

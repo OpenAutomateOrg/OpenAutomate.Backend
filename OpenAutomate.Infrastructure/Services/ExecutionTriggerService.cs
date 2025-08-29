@@ -104,6 +104,7 @@ namespace OpenAutomate.Infrastructure.Services
                 ErrorMessage = execution.ErrorMessage,
                 LogOutput = execution.LogOutput,
                 HasLogs = !string.IsNullOrEmpty(execution.LogS3Path),
+                ScheduleId = execution.ScheduleId,
                 BotAgentName = botAgent.Name,
                 PackageName = package.Name,
                 PackageVersion = dto.Version
@@ -113,13 +114,21 @@ namespace OpenAutomate.Infrastructure.Services
         }
 
         public async Task<ExecutionResponseDto> TriggerScheduledExecutionAsync(
-            Guid scheduleId, 
-            Guid botAgentId, 
-            Guid packageId, 
-            string packageName, 
+            Guid scheduleId,
+            Guid botAgentId,
+            Guid packageId,
+            string packageName,
             string version)
         {
-            // Get package details to get the latest version if needed
+            // Validate bot agent exists and is not disconnected
+            var botAgent = await _botAgentService.GetBotAgentByIdAsync(botAgentId);
+            if (botAgent == null)
+                throw new ArgumentException("Bot agent not found");
+
+            if (botAgent.Status == "Disconnected")
+                throw new InvalidOperationException($"Bot agent is disconnected (Status: {botAgent.Status})");
+
+            // Validate package exists
             var package = await _packageService.GetPackageByIdAsync(packageId);
             if (package == null)
                 throw new ArgumentException("Package not found");
@@ -131,17 +140,66 @@ namespace OpenAutomate.Infrastructure.Services
                 actualVersion = package.Versions?.FirstOrDefault()?.VersionNumber ?? "1.0.0";
             }
 
-            var triggerDto = new TriggerExecutionDto
+            // Create execution record with ScheduleId
+            var execution = await _executionService.CreateExecutionAsync(new CreateExecutionDto
             {
                 BotAgentId = botAgentId,
                 PackageId = packageId,
-                PackageName = packageName,
-                Version = actualVersion
+                ScheduleId = scheduleId
+            });
+
+            // Send command to bot agent via SignalR if available
+            if (_signalRSender != null)
+            {
+                var commandPayload = new
+                {
+                    ExecutionId = execution.Id.ToString(),
+                    PackageId = packageId.ToString(),
+                    PackageName = packageName,
+                    Version = actualVersion,
+                    TenantSlug = _tenantContext.CurrentTenantSlug
+                };
+
+                try
+                {
+                    await _signalRSender(botAgentId, "ExecutePackage", commandPayload);
+                    _logger.LogInformation("SignalR command sent to bot agent {BotAgentId} for scheduled execution {ExecutionId} from schedule {ScheduleId}",
+                        botAgentId, execution.Id, scheduleId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to send SignalR command to bot agent {BotAgentId} for scheduled execution {ExecutionId}",
+                        botAgentId, execution.Id);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("SignalR sender not available - scheduled execution {ExecutionId} created but command not sent to bot agent",
+                    execution.Id);
+            }
+
+            _logger.LogInformation("Scheduled execution {ExecutionId} triggered for bot agent {BotAgentId} from schedule {ScheduleId}",
+                execution.Id, botAgentId, scheduleId);
+
+            // Map to response DTO
+            var responseDto = new ExecutionResponseDto
+            {
+                Id = execution.Id,
+                BotAgentId = execution.BotAgentId,
+                PackageId = execution.PackageId,
+                Status = execution.Status,
+                StartTime = execution.StartTime,
+                EndTime = execution.EndTime,
+                ErrorMessage = execution.ErrorMessage,
+                LogOutput = execution.LogOutput,
+                HasLogs = !string.IsNullOrEmpty(execution.LogS3Path),
+                ScheduleId = execution.ScheduleId,
+                BotAgentName = botAgent.Name,
+                PackageName = package.Name,
+                PackageVersion = actualVersion
             };
 
-            _logger.LogInformation("Triggering scheduled execution for schedule {ScheduleId}", scheduleId);
-
-            return await TriggerExecutionAsync(triggerDto);
+            return responseDto;
         }
     }
 } 

@@ -376,9 +376,11 @@ namespace OpenAutomate.API.Controllers
                 ErrorMessage = execution.ErrorMessage,
                 LogOutput = execution.LogOutput,
                 HasLogs = !string.IsNullOrEmpty(execution.LogS3Path),
+                ScheduleId = execution.ScheduleId,
                 BotAgentName = execution.BotAgent?.Name,
                 PackageName = execution.Package?.Name,
-                PackageVersion = execution.Package?.Versions?.FirstOrDefault()?.VersionNumber
+                PackageVersion = execution.Package?.Versions?.FirstOrDefault()?.VersionNumber,
+                ScheduleName = execution.Schedule?.Name
             };
         }
     }
