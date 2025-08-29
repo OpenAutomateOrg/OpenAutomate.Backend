@@ -14,12 +14,20 @@ namespace OpenAutomate.Core.Domain.Entities
         public string? LogOutput { get; set; }
         public string? ErrorMessage { get; set; }
         public string? LogS3Path { get; set; }
-        
+
+        /// <summary>
+        /// Schedule ID if this execution was triggered by a schedule, null if manually triggered
+        /// </summary>
+        public Guid? ScheduleId { get; set; }
+
         // Navigation properties
         [JsonIgnore]
         public virtual BotAgent? BotAgent { get; set; }
-        
+
         [JsonIgnore]
         public virtual AutomationPackage? Package { get; set; }
+
+        [JsonIgnore]
+        public virtual Schedule? Schedule { get; set; }
     }
 } 

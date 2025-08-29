@@ -49,6 +49,7 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 BotAgentId = dto.BotAgentId,
                 PackageId = dto.PackageId,
+                ScheduleId = dto.ScheduleId,
                 Status = "Pending",
                 StartTime = DateTime.UtcNow,
                 OrganizationUnitId = currentTenantId
@@ -66,22 +67,22 @@ namespace OpenAutomate.Infrastructure.Services
         /// </summary>
         public async Task<Execution?> GetExecutionByIdAsync(Guid id)
         {
-            var execution = await _unitOfWork.Executions.GetByIdAsync(id);
-            
             if (!_tenantContext.HasTenant)
             {
                 return null;
             }
-            
-            var currentTenantId = _tenantContext.CurrentTenantId;
-            
-            // Ensure the execution belongs to the current tenant
-            if (execution?.OrganizationUnitId != currentTenantId)
-            {
-                return null;
-            }
 
-            return execution;
+            var currentTenantId = _tenantContext.CurrentTenantId;
+
+            var executions = await _unitOfWork.Executions.GetAllAsync(
+                e => e.Id == id && e.OrganizationUnitId == currentTenantId,
+                null,
+                e => e.BotAgent,
+                e => e.Package,
+                e => e.Package.Versions,
+                e => e.Schedule);
+
+            return executions?.FirstOrDefault();
         }        /// <summary>
         /// Gets all executions for the current tenant
         /// </summary>
@@ -99,7 +100,8 @@ namespace OpenAutomate.Infrastructure.Services
                 null,
                 e => e.BotAgent,
                 e => e.Package,
-                e => e.Package.Versions);
+                e => e.Package.Versions,
+                e => e.Schedule);
 
             return executions ?? Enumerable.Empty<Execution>();
         }        /// <summary>
@@ -119,7 +121,8 @@ namespace OpenAutomate.Infrastructure.Services
                 null,
                 e => e.BotAgent,
                 e => e.Package,
-                e => e.Package.Versions);
+                e => e.Package.Versions,
+                e => e.Schedule);
 
             return executions ?? Enumerable.Empty<Execution>();
         }

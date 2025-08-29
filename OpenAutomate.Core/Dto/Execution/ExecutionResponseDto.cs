@@ -52,8 +52,18 @@ namespace OpenAutomate.Core.Dto.Execution
         /// </summary>
         public bool HasLogs { get; set; }
 
+        /// <summary>
+        /// Schedule ID if this execution was triggered by a schedule
+        /// </summary>
+        public Guid? ScheduleId { get; set; }
+
+        /// <summary>
+        /// Source of the execution (Manual or Scheduled)
+        /// </summary>
+        public string Source => ScheduleId.HasValue ? "Scheduled" : "Manual";
+
         // Navigation properties for display purposes
-        
+
         /// <summary>
         /// Name of the bot agent
         /// </summary>
@@ -68,5 +78,10 @@ namespace OpenAutomate.Core.Dto.Execution
         /// Version of the package executed
         /// </summary>
         public string? PackageVersion { get; set; }
+
+        /// <summary>
+        /// Name of the schedule if this execution was triggered by a schedule
+        /// </summary>
+        public string? ScheduleName { get; set; }
     }
 } 
