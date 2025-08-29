@@ -19,5 +19,10 @@ namespace OpenAutomate.Core.Dto.Execution
         /// </summary>
         [Required]
         public Guid PackageId { get; set; }
+
+        /// <summary>
+        /// Optional schedule ID if this execution is triggered by a schedule
+        /// </summary>
+        public Guid? ScheduleId { get; set; }
     }
 } 
