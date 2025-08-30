@@ -34,7 +34,12 @@ namespace OpenAutomate.Core.Domain.Entities
         /// Whether the Asset value is encrypted
         /// </summary>
         public bool IsEncrypted { get; set; } = true;
-        
+
+        /// <summary>
+        /// Whether this Asset is globally accessible to all agents in the organization unit
+        /// </summary>
+        public bool IsGlobal { get; set; }
+
         /// <summary>
         /// The tenant ID this Asset belongs to
         /// </summary>
