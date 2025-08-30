@@ -23,14 +23,14 @@ namespace OpenAutomate.Core.Constants
         public const int Create = 2;
         
         /// <summary>
-        /// Update permission (3) - ability to modify existing resources and execute operations
-        /// Includes: View, Create, Execute
+        /// Update permission (3) - ability to modify existing resources
+        /// Includes: View, Create
         /// </summary>
         public const int Update = 3;
         
         /// <summary>
         /// Delete permission (4) - highest level with full administrative access including delete operations
-        /// Includes: View, Create, Update, Execute
+        /// Includes: View, Create, Update
         /// </summary>
         public const int Delete = 4;
         

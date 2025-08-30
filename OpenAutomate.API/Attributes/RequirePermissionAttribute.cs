@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using OpenAutomate.Core.Domain.Entities;
 using OpenAutomate.Core.Domain.Enums;
 using OpenAutomate.Core.IServices;
+using OpenAutomate.Core.Constants;
 using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -62,11 +63,37 @@ namespace OpenAutomate.API.Attributes
             
             if (!hasPermission)
             {
-                context.Result = new ForbidResult();
+                var permissionName = GetPermissionName(_permission);
+                var resourceDisplayName = Resources.GetDisplayName(_resourceName);
+
+                var errorMessage = $"Access denied. You need '{permissionName}' permission for '{resourceDisplayName}' to perform this action.";
+
+                context.Result = new ObjectResult(new { message = errorMessage })
+                {
+                    StatusCode = 403
+                };
                 return;
             }
             
             await next();
         }
+
+        /// <summary>
+        /// Gets the human-readable name for a permission level
+        /// </summary>
+        /// <param name="permission">The permission level</param>
+        /// <returns>Human-readable permission name</returns>
+        private static string GetPermissionName(int permission)
+        {
+            return permission switch
+            {
+                Permissions.NoAccess => "No Access",
+                Permissions.View => "View",
+                Permissions.Create => "Create",
+                Permissions.Update => "Update",
+                Permissions.Delete => "Full Access",
+                _ => $"Permission Level {permission}"
+            };
+        }
     }
-} 
+}

@@ -26,7 +26,7 @@ namespace OpenAutomate.API.Extensions
             var builder = new ODataConventionModelBuilder();
             
             // Register entity sets based on DTOs
-            builder.EntitySet<BotAgentResponseDto>("BotAgents");
+            builder.EntitySet<BotAgentODataDto>("BotAgents");
             builder.EntitySet<UserResponse>("Users");
             builder.EntitySet<AssetResponseDto>("Assets");
             builder.EntitySet<AutomationPackageResponseDto>("AutomationPackages");
