@@ -31,7 +31,12 @@ namespace OpenAutomate.Core.Dto.Asset
         /// Whether the Asset value is encrypted
         /// </summary>
         public bool IsEncrypted { get; set; }
-        
+
+        /// <summary>
+        /// Whether this Asset is globally accessible to all agents in the organization unit
+        /// </summary>
+        public bool IsGlobal { get; set; }
+
         /// <summary>
         /// When the Asset was created
         /// </summary>

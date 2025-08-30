@@ -144,7 +144,7 @@ namespace OpenAutomate.Core.Constants
                 {
                     Level = Permissions.Update,
                     Name = "Update",
-                    Description = "View, create, and modify items (includes execute)"
+                    Description = "View, create, and modify items"
                 },
                 new PermissionLevelDto
                 {

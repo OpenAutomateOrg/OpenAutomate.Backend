@@ -82,7 +82,8 @@ namespace OpenAutomate.API.Controllers.OData
                 }
                 
                 var botAgents = await _botAgentService.GetAllBotAgentsAsync();
-                return Ok(botAgents);
+                var odataDtos = botAgents.Select(MapToODataDto);
+                return Ok(odataDtos);
             }
             catch (Exception ex)
             {
@@ -131,8 +132,9 @@ namespace OpenAutomate.API.Controllers.OData
                 var botAgent = await _botAgentService.GetBotAgentByIdAsync(key);
                 if (botAgent == null)
                     return NotFound();
-                    
-                return Ok(botAgent);
+
+                var odataDto = MapToODataDto(botAgent);
+                return Ok(odataDto);
             }
             catch (Exception ex)
             {
@@ -140,5 +142,22 @@ namespace OpenAutomate.API.Controllers.OData
                 return StatusCode(500, "An error occurred while retrieving the bot agent");
             }
         }
+
+        /// <summary>
+        /// Maps a BotAgentResponseDto to a BotAgentODataDto, excluding sensitive information
+        /// </summary>
+        /// <param name="botAgent">The Bot Agent response DTO</param>
+        /// <returns>OData DTO without sensitive information</returns>
+        private static BotAgentODataDto MapToODataDto(BotAgentResponseDto botAgent)
+        {
+            return new BotAgentODataDto
+            {
+                Id = botAgent.Id,
+                Name = botAgent.Name,
+                MachineName = botAgent.MachineName,
+                Status = botAgent.Status,
+                IsActive = botAgent.IsActive
+            };
+        }
     }
-} 
+}

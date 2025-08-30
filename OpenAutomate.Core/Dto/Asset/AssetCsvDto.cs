@@ -29,7 +29,11 @@ namespace OpenAutomate.Core.Dto.Asset
         /// </summary>
         [Required]
         public string Type { get; set; } = "String";
-        
+
+        /// <summary>
+        /// Whether this Asset is globally accessible to all agents in the organization unit
+        /// </summary>
+        public bool IsGlobal { get; set; } = true;
 
     }
 }
