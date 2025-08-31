@@ -19,7 +19,7 @@ namespace OpenAutomate.API.Controllers
     /// <remarks>
     /// Provides endpoints for creating roles, assigning permissions, and managing user authorities.
     /// All operations are scoped to the current organization unit (tenant).
-    /// Permission levels: 0=No Access, 1=View, 2=Create, 3=Update (includes Execute), 4=Delete/Full Admin
+    /// Permission levels: 0=No Access, 1=View, 2=Create, 3=Update, 4=Delete/Full Admin
     /// </remarks>
     [ApiController]
     [Route("{tenant}/api/author")]
