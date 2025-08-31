@@ -26,5 +26,10 @@ namespace OpenAutomate.Core.Dto.Asset
         [StringLength(50, MinimumLength = 1)]
         [RegularExpression(@"^[a-zA-Z0-9_\-.]+$", ErrorMessage = "Key can only contain letters, numbers, underscores, hyphens, and periods")]
         public string Key { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Whether this Asset is globally accessible to all agents in the organization unit
+        /// </summary>
+        public bool IsGlobal { get; set; }
     }
 } 

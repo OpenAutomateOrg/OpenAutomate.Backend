@@ -34,7 +34,12 @@ namespace OpenAutomate.Core.Dto.Asset
         /// </summary>
         [Required]
         public AssetType Type { get; set; } = AssetType.String;
-        
+
+        /// <summary>
+        /// Whether this Asset is globally accessible to all agents in the organization unit
+        /// </summary>
+        public bool IsGlobal { get; set; } = true;
+
         /// <summary>
         /// Optional list of Bot Agent IDs that can access this Asset
         /// </summary>

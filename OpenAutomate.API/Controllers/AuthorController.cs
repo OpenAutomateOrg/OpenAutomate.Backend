@@ -19,7 +19,7 @@ namespace OpenAutomate.API.Controllers
     /// <remarks>
     /// Provides endpoints for creating roles, assigning permissions, and managing user authorities.
     /// All operations are scoped to the current organization unit (tenant).
-    /// Permission levels: 0=No Access, 1=View, 2=Create, 3=Update (includes Execute), 4=Delete/Full Admin
+    /// Permission levels: 0=No Access, 1=View, 2=Create, 3=Update, 4=Delete/Full Admin
     /// </remarks>
     [ApiController]
     [Route("{tenant}/api/author")]
@@ -255,13 +255,9 @@ namespace OpenAutomate.API.Controllers
         public async Task<IActionResult> AssignAuthorityToUser(Guid userId, [FromBody] AssignAuthorityDto dto)
         {
             await _authorizationManager.AssignAuthorityToUserAsync(userId, dto.AuthorityId);
-            
-            // Invalidate user permissions cache
-            if (_tenantContext.HasTenant)
-            {
-                await _cacheInvalidationService.InvalidateUserPermissionsCacheAsync(_tenantContext.CurrentTenantId, userId);
-            }
-            
+
+            // Cache invalidation is handled by AuthorizationManagerCachingDecorator
+
             return Ok();
         }
 
@@ -284,13 +280,9 @@ namespace OpenAutomate.API.Controllers
         public async Task<IActionResult> RemoveAuthorityFromUser(Guid userId, Guid authorityId)
         {
             await _authorizationManager.RemoveAuthorityFromUserAsync(userId, authorityId);
-            
-            // Invalidate user permissions cache
-            if (_tenantContext.HasTenant)
-            {
-                await _cacheInvalidationService.InvalidateUserPermissionsCacheAsync(_tenantContext.CurrentTenantId, userId);
-            }
-            
+
+            // Cache invalidation is handled by AuthorizationManagerCachingDecorator
+
             return Ok();
         }
 
@@ -400,11 +392,39 @@ namespace OpenAutomate.API.Controllers
             if (ou == null)
                 return NotFound(new { message = $"Organization unit '{tenant}' not found." });
             await _authorizationManager.AssignAuthoritiesToUserAsync(userId, dto.AuthorityIds, ou.Id);
-            
-            // Invalidate user permissions cache
-            await _cacheInvalidationService.InvalidateUserPermissionsCacheAsync(ou.Id, userId);
-            
+
+            // Cache invalidation is handled by AuthorizationManagerCachingDecorator
+
             return Ok();
+        }
+
+        /// <summary>
+        /// Test endpoint to check user permissions immediately after role assignment
+        /// </summary>
+        /// <param name="userId">The user ID to check permissions for</param>
+        /// <param name="resourceName">The resource name to check</param>
+        /// <param name="permission">The permission level to check</param>
+        /// <returns>Permission check result with cache status</returns>
+        [HttpGet("user/{userId}/test-permission")]
+        [RequirePermission(Resources.OrganizationUnitResource, Permissions.View)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> TestUserPermission(Guid userId, [FromQuery] string resourceName, [FromQuery] int permission)
+        {
+            var hasPermission = await _authorizationManager.HasPermissionAsync(userId, resourceName, permission);
+            var userAuthorities = await _authorizationManager.GetUserAuthoritiesAsync(userId);
+
+            return Ok(new
+            {
+                UserId = userId,
+                ResourceName = resourceName,
+                Permission = permission,
+                HasPermission = hasPermission,
+                UserAuthorities = userAuthorities.Select(a => new { a.Id, a.Name }),
+                Timestamp = DateTime.UtcNow,
+                TenantId = _tenantContext.CurrentTenantId
+            });
         }
     }
 }

@@ -56,6 +56,12 @@ public class RedisCacheConfiguration
     /// TTL for health check cache entries in minutes
     /// </summary>
     public int HealthCheckCacheTtlMinutes { get; set; } = 5;
+
+    /// <summary>
+    /// Enable or disable role-based caching (permissions and authorities)
+    /// Set to false to disable caching for immediate permission updates
+    /// </summary>
+    public bool EnableRoleCaching { get; set; } = true;
     
     // Computed Properties for Easy Access
     

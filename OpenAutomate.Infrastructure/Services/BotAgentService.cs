@@ -64,10 +64,10 @@ namespace OpenAutomate.Infrastructure.Services
             await _unitOfWork.BotAgents.AddAsync(botAgent);
             await _unitOfWork.CompleteAsync();
             
-            _logger.LogInformation("Bot Agent created: {BotAgentId}, Name: {Name}, Machine: {MachineName}",
+            _logger.LogInformation("Bot Agent created: {BotAgentId}, Name: {Name}, Machine: {MachineName}", 
                 botAgent.Id, botAgent.Name, botAgent.MachineName);
-
-            return MapToResponseDtoWithSensitiveFields(botAgent);
+                
+            return MapToResponseDto(botAgent);
         }
         
         /// <inheritdoc />
@@ -108,8 +108,8 @@ namespace OpenAutomate.Infrastructure.Services
             await _unitOfWork.CompleteAsync();
             
             _logger.LogInformation("Machine key regenerated for Bot Agent: {BotAgentId}", botAgent.Id);
-
-            return MapToResponseDtoWithSensitiveFields(botAgent);
+            
+            return MapToResponseDto(botAgent);
         }
 
         /// <inheritdoc />
@@ -147,30 +147,11 @@ namespace OpenAutomate.Infrastructure.Services
         }
         
         /// <summary>
-        /// Maps a BotAgent entity to a BotAgentResponseDto (excludes sensitive fields)
+        /// Maps a BotAgent entity to a BotAgentResponseDto
         /// </summary>
         /// <param name="botAgent">The Bot Agent entity</param>
-        /// <returns>DTO representation of the Bot Agent without sensitive fields</returns>
+        /// <returns>DTO representation of the Bot Agent</returns>
         private BotAgentResponseDto MapToResponseDto(BotAgent botAgent)
-        {
-            return new BotAgentResponseDto
-            {
-                Id = botAgent.Id,
-                Name = botAgent.Name,
-                MachineName = botAgent.MachineName,
-                MachineKey = null, // Excluded for security
-                Status = botAgent.Status,
-                LastConnected = null, // Excluded per user request
-                IsActive = botAgent.IsActive
-            };
-        }
-
-        /// <summary>
-        /// Maps a BotAgent entity to a BotAgentResponseDto including sensitive fields (for creation/regeneration)
-        /// </summary>
-        /// <param name="botAgent">The Bot Agent entity</param>
-        /// <returns>DTO representation of the Bot Agent with all fields</returns>
-        private BotAgentResponseDto MapToResponseDtoWithSensitiveFields(BotAgent botAgent)
         {
             return new BotAgentResponseDto
             {
@@ -247,10 +228,34 @@ namespace OpenAutomate.Infrastructure.Services
             if (botAgent.Status != "Disconnected")
                 throw new InvalidOperationException("You can only delete an agent when its status is 'Disconnected'.");
 
+            // Delete related executions first (to avoid foreign key constraint violation)
+            var executions = (await _unitOfWork.Executions.GetAllAsync(
+                x => x.BotAgentId == id && x.OrganizationUnitId == _tenantContext.CurrentTenantId)).ToList();
+            if (executions.Any())
+            {
+                _unitOfWork.Executions.RemoveRange(executions);
+                _logger.LogInformation("Deleting {Count} executions for Bot Agent {BotAgentId}", executions.Count, id);
+            }
+
+            // Delete related schedules (to avoid foreign key constraint violation)
+            var schedules = (await _unitOfWork.Schedules.GetAllAsync(
+                x => x.BotAgentId == id && x.OrganizationUnitId == _tenantContext.CurrentTenantId)).ToList();
+            if (schedules.Any())
+            {
+                _unitOfWork.Schedules.RemoveRange(schedules);
+                _logger.LogInformation("Deleting {Count} schedules for Bot Agent {BotAgentId}", schedules.Count, id);
+            }
+
+            // Delete asset-bot agent relationships
             var assetLinks = (await _unitOfWork.AssetBotAgents.GetAllAsync(
                 x => x.BotAgentId == id && x.OrganizationUnitId == _tenantContext.CurrentTenantId)).ToList();
-            _unitOfWork.AssetBotAgents.RemoveRange(assetLinks);
+            if (assetLinks.Any())
+            {
+                _unitOfWork.AssetBotAgents.RemoveRange(assetLinks);
+                _logger.LogInformation("Deleting {Count} asset links for Bot Agent {BotAgentId}", assetLinks.Count, id);
+            }
 
+            // Finally delete the bot agent
             _unitOfWork.BotAgents.Remove(botAgent);
             await _unitOfWork.CompleteAsync();
 
@@ -326,11 +331,28 @@ namespace OpenAutomate.Infrastructure.Services
                             continue;
                         }
 
-                        // Remove asset-bot agent relationships (efficient query)
-                        var relatedAssetBotAgents = await _unitOfWork.AssetBotAgents.GetAllAsync(aba => aba.BotAgentId == botAgent.Id);
-                        _unitOfWork.AssetBotAgents.RemoveRange(relatedAssetBotAgents);
+                        // Remove related executions first (to avoid foreign key constraint violation)
+                        var relatedExecutions = await _unitOfWork.Executions.GetAllAsync(e => e.BotAgentId == botAgent.Id);
+                        if (relatedExecutions.Any())
+                        {
+                            _unitOfWork.Executions.RemoveRange(relatedExecutions);
+                        }
 
-                        // Remove the bot agent
+                        // Remove related schedules (to avoid foreign key constraint violation)
+                        var relatedSchedules = await _unitOfWork.Schedules.GetAllAsync(s => s.BotAgentId == botAgent.Id);
+                        if (relatedSchedules.Any())
+                        {
+                            _unitOfWork.Schedules.RemoveRange(relatedSchedules);
+                        }
+
+                        // Remove asset-bot agent relationships
+                        var relatedAssetBotAgents = await _unitOfWork.AssetBotAgents.GetAllAsync(aba => aba.BotAgentId == botAgent.Id);
+                        if (relatedAssetBotAgents.Any())
+                        {
+                            _unitOfWork.AssetBotAgents.RemoveRange(relatedAssetBotAgents);
+                        }
+
+                        // Finally remove the bot agent
                         _unitOfWork.BotAgents.Remove(botAgent);
                         
                         successfullyProcessed.Add(botAgent.Id);

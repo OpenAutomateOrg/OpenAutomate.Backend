@@ -78,6 +78,7 @@ namespace OpenAutomate.Infrastructure.Services
                     Description = dto.Description,
                     Value = dto.Type == AssetType.Secret ? EncryptValue(dto.Value) : dto.Value,
                     IsEncrypted = dto.Type == AssetType.Secret,
+                    IsGlobal = dto.IsGlobal,
                     OrganizationUnitId = _tenantContext.CurrentTenantId,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -147,6 +148,7 @@ namespace OpenAutomate.Infrastructure.Services
                     Description = a.Description,
                     Type = a.IsEncrypted ? AssetType.Secret : AssetType.String,
                     IsEncrypted = a.IsEncrypted,
+                    IsGlobal = a.IsGlobal,
                     CreatedAt = a.CreatedAt ?? DateTime.UtcNow,
                     LastModifiedAt = a.LastModifyAt,
                     AuthorizedBotAgentsCount = a.AssetBotAgents?.Count ?? 0
@@ -228,6 +230,7 @@ namespace OpenAutomate.Infrastructure.Services
                 asset.Key = dto.Key;
                 asset.Description = dto.Description;
                 asset.Value = asset.IsEncrypted ? EncryptValue(dto.Value) : dto.Value;
+                asset.IsGlobal = dto.IsGlobal;
                 asset.LastModifyAt = DateTime.UtcNow;
                 
                 // Save changes
@@ -515,14 +518,31 @@ namespace OpenAutomate.Infrastructure.Services
                 }
                 
                 // Check if bot agent is authorized to access this asset
-                var isAuthorized = await _context.AssetBotAgents
-                    .AnyAsync(aba => 
-                        aba.AssetId == asset.Id && 
-                        aba.BotAgentId == botAgent.Id);
-                        
+                bool isAuthorized = false;
+
+                // First check if asset is global and agent is in same organization unit
+                if (asset.IsGlobal && asset.OrganizationUnitId == botAgent.OrganizationUnitId)
+                {
+                    isAuthorized = true;
+                    _logger.LogDebug("Bot agent {BotAgentId} accessing global asset '{Key}'", botAgent.Id, key);
+                }
+                else
+                {
+                    // Fall back to explicit grant check
+                    isAuthorized = await _context.AssetBotAgents
+                        .AnyAsync(aba =>
+                            aba.AssetId == asset.Id &&
+                            aba.BotAgentId == botAgent.Id);
+
+                    if (isAuthorized)
+                    {
+                        _logger.LogDebug("Bot agent {BotAgentId} accessing asset '{Key}' via explicit grant", botAgent.Id, key);
+                    }
+                }
+
                 if (!isAuthorized)
                 {
-                    _logger.LogWarning("Bot agent {BotAgentId} not authorized to access asset '{Key}'", 
+                    _logger.LogWarning("Bot agent {BotAgentId} not authorized to access asset '{Key}'",
                         botAgent.Id, key);
                     throw new UnauthorizedAccessException($"Bot agent not authorized to access asset '{key}'");
                 }
@@ -562,26 +582,43 @@ namespace OpenAutomate.Infrastructure.Services
                     return null;
                 }
                 
-                // Find all assets accessible by this bot agent
-                var assetIds = await _context.AssetBotAgents
+                // Find all assets accessible by this bot agent using hybrid logic
+
+                // 1. Get all global assets in the same organization unit
+                var globalAssets = await _context.Assets
+                    .Where(a =>
+                        a.IsGlobal &&
+                        a.OrganizationUnitId == botAgent.OrganizationUnitId)
+                    .ToListAsync();
+
+                // 2. Get all non-global assets explicitly granted to this agent
+                var explicitAssetIds = await _context.AssetBotAgents
                     .Where(aba => aba.BotAgentId == botAgent.Id)
                     .Select(aba => aba.AssetId)
                     .ToListAsync();
-                    
-                var assets = await _context.Assets
-                    .Where(a => 
-                        assetIds.Contains(a.Id) && 
+
+                var explicitAssets = await _context.Assets
+                    .Where(a =>
+                        explicitAssetIds.Contains(a.Id) &&
                         a.OrganizationUnitId == botAgent.OrganizationUnitId)
                     .ToListAsync();
+
+                // 3. Combine and deduplicate the results
+                var allAccessibleAssets = globalAssets
+                    .Concat(explicitAssets)
+                    .GroupBy(a => a.Id)
+                    .Select(g => g.First())
+                    .ToList();
                     
                 // Return asset list DTOs (without values)
-                return assets.Select(a => new AssetListResponseDto
+                return allAccessibleAssets.Select(a => new AssetListResponseDto
                 {
                     Id = a.Id,
                     Key = a.Key,
                     Description = a.Description,
                     Type = a.IsEncrypted ? AssetType.Secret : AssetType.String,
                     IsEncrypted = a.IsEncrypted,
+                    IsGlobal = a.IsGlobal,
                     CreatedAt = a.CreatedAt ?? DateTime.UtcNow,
                     LastModifiedAt = a.LastModifyAt
                 }).ToList();
@@ -686,6 +723,7 @@ namespace OpenAutomate.Infrastructure.Services
                 Value = asset.IsEncrypted ? DecryptValue(asset.Value) : asset.Value,
                 Description = asset.Description,
                 IsEncrypted = asset.IsEncrypted,
+                IsGlobal = asset.IsGlobal,
                 Type = asset.IsEncrypted ? AssetType.Secret : AssetType.String,
                 CreatedAt = asset.CreatedAt ?? DateTime.UtcNow,
                 LastModifiedAt = asset.LastModifyAt
@@ -1126,6 +1164,7 @@ namespace OpenAutomate.Infrastructure.Services
                     Value = isEncrypted ? EncryptValue(csvRecord.Value) : csvRecord.Value,
                     Description = csvRecord.Description,
                     IsEncrypted = isEncrypted,
+                    IsGlobal = csvRecord.IsGlobal,
                     OrganizationUnitId = _tenantContext.CurrentTenantId,
                     CreatedAt = DateTime.UtcNow
                 };

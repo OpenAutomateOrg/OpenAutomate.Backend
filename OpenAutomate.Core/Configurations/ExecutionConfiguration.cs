@@ -18,16 +18,23 @@ namespace OpenAutomate.Core.Configurations
                 .WithMany(ba => ba.Executions)
                 .HasForeignKey(e => e.BotAgentId)
                 .OnDelete(DeleteBehavior.Restrict);
-                
+
             builder.HasOne(e => e.Package)
                 .WithMany(ap => ap.Executions)
                 .HasForeignKey(e => e.PackageId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .IsRequired(false);
-                
+
+            builder.HasOne(e => e.Schedule)
+                .WithMany()
+                .HasForeignKey(e => e.ScheduleId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .IsRequired(false);
+
             // Create indexes for faster lookups
             builder.HasIndex(e => e.Status);
             builder.HasIndex(e => e.StartTime);
+            builder.HasIndex(e => e.ScheduleId);
         }
     }
 } 
