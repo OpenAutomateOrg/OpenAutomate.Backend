@@ -78,7 +78,8 @@ namespace OpenAutomate.Infrastructure.Services
                 OneTimeExecution = dto.OneTimeExecution.HasValue ? DateTimeUtility.EnsureUtc(dto.OneTimeExecution.Value) : null,
                 TimeZoneId = dto.TimeZoneId,
                 AutomationPackageId = dto.AutomationPackageId,
-                BotAgentId = dto.BotAgentId
+                BotAgentId = dto.BotAgentId,
+                OrganizationUnitId = _tenantContext.CurrentTenantId
             };
 
             await _context.Schedules.AddAsync(schedule);
@@ -118,7 +119,7 @@ namespace OpenAutomate.Infrastructure.Services
             var schedule = await _context.Schedules
                 .Include(s => s.AutomationPackage)
                 .Include(s => s.BotAgent)
-                .Where(s => s.Id == id)
+                .Where(s => s.Id == id && s.OrganizationUnitId == _tenantContext.CurrentTenantId)
                 .FirstOrDefaultAsync();
 
             return schedule != null ? await MapToResponseDto(schedule) : null;
@@ -129,6 +130,7 @@ namespace OpenAutomate.Infrastructure.Services
             var schedules = await _context.Schedules
                 .Include(s => s.AutomationPackage)
                 .Include(s => s.BotAgent)
+                .Where(s => s.OrganizationUnitId == _tenantContext.CurrentTenantId)
                 .ToListAsync();
 
             var responseDtos = new List<ScheduleResponseDto>();
@@ -143,7 +145,7 @@ namespace OpenAutomate.Infrastructure.Services
         public async Task<ScheduleResponseDto?> UpdateScheduleAsync(Guid id, UpdateScheduleDto dto)
         {
             var schedule = await _context.Schedules
-                .Where(s => s.Id == id)
+                .Where(s => s.Id == id && s.OrganizationUnitId == _tenantContext.CurrentTenantId)
                 .FirstOrDefaultAsync();
 
             if (schedule == null)
@@ -203,7 +205,7 @@ namespace OpenAutomate.Infrastructure.Services
         public async Task<bool> DeleteScheduleAsync(Guid id)
         {
             var schedule = await _context.Schedules
-                .Where(s => s.Id == id)
+                .Where(s => s.Id == id && s.OrganizationUnitId == _tenantContext.CurrentTenantId)
                 .FirstOrDefaultAsync();
 
             if (schedule == null)
@@ -230,7 +232,7 @@ namespace OpenAutomate.Infrastructure.Services
         public async Task<ScheduleResponseDto?> EnableScheduleAsync(Guid id)
         {
             var schedule = await _context.Schedules
-                .Where(s => s.Id == id)
+                .Where(s => s.Id == id && s.OrganizationUnitId == _tenantContext.CurrentTenantId)
                 .FirstOrDefaultAsync();
 
             if (schedule == null)
@@ -266,7 +268,7 @@ namespace OpenAutomate.Infrastructure.Services
         public async Task<ScheduleResponseDto?> DisableScheduleAsync(Guid id)
         {
             var schedule = await _context.Schedules
-                .Where(s => s.Id == id)
+                .Where(s => s.Id == id && s.OrganizationUnitId == _tenantContext.CurrentTenantId)
                 .FirstOrDefaultAsync();
 
             if (schedule == null)
@@ -615,7 +617,7 @@ namespace OpenAutomate.Infrastructure.Services
                 schedule = await _context.Schedules
                     .Include(s => s.AutomationPackage)
                     .Include(s => s.BotAgent)
-                    .Where(s => s.Id == schedule.Id)
+                    .Where(s => s.Id == schedule.Id && s.OrganizationUnitId == _tenantContext.CurrentTenantId)
                     .FirstAsync();
             }
 
@@ -681,7 +683,7 @@ namespace OpenAutomate.Infrastructure.Services
         public async Task<ScheduleResponseDto?> RecalculateScheduleAsync(Guid scheduleId)
         {
             var schedule = await _context.Schedules
-                .Where(s => s.Id == scheduleId)
+                .Where(s => s.Id == scheduleId && s.OrganizationUnitId == _tenantContext.CurrentTenantId)
                 .FirstOrDefaultAsync();
 
             if (schedule == null)
