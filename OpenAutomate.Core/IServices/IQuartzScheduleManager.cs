@@ -52,10 +52,24 @@ namespace OpenAutomate.Core.IServices
         Task<bool> JobExistsAsync(Guid scheduleId);
 
         /// <summary>
+        /// Checks if a Quartz job is paused for a schedule
+        /// </summary>
+        /// <param name="scheduleId">Schedule ID</param>
+        /// <returns>True if job is paused, false otherwise</returns>
+        Task<bool> IsJobPausedAsync(Guid scheduleId);
+
+        /// <summary>
         /// Gets detailed status information about a scheduled job
         /// </summary>
         /// <param name="scheduleId">Schedule ID</param>
         /// <returns>Job status information or null if job doesn't exist</returns>
         Task<object?> GetJobStatusAsync(Guid scheduleId);
+
+        /// <summary>
+        /// Manually triggers a job for a schedule
+        /// </summary>
+        /// <param name="scheduleId">Schedule ID</param>
+        /// <returns>Task representing the async operation</returns>
+        Task TriggerJobAsync(Guid scheduleId);
     }
 } 

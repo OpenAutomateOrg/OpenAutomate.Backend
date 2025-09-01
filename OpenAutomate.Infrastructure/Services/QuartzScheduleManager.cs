@@ -30,7 +30,7 @@ namespace OpenAutomate.Infrastructure.Services
             _logger = logger;
         }
 
-        private async Task<IScheduler> GetSchedulerAsync()
+        public async Task<IScheduler> GetSchedulerAsync()
         {
             var scheduler = await _schedulerFactory.GetScheduler();
             if (!scheduler.IsStarted)
@@ -38,6 +38,20 @@ namespace OpenAutomate.Infrastructure.Services
                 await scheduler.Start();
             }
             return scheduler;
+        }
+
+        public async Task TriggerJobAsync(Guid scheduleId)
+        {
+            var scheduler = await GetSchedulerAsync();
+            var jobKey = GetJobKey(scheduleId);
+
+            if (!await scheduler.CheckExists(jobKey))
+            {
+                throw new InvalidOperationException($"Job for schedule {scheduleId} does not exist");
+            }
+
+            await scheduler.TriggerJob(jobKey);
+            _logger.LogInformation("Manually triggered job for schedule {ScheduleId}", scheduleId);
         }
 
         public async Task CreateJobAsync(ScheduleResponseDto schedule)
@@ -167,6 +181,19 @@ namespace OpenAutomate.Infrastructure.Services
             var scheduler = await GetSchedulerAsync();
             var jobKey = GetJobKey(scheduleId);
             return await scheduler.CheckExists(jobKey);
+        }
+
+        public async Task<bool> IsJobPausedAsync(Guid scheduleId)
+        {
+            var scheduler = await GetSchedulerAsync();
+            var jobKey = GetJobKey(scheduleId);
+            var triggerKey = GetTriggerKey(scheduleId);
+
+            if (!await scheduler.CheckExists(jobKey))
+                return false;
+
+            var triggerState = await scheduler.GetTriggerState(triggerKey);
+            return triggerState == TriggerState.Paused;
         }
 
         public async Task<object?> GetJobStatusAsync(Guid scheduleId)
