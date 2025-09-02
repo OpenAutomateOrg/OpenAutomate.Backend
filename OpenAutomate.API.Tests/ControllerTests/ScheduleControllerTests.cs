@@ -19,13 +19,15 @@ namespace OpenAutomate.API.Tests.ControllerTests
     {
         private readonly Mock<IScheduleService> _mockScheduleService;
         private readonly Mock<ILogger<ScheduleController>> _mockLogger;
+        private readonly Mock<IQuartzScheduleManager> _mockQuartzManager;
         private readonly ScheduleController _controller;
 
         public ScheduleControllerTests()
         {
             _mockScheduleService = new Mock<IScheduleService>(MockBehavior.Strict);
             _mockLogger = new Mock<ILogger<ScheduleController>>();
-            _controller = new ScheduleController(_mockScheduleService.Object, _mockLogger.Object);
+            _mockQuartzManager = new Mock<IQuartzScheduleManager>();
+            _controller = new ScheduleController(_mockScheduleService.Object, _mockLogger.Object, _mockQuartzManager.Object);
 
             var httpContext = new DefaultHttpContext();
             httpContext.Request.RouteValues["tenant"] = "test-tenant";
