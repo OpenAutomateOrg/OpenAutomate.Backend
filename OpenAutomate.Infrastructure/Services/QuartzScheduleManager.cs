@@ -258,8 +258,7 @@ namespace OpenAutomate.Infrastructure.Services
                 RecurrenceType.Minutes => CreateMinutesTrigger(triggerBuilder, schedule),
                 RecurrenceType.Hourly => CreateHourlyTrigger(triggerBuilder, schedule, utcTimeZone),
                 RecurrenceType.Daily => CreateDailyTrigger(triggerBuilder, schedule, utcTimeZone),
-                RecurrenceType.Weekly => CreateWeeklyTrigger(triggerBuilder),
-                RecurrenceType.Monthly => CreateMonthlyTrigger(triggerBuilder, utcTimeZone),
+                RecurrenceType.Weekly => CreateWeeklyTrigger(triggerBuilder, schedule, utcTimeZone),
                 RecurrenceType.Advanced => CreateAdvancedTrigger(triggerBuilder, schedule, utcTimeZone),
                 _ => LogUnsupportedRecurrenceType(schedule.RecurrenceType)
             };
@@ -370,7 +369,7 @@ namespace OpenAutomate.Infrastructure.Services
                 _logger.LogInformation("Creating daily trigger for schedule {ScheduleId}: Original cron '{OriginalCron}', Fixed cron '{FixedCron}', UTC cron '{UtcCron}', Original timezone '{OriginalTimeZone}'",
                     schedule.Id, schedule.CronExpression, fixedCronExpression, utcCronExpression, schedule.TimeZoneId);
 
-                var cronTrigger = TryCreateCronTrigger(triggerBuilder, utcCronExpression, timeZone, "daily", schedule.Id);
+                var cronTrigger = TryCreateCronTrigger(triggerBuilder, utcCronExpression, TimeZoneInfo.Utc, "daily", schedule.Id);
                 if (cronTrigger != null)
                 {
                     return cronTrigger;
@@ -387,8 +386,38 @@ namespace OpenAutomate.Infrastructure.Services
                 .Build();
         }
 
-        private ITrigger CreateWeeklyTrigger(TriggerBuilder triggerBuilder)
+        private ITrigger CreateWeeklyTrigger(TriggerBuilder triggerBuilder, ScheduleResponseDto schedule, TimeZoneInfo timeZone)
         {
+            // Use cron expression to respect the specific days and time set in the schedule
+            if (!string.IsNullOrWhiteSpace(schedule.CronExpression))
+            {
+                _logger.LogInformation("Starting weekly trigger creation for schedule {ScheduleId}: Original cron '{OriginalCron}', Original timezone '{OriginalTimeZone}'",
+                    schedule.Id, schedule.CronExpression, schedule.TimeZoneId);
+
+                // Convert cron expression from local timezone to UTC
+                var utcCronExpression = ConvertCronExpressionToUtc(schedule.CronExpression, schedule.TimeZoneId);
+
+                _logger.LogInformation("Converted weekly trigger for schedule {ScheduleId}: Original cron '{OriginalCron}', UTC cron '{UtcCron}', Original timezone '{OriginalTimeZone}'",
+                    schedule.Id, schedule.CronExpression, utcCronExpression, schedule.TimeZoneId);
+
+                var cronTrigger = TryCreateCronTrigger(triggerBuilder, utcCronExpression, TimeZoneInfo.Utc, "weekly", schedule.Id);
+                if (cronTrigger != null)
+                {
+                    _logger.LogInformation("Successfully created weekly cron trigger for schedule {ScheduleId}", schedule.Id);
+                    return cronTrigger;
+                }
+                else
+                {
+                    _logger.LogError("Failed to create weekly cron trigger for schedule {ScheduleId} with UTC cron '{UtcCron}'", schedule.Id, utcCronExpression);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("No cron expression provided for weekly schedule {ScheduleId}", schedule.Id);
+            }
+
+            // Fallback to simple weekly schedule if no cron expression or cron trigger creation failed
+            _logger.LogWarning("Using fallback simple schedule for weekly schedule {ScheduleId} - THIS WILL CAUSE IMMEDIATE EXECUTION", schedule.Id);
             return triggerBuilder
                 .StartNow()
                 .WithSimpleSchedule(x => x
@@ -397,14 +426,7 @@ namespace OpenAutomate.Infrastructure.Services
                 .Build();
         }
 
-        private ITrigger CreateMonthlyTrigger(TriggerBuilder triggerBuilder, TimeZoneInfo timeZone)
-        {
-            // Use cron for monthly since SimpleSchedule doesn't handle months well
-            return triggerBuilder
-                .StartNow()
-                .WithCronSchedule("0 0 0 1 * ?", x => x.InTimeZone(timeZone)) // First day of every month
-                .Build();
-        }
+
 
         private ITrigger? CreateAdvancedTrigger(TriggerBuilder triggerBuilder, ScheduleResponseDto schedule, TimeZoneInfo timeZone)
         {
@@ -414,7 +436,13 @@ namespace OpenAutomate.Infrastructure.Services
                 return null;
             }
 
-            var cronTrigger = TryCreateCronTrigger(triggerBuilder, schedule.CronExpression, timeZone, "advanced", schedule.Id);
+            // Convert cron expression from local timezone to UTC
+            var utcCronExpression = ConvertCronExpressionToUtc(schedule.CronExpression, schedule.TimeZoneId);
+
+            _logger.LogInformation("Creating advanced trigger for schedule {ScheduleId}: Original cron '{OriginalCron}', UTC cron '{UtcCron}', Original timezone '{OriginalTimeZone}'",
+                schedule.Id, schedule.CronExpression, utcCronExpression, schedule.TimeZoneId);
+
+            var cronTrigger = TryCreateCronTrigger(triggerBuilder, utcCronExpression, TimeZoneInfo.Utc, "advanced", schedule.Id);
             return cronTrigger;
         }
 
@@ -422,13 +450,39 @@ namespace OpenAutomate.Infrastructure.Services
         {
             try
             {
-                // Don't use StartNow() for cron triggers - let Quartz calculate the proper start time based on cron expression
-                var trigger = triggerBuilder
+                // Create a temporary trigger to calculate the next fire time
+                var tempTrigger = TriggerBuilder.Create()
                     .WithCronSchedule(cronExpression, x => x.InTimeZone(timeZone))
                     .Build();
 
-                _logger.LogInformation("Created cron trigger for {ScheduleType} schedule {ScheduleId}: Cron '{CronExpression}', Timezone '{TimeZone}', Next fire time '{NextFireTime}'",
-                    scheduleType, scheduleId, cronExpression, timeZone.Id, trigger.GetNextFireTimeUtc());
+                var nextFireTime = tempTrigger.GetNextFireTimeUtc();
+                var now = DateTimeOffset.UtcNow;
+
+                // If the next fire time is too soon (within 5 minutes), use StartAt to prevent immediate execution
+                DateTimeOffset? startAt = null;
+                if (nextFireTime.HasValue && nextFireTime.Value.Subtract(now).TotalMinutes < 5)
+                {
+                    // For schedules created close to their fire time, start from the next occurrence after that
+                    startAt = nextFireTime.Value.AddMinutes(1); // Start 1 minute after the calculated time
+
+                    _logger.LogWarning("Next fire time for {ScheduleType} schedule {ScheduleId} is too soon ({NextFireTime}). " +
+                        "Current time: {CurrentTime}. Using StartAt: {StartAt} to prevent immediate execution.",
+                        scheduleType, scheduleId, nextFireTime.Value, now, startAt);
+                }
+
+                // Build the actual trigger with StartAt if needed
+                var triggerBuilderWithSchedule = triggerBuilder
+                    .WithCronSchedule(cronExpression, x => x.InTimeZone(timeZone));
+
+                if (startAt.HasValue)
+                {
+                    triggerBuilderWithSchedule = triggerBuilderWithSchedule.StartAt(startAt.Value);
+                }
+
+                var trigger = triggerBuilderWithSchedule.Build();
+
+                _logger.LogInformation("Created cron trigger for {ScheduleType} schedule {ScheduleId}: Cron '{CronExpression}', Timezone '{TimeZone}', Next fire time '{NextFireTime}', Current time '{CurrentTime}', StartAt '{StartAt}'",
+                    scheduleType, scheduleId, cronExpression, timeZone.Id, trigger.GetNextFireTimeUtc(), now, startAt);
 
                 return trigger;
             }
@@ -502,7 +556,17 @@ namespace OpenAutomate.Infrastructure.Services
                 var utcDateTime = TimeZoneInfo.ConvertTimeToUtc(localDateTime, originalTimeZone);
 
                 // Rebuild the cron expression with UTC time
-                var utcCronExpression = $"{parts[0]} {utcDateTime.Minute} {utcDateTime.Hour} {parts[3]} {parts[4]} {parts[5]}";
+                // Fix Quartz.NET issue: when day-of-week is specified, day-of-month must be '?' not '*'
+                var dayOfMonth = parts[3];
+                var dayOfWeek = parts[5];
+
+                // If day-of-week is not '*' (i.e., specific days are specified), set day-of-month to '?'
+                if (dayOfWeek != "*")
+                {
+                    dayOfMonth = "?";
+                }
+
+                var utcCronExpression = $"{parts[0]} {utcDateTime.Minute} {utcDateTime.Hour} {dayOfMonth} {parts[4]} {dayOfWeek}";
 
                 _logger.LogInformation("Converted cron expression from {OriginalCron} ({OriginalTimeZone}) to {UtcCron} (UTC)",
                     cronExpression, originalTimeZoneId, utcCronExpression);

@@ -386,7 +386,6 @@ namespace OpenAutomate.Infrastructure.Services
                 RecurrenceType.Hourly => CalculateHourlyNextRunTime(schedule, timeZone, now),
                 RecurrenceType.Daily => CalculateDailyNextRunTime(schedule, timeZone, now),
                 RecurrenceType.Weekly => CalculateWeeklyNextRunTime(schedule, timeZone, now),
-                RecurrenceType.Monthly => CalculateMonthlyNextRunTime(schedule, timeZone, now),
                 RecurrenceType.Advanced => CalculateAdvancedNextRunTime(schedule, timeZone),
                 _ => null
             };
@@ -486,11 +485,7 @@ namespace OpenAutomate.Infrastructure.Services
             return cronResult ?? now.AddDays(7);
         }
 
-        private static DateTime? CalculateMonthlyNextRunTime(ScheduleResponseDto schedule, TimeZoneInfo timeZone, DateTime now)
-        {
-            var cronResult = TryCalculateFromCronExpression(schedule.CronExpression, timeZone);
-            return cronResult ?? now.AddMonths(1);
-        }
+
 
         private static DateTime? CalculateAdvancedNextRunTime(ScheduleResponseDto schedule, TimeZoneInfo timeZone)
         {
@@ -530,14 +525,26 @@ namespace OpenAutomate.Infrastructure.Services
                     int.TryParse(parts[2], out var hour) && int.TryParse(parts[1], out var minute) && int.TryParse(parts[0], out var second))
                 {
                     var todayAtTime = localNow.Date.AddHours(hour).AddMinutes(minute).AddSeconds(second);
-                    
+
                     // For daily schedules, if the time has already passed today, schedule for tomorrow
                     // Add a small buffer (10 seconds) to handle timing precision issues
                     var timeDifference = todayAtTime.Subtract(localNow).TotalSeconds;
                     var nextRun = timeDifference >= 10 ? todayAtTime : todayAtTime.AddDays(1);
-                    
+
                     // Convert the local time to UTC for storage
                     return DateTimeUtility.EnsureUtc(nextRun, timeZone);
+                }
+
+                // For weekly schedules with specific days, calculate next occurrence
+                if (parts[3] == "*" && parts[4] == "*" && parts[5] != "*" &&
+                    int.TryParse(parts[2], out hour) && int.TryParse(parts[1], out minute) && int.TryParse(parts[0], out second))
+                {
+                    var nextRun = CalculateNextWeeklyOccurrence(localNow, parts[5], hour, minute, second);
+                    if (nextRun.HasValue)
+                    {
+                        // Convert the local time to UTC for storage
+                        return DateTimeUtility.EnsureUtc(nextRun.Value, timeZone);
+                    }
                 }
 
                 // For other patterns, we'd need a full cron parser
@@ -548,6 +555,81 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 return null;
             }
+        }
+
+        private static DateTime? CalculateNextWeeklyOccurrence(DateTime localNow, string dayOfWeekPattern, int hour, int minute, int second)
+        {
+            try
+            {
+                // Parse day of week pattern (e.g., "1,2,3,4,5" for Mon-Fri)
+                var dayNumbers = dayOfWeekPattern.Split(',')
+                    .Select(d => d.Trim())
+                    .Where(d => int.TryParse(d, out _))
+                    .Select(int.Parse)
+                    .ToList();
+
+                if (dayNumbers.Count == 0)
+                    return null;
+
+                // Convert Quartz day numbers (1=Sunday, 2=Monday, ..., 7=Saturday) to .NET DayOfWeek
+                var targetDaysOfWeek = dayNumbers
+                    .Select(ConvertQuartzDayToNetDayOfWeek)
+                    .Where(d => d.HasValue)
+                    .Select(d => d.Value)
+                    .ToList();
+
+                if (targetDaysOfWeek.Count == 0)
+                    return null;
+
+                // Find the next occurrence
+                var targetTime = new TimeSpan(hour, minute, second);
+                var currentDayOfWeek = localNow.DayOfWeek;
+
+                // Check if today is a target day and the time hasn't passed yet
+                if (targetDaysOfWeek.Contains(currentDayOfWeek))
+                {
+                    var todayAtTime = localNow.Date.Add(targetTime);
+                    if (todayAtTime > localNow.AddSeconds(10)) // 10-second buffer
+                    {
+                        return todayAtTime;
+                    }
+                }
+
+                // Find the next target day
+                for (int daysAhead = 1; daysAhead <= 7; daysAhead++)
+                {
+                    var futureDate = localNow.Date.AddDays(daysAhead);
+                    var futureDayOfWeek = futureDate.DayOfWeek;
+
+                    if (targetDaysOfWeek.Contains(futureDayOfWeek))
+                    {
+                        return futureDate.Add(targetTime);
+                    }
+                }
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static DayOfWeek? ConvertQuartzDayToNetDayOfWeek(int quartzDay)
+        {
+            // Quartz: 1=Sunday, 2=Monday, 3=Tuesday, 4=Wednesday, 5=Thursday, 6=Friday, 7=Saturday
+            // .NET: Sunday=0, Monday=1, Tuesday=2, Wednesday=3, Thursday=4, Friday=5, Saturday=6
+            return quartzDay switch
+            {
+                1 => DayOfWeek.Sunday,
+                2 => DayOfWeek.Monday,
+                3 => DayOfWeek.Tuesday,
+                4 => DayOfWeek.Wednesday,
+                5 => DayOfWeek.Thursday,
+                6 => DayOfWeek.Friday,
+                7 => DayOfWeek.Saturday,
+                _ => null
+            };
         }
 
         private static bool TryParseDailyCronTime(string cronExpression, out int hour, out int minute)
@@ -598,7 +680,6 @@ namespace OpenAutomate.Infrastructure.Services
                 case RecurrenceType.Hourly:
                 case RecurrenceType.Daily:
                 case RecurrenceType.Weekly:
-                case RecurrenceType.Monthly:
                     // These types are valid as-is
                     break;
 
