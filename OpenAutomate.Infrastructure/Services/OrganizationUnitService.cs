@@ -332,7 +332,7 @@ namespace OpenAutomate.Infrastructure.Services
                     "DEVELOPER", new Dictionary<string, int>
                     {
                         { Resources.AssetResource, Permissions.Update },
-                        { Resources.AgentResource, Permissions.Update },
+                        { Resources.AgentResource, Permissions.View },
                         { Resources.PackageResource, Permissions.Update },
                         { Resources.ExecutionResource, Permissions.Update },
                         { Resources.ScheduleResource, Permissions.Update },
@@ -341,13 +341,13 @@ namespace OpenAutomate.Infrastructure.Services
                     }
                 },
                 {
-                    "USER", new Dictionary<string, int>
+                    "BUSINESS USER", new Dictionary<string, int>
                     {
-                        { Resources.AssetResource, Permissions.View },
+                        { Resources.AssetResource, Permissions.Update },
                         { Resources.AgentResource, Permissions.View },
                         { Resources.PackageResource, Permissions.View },
                         { Resources.ExecutionResource, Permissions.View },
-                        { Resources.ScheduleResource, Permissions.View },
+                        { Resources.ScheduleResource, Permissions.Update },
                         { Resources.UserResource, Permissions.View },
                         { Resources.OrganizationUnitResource, Permissions.View }
                     }
