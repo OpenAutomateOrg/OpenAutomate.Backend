@@ -245,20 +245,22 @@ namespace OpenAutomate.Infrastructure.Services
 
         private async Task<ITrigger?> CreateTriggerAsync(TriggerKey triggerKey, ScheduleResponseDto schedule)
         {
-            var timeZone = GetTimeZoneInfo(schedule.TimeZoneId);
+            // IMPORTANT: Always use UTC for Quartz.NET triggers to avoid timezone issues in containers
+            // We'll convert the cron expression to UTC time before creating the trigger
+            var utcTimeZone = TimeZoneInfo.Utc;
             var triggerBuilder = TriggerBuilder.Create()
                 .WithIdentity(triggerKey)
-                .WithDescription($"Trigger for schedule '{schedule.Name}'");
+                .WithDescription($"Trigger for schedule '{schedule.Name}' (UTC converted)");
 
             return schedule.RecurrenceType switch
             {
-                RecurrenceType.Once => CreateOnceTrigger(triggerBuilder, schedule, timeZone),
+                RecurrenceType.Once => CreateOnceTrigger(triggerBuilder, schedule, utcTimeZone),
                 RecurrenceType.Minutes => CreateMinutesTrigger(triggerBuilder, schedule),
-                RecurrenceType.Hourly => CreateHourlyTrigger(triggerBuilder, schedule, timeZone),
-                RecurrenceType.Daily => CreateDailyTrigger(triggerBuilder, schedule, timeZone),
+                RecurrenceType.Hourly => CreateHourlyTrigger(triggerBuilder, schedule, utcTimeZone),
+                RecurrenceType.Daily => CreateDailyTrigger(triggerBuilder, schedule, utcTimeZone),
                 RecurrenceType.Weekly => CreateWeeklyTrigger(triggerBuilder),
-                RecurrenceType.Monthly => CreateMonthlyTrigger(triggerBuilder, timeZone),
-                RecurrenceType.Advanced => CreateAdvancedTrigger(triggerBuilder, schedule, timeZone),
+                RecurrenceType.Monthly => CreateMonthlyTrigger(triggerBuilder, utcTimeZone),
+                RecurrenceType.Advanced => CreateAdvancedTrigger(triggerBuilder, schedule, utcTimeZone),
                 _ => LogUnsupportedRecurrenceType(schedule.RecurrenceType)
             };
         }
@@ -361,11 +363,14 @@ namespace OpenAutomate.Infrastructure.Services
             if (!string.IsNullOrWhiteSpace(schedule.CronExpression))
             {
                 var fixedCronExpression = FixDailyCronExpression(schedule.CronExpression);
-                
-                _logger.LogInformation("Creating daily trigger for schedule {ScheduleId}: Original cron '{OriginalCron}', Fixed cron '{FixedCron}', Timezone '{TimeZone}'", 
-                    schedule.Id, schedule.CronExpression, fixedCronExpression, timeZone.Id);
-                    
-                var cronTrigger = TryCreateCronTrigger(triggerBuilder, fixedCronExpression, timeZone, "daily", schedule.Id);
+
+                // Convert cron expression from local timezone to UTC
+                var utcCronExpression = ConvertCronExpressionToUtc(fixedCronExpression, schedule.TimeZoneId);
+
+                _logger.LogInformation("Creating daily trigger for schedule {ScheduleId}: Original cron '{OriginalCron}', Fixed cron '{FixedCron}', UTC cron '{UtcCron}', Original timezone '{OriginalTimeZone}'",
+                    schedule.Id, schedule.CronExpression, fixedCronExpression, utcCronExpression, schedule.TimeZoneId);
+
+                var cronTrigger = TryCreateCronTrigger(triggerBuilder, utcCronExpression, timeZone, "daily", schedule.Id);
                 if (cronTrigger != null)
                 {
                     return cronTrigger;
@@ -461,6 +466,53 @@ namespace OpenAutomate.Infrastructure.Services
             {
                 // Fallback to UTC if timezone is invalid
                 return DateTimeUtility.GetTimeZoneInfo(null);
+            }
+        }
+
+        /// <summary>
+        /// Converts a cron expression from a local timezone to UTC
+        /// </summary>
+        private string ConvertCronExpressionToUtc(string cronExpression, string originalTimeZoneId)
+        {
+            try
+            {
+                // Parse the cron expression to extract hour and minute
+                var parts = cronExpression.Split(' ');
+                if (parts.Length < 6)
+                {
+                    _logger.LogWarning("Invalid cron expression format: {CronExpression}", cronExpression);
+                    return cronExpression;
+                }
+
+                // Extract minute and hour (positions 1 and 2 in Quartz cron format)
+                if (!int.TryParse(parts[1], out var minute) || !int.TryParse(parts[2], out var hour))
+                {
+                    _logger.LogWarning("Could not parse hour/minute from cron expression: {CronExpression}", cronExpression);
+                    return cronExpression;
+                }
+
+                // Get the original timezone
+                var originalTimeZone = GetTimeZoneInfo(originalTimeZoneId);
+
+                // Create a sample date in the original timezone (today at the specified time)
+                var today = DateTime.Today;
+                var localDateTime = new DateTime(today.Year, today.Month, today.Day, hour, minute, 0, DateTimeKind.Unspecified);
+
+                // Convert to UTC
+                var utcDateTime = TimeZoneInfo.ConvertTimeToUtc(localDateTime, originalTimeZone);
+
+                // Rebuild the cron expression with UTC time
+                var utcCronExpression = $"{parts[0]} {utcDateTime.Minute} {utcDateTime.Hour} {parts[3]} {parts[4]} {parts[5]}";
+
+                _logger.LogInformation("Converted cron expression from {OriginalCron} ({OriginalTimeZone}) to {UtcCron} (UTC)",
+                    cronExpression, originalTimeZoneId, utcCronExpression);
+
+                return utcCronExpression;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error converting cron expression to UTC: {CronExpression}", cronExpression);
+                return cronExpression; // Return original if conversion fails
             }
         }
 

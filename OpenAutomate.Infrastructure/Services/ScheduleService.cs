@@ -90,25 +90,23 @@ namespace OpenAutomate.Infrastructure.Services
             // Create Quartz job for the schedule
             try
             {
+                _logger.LogInformation("Creating Quartz job for schedule {ScheduleId} with cron '{CronExpression}' and timezone '{TimeZone}'",
+                    responseDto.Id, responseDto.CronExpression, responseDto.TimeZoneId);
+
                 await _quartzManager.CreateJobAsync(responseDto);
+
+                _logger.LogInformation("Successfully created Quartz job for schedule {ScheduleId}", responseDto.Id);
             }
             catch (Exception ex)
             {
-                // Log the error but don't fail the schedule creation
-                // The job can be created later when the schedule is updated
-                // Consider adding a retry mechanism or background job for this
-                using var scope = _context.Database.BeginTransaction();
-                try
-                {
-                    // The schedule was created successfully, but job creation failed
-                    // We could mark it as having a job creation error for later retry
-                    throw new InvalidOperationException($"Schedule created but Quartz job creation failed: {ex.Message}", ex);
-                }
-                catch
-                {
-                    scope.Rollback();
-                    throw;
-                }
+                _logger.LogError(ex, "Failed to create Quartz job for schedule {ScheduleId}: {ErrorMessage}",
+                    responseDto.Id, ex.Message);
+
+                // Delete the schedule from database since job creation failed
+                _context.Schedules.Remove(schedule);
+                await _context.SaveChangesAsync();
+
+                throw new InvalidOperationException($"Schedule creation failed: Unable to create Quartz job. {ex.Message}", ex);
             }
 
             return responseDto;

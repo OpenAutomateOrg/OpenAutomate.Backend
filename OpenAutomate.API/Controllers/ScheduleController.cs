@@ -7,6 +7,7 @@ using OpenAutomate.Core.IServices;
 using Quartz;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace OpenAutomate.API.Controllers
@@ -448,6 +449,37 @@ namespace OpenAutomate.API.Controllers
                 {
                     ScheduleId = id,
                     Error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// Diagnostic endpoint to check Quartz scheduler status
+        /// </summary>
+        [HttpGet("quartz-status")]
+        public async Task<ActionResult<object>> GetQuartzStatus()
+        {
+            try
+            {
+                // Get basic status from the Quartz manager
+                var scheduleId = Guid.NewGuid(); // Dummy ID for testing
+                var jobExists = await _quartzManager.JobExistsAsync(scheduleId);
+
+                return Ok(new
+                {
+                    Message = "Quartz scheduler is accessible",
+                    CurrentTime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                    TestJobExists = jobExists, // Should be false for dummy ID
+                    Status = "OK"
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    Error = ex.Message,
+                    CurrentTime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                    Status = "ERROR"
                 });
             }
         }
