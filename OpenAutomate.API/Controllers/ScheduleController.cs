@@ -4,6 +4,7 @@ using OpenAutomate.API.Attributes;
 using OpenAutomate.Core.Constants;
 using OpenAutomate.Core.Dto.Schedule;
 using OpenAutomate.Core.IServices;
+using Quartz;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -20,16 +21,19 @@ namespace OpenAutomate.API.Controllers
     {
         private readonly IScheduleService _scheduleService;
         private readonly ILogger<ScheduleController> _logger;
+        private readonly IQuartzScheduleManager _quartzManager;
 
         /// <summary>
         /// Initializes a new instance of the ScheduleController
         /// </summary>
         public ScheduleController(
             IScheduleService scheduleService,
-            ILogger<ScheduleController> logger)
+            ILogger<ScheduleController> logger,
+            IQuartzScheduleManager quartzManager)
         {
             _scheduleService = scheduleService;
             _logger = logger;
+            _quartzManager = quartzManager;
         }
 
         /// <summary>
@@ -364,6 +368,86 @@ namespace OpenAutomate.API.Controllers
                 return StatusCode(500, new { 
                     error = ex.Message, 
                     details = ex.ToString() 
+                });
+            }
+        }
+
+        /// <summary>
+        /// Diagnostic endpoint to check Quartz job status for a schedule
+        /// </summary>
+        [HttpGet("{id}/job-diagnostic")]
+        public async Task<ActionResult<object>> GetJobDiagnostic(Guid id)
+        {
+            try
+            {
+                var schedule = await _scheduleService.GetScheduleByIdAsync(id);
+                if (schedule == null)
+                    return NotFound("Schedule not found");
+
+                var jobExists = await _quartzManager.JobExistsAsync(id);
+                var isJobPaused = jobExists ? await _quartzManager.IsJobPausedAsync(id) : false;
+
+                return Ok(new
+                {
+                    ScheduleId = id,
+                    ScheduleName = schedule.Name,
+                    IsEnabled = schedule.IsEnabled,
+                    CronExpression = schedule.CronExpression,
+                    TimeZoneId = schedule.TimeZoneId,
+                    NextRunTime = schedule.NextRunTime,
+                    JobExists = jobExists,
+                    IsJobPaused = isJobPaused,
+                    CurrentTime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                    LocalTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
+                        OpenAutomate.Core.Utilities.DateTimeUtility.GetTimeZoneInfo(schedule.TimeZoneId))
+                        .ToString("yyyy-MM-dd HH:mm:ss")
+                });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new
+                {
+                    ScheduleId = id,
+                    Error = ex.Message,
+                    CurrentTime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+                });
+            }
+        }
+
+        /// <summary>
+        /// Manually trigger a schedule for testing
+        /// </summary>
+        [HttpPost("{id}/trigger")]
+        [RequireSubscription(SubscriptionOperationType.Write)]
+        [RequirePermission(Resources.ScheduleResource, Permissions.Update)]
+        public async Task<ActionResult<object>> TriggerSchedule(Guid id)
+        {
+            try
+            {
+                var schedule = await _scheduleService.GetScheduleByIdAsync(id);
+                if (schedule == null)
+                    return NotFound("Schedule not found");
+
+                if (!schedule.IsEnabled)
+                    return BadRequest("Schedule is disabled");
+
+                // Manually trigger the job
+                await _quartzManager.TriggerJobAsync(id);
+
+                return Ok(new
+                {
+                    ScheduleId = id,
+                    ScheduleName = schedule.Name,
+                    Message = "Schedule triggered manually",
+                    TriggeredAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    ScheduleId = id,
+                    Error = ex.Message
                 });
             }
         }
