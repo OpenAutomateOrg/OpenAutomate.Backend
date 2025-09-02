@@ -31,11 +31,6 @@ namespace OpenAutomate.Core.Domain.Enums
         Weekly,
 
         /// <summary>
-        /// Execute monthly on specific days
-        /// </summary>
-        Monthly,
-
-        /// <summary>
         /// Use advanced cron expression for complex scheduling
         /// </summary>
         Advanced
